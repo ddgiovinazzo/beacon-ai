@@ -189,7 +189,103 @@ def test_circuit_breaker_caps_evaluations(test_profile):
     res2 = engine.evaluate(job, test_profile)
     assert res2.status == EvaluationStatus.MATCH
 
-    # Third evaluation must hit circuit breaker
+    # Third evaluation must hit circuit breaker and be marked DEFERRED
     res3 = engine.evaluate(job, test_profile)
-    assert res3.status == EvaluationStatus.REJECT
+    assert res3.status == EvaluationStatus.DEFERRED
     assert "Circuit breaker limit reached" in res3.rejection_reason
+
+
+def test_extract_compensation_single_dollar_range():
+    """Verify compensation extraction when second number omits dollar sign."""
+    max_h, _, raw = extract_compensation("Compensation: $20 - 25/hr.")
+    assert max_h == 25.0
+    assert "$20 - 25/hr" in raw
+
+    max_h2, _, raw2 = extract_compensation("Rate is $22 to 28 per hour.")
+    assert max_h2 == 28.0
+
+
+def test_extract_compensation_salary_shorthand_and_ranges():
+    """Verify annual salary extraction with k-shorthand and omitted second dollar symbol."""
+    _, max_a, raw = extract_compensation("Estimated pay: $50k - $70k annually.")
+    assert max_a == 70000.0
+
+    _, max_a2, _ = extract_compensation("Salary range: $55,000 - 65,000/yr.")
+    assert max_a2 == 65000.0
+
+
+def test_idiomatic_ladder_not_rejected(test_profile):
+    """Corporate and career ladder idioms must NOT trigger physical ladder restrictions."""
+    job1 = JobPosting(
+        title="Staff Accountant",
+        link="https://example.com/job-ladder1",
+        raw_text="Opportunity to climb the corporate ladder in a high-growth firm.",
+        source="example.com",
+    )
+    result1 = evaluate_tier1_deterministic(job1, test_profile)
+    assert result1 is None  # Must pass Tier 1
+
+    job2 = JobPosting(
+        title="Junior Analyst",
+        link="https://example.com/job-ladder2",
+        raw_text="Clear career ladder with rapid promotional opportunities.",
+        source="example.com",
+    )
+    result2 = evaluate_tier1_deterministic(job2, test_profile)
+    assert result2 is None  # Must pass Tier 1
+
+    job3 = JobPosting(
+        title="Culture Ambassador",
+        link="https://example.com/job-ladder3",
+        raw_text="Our mission is to lift spirits and inspire teamwork across the team.",
+        source="example.com",
+    )
+    result3 = evaluate_tier1_deterministic(job3, test_profile)
+    assert result3 is None  # Must pass Tier 1
+
+
+def test_physical_ladder_rejected(test_profile):
+    """Actual physical ladder demands must trigger Tier 1 rejection."""
+    job = JobPosting(
+        title="Maintenance Assistant",
+        link="https://example.com/job-phys-ladder",
+        raw_text="Must climb 10-foot ladders for facility maintenance and lighting.",
+        source="example.com",
+    )
+    result = evaluate_tier1_deterministic(job, test_profile)
+    assert result is not None
+    assert result.status == EvaluationStatus.REJECT
+    assert "ladder" in result.rejection_reason.lower()
+
+
+def test_circuit_breaker_sets_deferred_and_eligible_for_rescan(tmp_path, test_profile):
+    """Deferred jobs must NOT be marked as permanently seen in SQLite."""
+    from src.db import init_db, is_job_seen, record_job
+
+    db_file = tmp_path / "test_deferred.db"
+    init_db(db_file)
+
+    job = JobPosting(
+        title="Senior Bookkeeper",
+        link="https://example.com/deferred-job",
+        raw_text="QuickBooks and reconciliations. $35/hr.",
+        source="example.com",
+    )
+
+    settings = Settings(db_path=db_file, max_llm_evals_per_run=1)
+    engine = EvaluationEngine(settings, dry_run=True)
+
+    # First evaluation consumes cap
+    res1 = engine.evaluate(job, test_profile)
+    assert res1.status == EvaluationStatus.MATCH
+
+    # Second evaluation triggers circuit breaker
+    res2 = engine.evaluate(job, test_profile)
+    assert res2.status == EvaluationStatus.DEFERRED
+
+    # Record the deferred job
+    record_job(job, res2, db_file)
+
+    # Must NOT be considered seen (finalized), so it can be re-evaluated on subsequent runs!
+    assert is_job_seen(job.link, db_file) is False
+

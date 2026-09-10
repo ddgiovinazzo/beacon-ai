@@ -149,6 +149,7 @@ def scan(
     skipped_count = 0
     match_count = 0
     reject_count = 0
+    deferred_count = 0
     generated_matches = []
 
     for posting in postings:
@@ -186,6 +187,16 @@ def scan(
                 posting.title[:32],
                 f"[green]Matched[/green] -> Resume: [underline]{resume_path.name}[/underline]",
             )
+        elif result.status == EvaluationStatus.DEFERRED:
+            deferred_count += 1
+            reason = result.rejection_reason or "Throttled"
+            results_table.add_row(
+                "[bold yellow]DEFERRED[/bold yellow]",
+                f"T{result.tier_evaluated}",
+                "[dim]0[/dim]",
+                posting.title[:32],
+                f"[yellow]{reason[:40]}[/yellow]",
+            )
         else:
             reject_count += 1
             reason = result.rejection_reason or "Disqualified"
@@ -207,10 +218,11 @@ def scan(
     # Summary Panel
     console.print(
         Panel(
-            f"• Total Evaluated: [bold]{match_count + reject_count}[/bold]\n"
+            f"• Total Evaluated: [bold]{match_count + reject_count + deferred_count}[/bold]\n"
             f"• Skipped (Deduplicated): [dim]{skipped_count}[/dim]\n"
             f"• Qualified Matches: [bold green]{match_count}[/bold green]\n"
             f"• Disqualified: [bold red]{reject_count}[/bold red]\n"
+            f"• Deferred (Circuit Breaker): [bold yellow]{deferred_count}[/bold yellow]\n"
             f"• Tier-2 LLM / Heuristic Calls: [magenta]{engine.llm_eval_count}[/magenta]",
             title="Scan Summary",
             border_style="cyan",
@@ -232,9 +244,11 @@ def stats():
     table.add_row("Total Postings Tracked", str(data["total_seen"]))
     table.add_row("Matches (Cleared)", f"[green]{data['matches']}[/green]")
     table.add_row("Rejections (Disqualified)", f"[red]{data['rejects']}[/red]")
+    table.add_row("Deferred (Throttled)", f"[yellow]{data.get('deferred', 0)}[/yellow]")
     table.add_row("Average Match Score", f"[yellow]{data['avg_match_score']}/100[/yellow]")
 
     console.print(table)
+
 
     if data["rejection_breakdown"]:
         reject_table = Table(title="Top Rejection Causes", header_style="bold red")

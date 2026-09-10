@@ -1,7 +1,7 @@
 """SQLite persistence, schema management, and deduplication logic."""
 
 import sqlite3
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
 
@@ -32,6 +32,7 @@ def init_db(db_path: Union[str, Path] = "matches.db") -> None:
 
     CREATE INDEX IF NOT EXISTS idx_jobs_status ON jobs(status);
     CREATE INDEX IF NOT EXISTS idx_jobs_processed_at ON jobs(processed_at);
+    CREATE INDEX IF NOT EXISTS idx_jobs_url_status ON jobs(url, status);
     """
     with get_connection(db_path) as conn:
         conn.executescript(schema)
@@ -39,10 +40,16 @@ def init_db(db_path: Union[str, Path] = "matches.db") -> None:
 
 
 def is_job_seen(url: str, db_path: Union[str, Path] = "matches.db") -> bool:
-    """Check if a posting URL has already been processed and persisted."""
+    """Check if a posting URL has already been processed and finalized (MATCH or REJECT).
+    
+    DEFERRED jobs return False so they remain eligible for evaluation on future runs.
+    """
     with get_connection(db_path) as conn:
         cursor = conn.cursor()
-        cursor.execute("SELECT 1 FROM jobs WHERE url = ? LIMIT 1;", (url,))
+        cursor.execute(
+            "SELECT 1 FROM jobs WHERE url = ? AND status IN ('MATCH', 'REJECT') LIMIT 1;",
+            (url,),
+        )
         row = cursor.fetchone()
         return row is not None
 
@@ -57,7 +64,8 @@ def record_job(
     INSERT OR REPLACE INTO jobs (url, title, source, status, fit_score, rejection_reason, processed_at)
     VALUES (?, ?, ?, ?, ?, ?, ?);
     """
-    now = datetime.utcnow().isoformat()
+    now = datetime.now(timezone.utc).isoformat()
+
     with get_connection(db_path) as conn:
         conn.execute(
             sql,
@@ -89,6 +97,9 @@ def get_stats(db_path: Union[str, Path] = "matches.db") -> Dict[str, Any]:
         cursor.execute("SELECT COUNT(*) FROM jobs WHERE status = 'REJECT';")
         rejects = cursor.fetchone()[0]
 
+        cursor.execute("SELECT COUNT(*) FROM jobs WHERE status = 'DEFERRED';")
+        deferred = cursor.fetchone()[0]
+
         # Top rejection reasons
         cursor.execute(
             """
@@ -114,9 +125,11 @@ def get_stats(db_path: Union[str, Path] = "matches.db") -> Dict[str, Any]:
             "total_seen": total_seen,
             "matches": matches,
             "rejects": rejects,
+            "deferred": deferred,
             "avg_match_score": avg_match_score,
             "rejection_breakdown": rejection_breakdown,
         }
+
 
 
 def get_recent_matches(

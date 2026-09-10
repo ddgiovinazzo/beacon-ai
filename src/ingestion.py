@@ -60,14 +60,22 @@ def sanitize_html(raw_html: str) -> str:
     return text.strip()
 
 
+# Maximum allowed RSS feed response size in bytes (10 MB)
+MAX_FEED_BYTES = 10 * 1024 * 1024
+
+
 def wrap_untrusted_content(clean_text: str) -> str:
     """Encapsulate untrusted posting content in XML guard boundaries.
     
     Protects downstream LLMs against prompt injection instructions
-    embedded in job postings.
+    embedded in job postings using case-insensitive and whitespace-tolerant tag neutralization.
     """
-    # Sanitize any malicious closing tags inside the untrusted text
-    safe_text = clean_text.replace("</untrusted_job_posting>", "[escaped_tag]")
+    safe_text = re.sub(
+        r"<\s*/\s*untrusted_job_posting\s*>",
+        "[escaped_tag]",
+        clean_text,
+        flags=re.IGNORECASE,
+    )
     return f"<untrusted_job_posting>\n{safe_text}\n</untrusted_job_posting>"
 
 
@@ -78,7 +86,7 @@ def fetch_feed(
 ) -> List[JobPosting]:
     """Ingest and parse an RSS feed from a remote URL or local XML file.
     
-    Returns a list of sanitized JobPosting instances.
+    Enforces a 10MB response ceiling and returns a list of sanitized JobPosting instances.
     """
     source_str = str(source).strip()
     feed_content: Union[str, bytes] = ""
@@ -90,13 +98,22 @@ def fetch_feed(
         logger.info(f"Fetching RSS feed from remote URL: {source_str}")
         try:
             headers = {"User-Agent": user_agent, "Accept": "application/rss+xml, application/xml, text/xml, */*"}
-            response = requests.get(source_str, headers=headers, timeout=timeout_seconds)
-            response.raise_for_status()
-            feed_content = response.content
+            with requests.get(source_str, headers=headers, timeout=timeout_seconds, stream=True) as response:
+                response.raise_for_status()
+                chunks = []
+                total_bytes = 0
+                for chunk in response.iter_content(chunk_size=65536):
+                    total_bytes += len(chunk)
+                    if total_bytes > MAX_FEED_BYTES:
+                        logger.error(f"Feed payload exceeded maximum size ({MAX_FEED_BYTES} bytes). Aborting.")
+                        return []
+                    chunks.append(chunk)
+                feed_content = b"".join(chunks)
             source_id = urlparse(source_str).netloc
         except Exception as e:
             logger.error(f"Failed to fetch RSS feed from {source_str}: {e}")
             return []
+
     else:
         # Local file path
         local_path = Path(source_str)

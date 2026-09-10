@@ -21,15 +21,22 @@ LIFTING_PATTERN = re.compile(
     re.IGNORECASE,
 )
 
-# Hourly wage extraction regex
+# Hourly wage extraction regex: supports $20/hr, $20 - $25/hr, $20 - 25/hr, $20 to 25 per hour
 HOURLY_PATTERN = re.compile(
-    r"\$\s*(\d{1,3}(?:\.\d{2})?)\s*(?:[-–to]+\s*\$\s*(\d{1,3}(?:\.\d{2})?))?\s*(?:/|\s*per\s*|\s*an?\s*)?\s*(?:hr|hour)\b",
+    r"\$\s*(\d{1,3}(?:\.\d{2})?)\s*(?:[-–to]+\s*\$?\s*(\d{1,3}(?:\.\d{2})?))?\s*(?:/|\s*per\s*|\s*an?\s*)?\s*(?:hr|hour)\b",
     re.IGNORECASE,
 )
 
-# Annual salary extraction regex
+# Annual salary extraction regex: supports $50k - $70k, $50,000 - 65,000/yr, etc.
 SALARY_PATTERN = re.compile(
-    r"\$\s*(\d{1,3}(?:,\d{3})+|\d{2,3}k)\s*(?:[-–to]+\s*\$\s*(\d{1,3}(?:,\d{3})+|\d{2,3}k))?\s*(?:/|\s*per\s*|\s*a\s*)?\s*(?:yr|year|annual|annually)\b",
+    r"\$\s*(\d{1,3}(?:,\d{3})+|\d{2,3}k)\s*(?:[-–to]+\s*\$?\s*(\d{1,3}(?:,\d{3})+|\d{2,3}k))?\s*(?:/|\s*per\s*|\s*a\s*)?\s*(?:yr|year|annual|annually)\b",
+    re.IGNORECASE,
+)
+
+# Corporate and professional idioms that should NOT trigger physical restriction discards
+CORPORATE_IDIOMS_PATTERN = re.compile(
+    r"\b(?:corporate|career|growth|promotional|leadership|advancement|internal)\s+(?:ladder|step(?:s|ping)?)\b|"
+    r"\b(?:lift|lifting)\s+(?:spirits|morale|profile|expectations)\b",
     re.IGNORECASE,
 )
 
@@ -72,6 +79,7 @@ def extract_compensation(text: str) -> Tuple[Optional[float], Optional[float], O
     return (None, None, None)
 
 
+
 def evaluate_tier1_deterministic(
     posting: JobPosting,
     profile: UserProfile,
@@ -106,16 +114,18 @@ def evaluate_tier1_deterministic(
         except ValueError:
             pass
 
-    # Keyword check for physical restrictions
+    # Keyword check for physical restrictions (filtered against corporate idioms)
+    clean_keyword_text = CORPORATE_IDIOMS_PATTERN.sub(" ", text_lower)
     for restriction in profile.constraints.physical_restrictions:
         pattern = re.escape(restriction.lower())
-        if re.search(rf"\b{pattern}\b", text_lower):
+        if re.search(rf"\b{pattern}s?\b", clean_keyword_text):
             return EvaluationResult(
                 status=EvaluationStatus.REJECT,
                 rejection_reason=f"Physical restriction matched: '{restriction}'",
                 fit_score=0,
                 tier_evaluated=1,
             )
+
 
     # 2. Check schedule boundaries
     for boundary in profile.constraints.schedule_boundaries:
@@ -304,11 +314,12 @@ class EvaluationEngine:
                 f"Circuit breaker triggered ({self.llm_eval_count}/{self.config.max_llm_evals_per_run}). Skipping LLM eval."
             )
             return EvaluationResult(
-                status=EvaluationStatus.REJECT,
+                status=EvaluationStatus.DEFERRED,
                 rejection_reason=f"Circuit breaker limit reached (MAX_LLM_EVALS_PER_RUN = {self.config.max_llm_evals_per_run})",
                 fit_score=0,
                 tier_evaluated=2,
             )
+
 
         # Tier 2: LLM Evaluation
         self.llm_eval_count += 1

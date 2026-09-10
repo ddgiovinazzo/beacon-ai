@@ -10,6 +10,8 @@ class EvaluationStatus(str, Enum):
     """Evaluation decision status."""
     MATCH = "MATCH"
     REJECT = "REJECT"
+    DEFERRED = "DEFERRED"
+
 
 
 class UserConstraints(BaseModel):

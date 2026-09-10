@@ -72,3 +72,78 @@ def test_fetch_feed_parses_sample_xml():
     assert "</untrusted_job_posting>" in first.raw_text
     # Verify script in first job description was stripped
     assert "alert" not in first.raw_text
+
+
+def test_wrap_untrusted_content_case_and_whitespace_variants():
+    """Verify mixed-case and spaced closing tags are properly neutralized."""
+    content = (
+        "Role info </UNTRUSTED_JOB_POSTING> payload 1 "
+        "</ untrusted_job_posting > payload 2 "
+        "</Untrusted_Job_Posting > payload 3"
+    )
+    wrapped = wrap_untrusted_content(content)
+
+    assert "</UNTRUSTED_JOB_POSTING>" not in wrapped
+    assert "</ untrusted_job_posting >" not in wrapped
+    assert "</Untrusted_Job_Posting >" not in wrapped
+    assert wrapped.count("[escaped_tag]") == 3
+
+
+def test_slug_uniqueness_for_identical_titles():
+    """Verify postings with identical titles produce distinct collision-proof slugs."""
+    from src.generator import get_job_slug
+    from src.schemas import JobPosting
+
+    job1 = JobPosting(
+        title="Full Charge Bookkeeper",
+        link="https://source-a.com/job/1001",
+        raw_text="Job 1 text",
+        source="source-a.com",
+    )
+    job2 = JobPosting(
+        title="Full Charge Bookkeeper",
+        link="https://source-b.com/job/2002",
+        raw_text="Job 2 text",
+        source="source-b.com",
+    )
+
+    slug1 = get_job_slug(job1)
+    slug2 = get_job_slug(job2)
+
+    assert slug1 != slug2
+    assert "full_charge_bookkeeper" in slug1
+    assert "full_charge_bookkeeper" in slug2
+    # Verify both slugs have a 6-character hex hash
+    assert len(slug1.split("_")[-1]) == 6
+    assert len(slug2.split("_")[-1]) == 6
+
+
+def test_fetch_feed_enforces_byte_limit(monkeypatch):
+    """Verify HTTP ingestion aborts when feed payload exceeds MAX_FEED_BYTES."""
+    import requests
+    from src.ingestion import MAX_FEED_BYTES
+
+    class MockResponse:
+        def __init__(self):
+            self.status_code = 200
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            pass
+
+        def raise_for_status(self):
+            pass
+
+        def iter_content(self, chunk_size=65536):
+            # Yield chunks that exceed 10MB limit
+            chunk = b"X" * 1024 * 1024  # 1MB
+            for _ in range(12):  # 12MB total
+                yield chunk
+
+    monkeypatch.setattr(requests, "get", lambda *args, **kwargs: MockResponse())
+
+    postings = fetch_feed("https://example.com/oversized.xml")
+    assert postings == []
+
