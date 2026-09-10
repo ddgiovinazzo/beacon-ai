@@ -79,3 +79,73 @@ def test_export_markdown_to_pdf_blocks_local_file_lfi(tmp_path: Path):
     with pytest.raises(PermissionError) as exc_info:
         export_markdown_to_pdf(malicious_md)
     assert "Sandboxed PDF engine blocked unauthorized URL access" in str(exc_info.value)
+
+
+def test_export_markdown_to_pdf_decomposes_inline_dangerous_tags(tmp_path: Path):
+    """Verify that inline script, style, and iframe tags are decomposed before rendering."""
+    md_with_tags = tmp_path / "resume_with_tags.md"
+    pdf_out = tmp_path / "resume_clean.pdf"
+
+    md_with_tags.write_text(
+        """# John Doe
+**Software Engineer**
+<style>body { display: none !important; }</style>
+<script>alert("malicious js");</script>
+<iframe src="about:blank"></iframe>
+<object data="test"></object>
+
+## Experience
+Clean content that should render properly.
+""",
+        encoding="utf-8",
+    )
+
+    result_pdf = export_markdown_to_pdf(md_with_tags, output_pdf_path=pdf_out)
+    assert result_pdf.exists()
+    assert result_pdf.stat().st_size > 0
+    assert result_pdf.read_bytes()[:5] == b"%PDF-"
+
+
+def test_scan_fault_tolerance_on_artifact_error(tmp_path: Path, monkeypatch):
+    """Verify that if PDF generation fails on a matching job, SQLite state is not poisoned and scan continues."""
+    from unittest.mock import patch
+    from typer.testing import CliRunner
+    from main import app
+    from src.config import get_settings
+    from src.db import is_job_seen
+
+    test_db = tmp_path / "fault_test.db"
+    monkeypatch.setenv("DB_PATH", str(test_db))
+    get_settings.cache_clear()
+
+    try:
+        # Mock export_markdown_to_pdf to fail
+        with patch("main.export_markdown_to_pdf", side_effect=PermissionError("Simulated sandbox violation")):
+            runner = CliRunner()
+            result = runner.invoke(
+                app,
+                [
+                    "scan",
+                    "--profile",
+                    "profiles/bookkeeper.json.example",
+                    "--feed",
+                    "tests/fixtures/sample_jobs.xml",
+                    "--dry-run",
+                ],
+            )
+
+            # Scan should complete gracefully (exit code 0), logging errors instead of crashing
+            assert result.exit_code == 0
+            assert "Synthesis failed" in result.output
+
+            # Verify that the failing matching job was NOT marked as seen/committed in SQLite
+            matched_url = "https://bayarea.example.com/jobs/101-bookkeeper"
+            assert is_job_seen(matched_url, test_db) is False
+
+            # Verify that the rejected jobs WERE recorded in SQLite
+            rejected_url = "https://bayarea.example.com/jobs/103-low-pay-books"
+            assert is_job_seen(rejected_url, test_db) is True
+    finally:
+        get_settings.cache_clear()
+
+

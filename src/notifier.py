@@ -14,6 +14,14 @@ from src.schemas import EvaluationResult, JobPosting
 logger = logging.getLogger("beacon.notifier")
 
 
+def sanitize_link(url: str) -> str:
+    """Ensure URL strictly adheres to HTTP or HTTPS protocols to prevent scheme hijacking."""
+    url = url.strip()
+    if url.lower().startswith(("http://", "https://")):
+        return url
+    return "#"
+
+
 def extract_mailto_from_outreach(outreach_path: Path) -> Optional[str]:
     """Extract one-click mailto: link from generated outreach text file if present."""
     if not outreach_path.exists():
@@ -34,9 +42,9 @@ def build_notification_html(
     mailto_url: Optional[str] = None,
 ) -> str:
     """Render responsive, ATS-tailored HTML email template for candidate match notification."""
-    safe_title = html.escape(job.title)
-    safe_source = html.escape(job.source)
-    safe_link = html.escape(job.link)
+    safe_title = html.escape(re.sub(r"[\r\n\t]+", " ", job.title).strip())
+    safe_source = html.escape(re.sub(r"[\r\n\t]+", " ", job.source).strip())
+    safe_link = html.escape(sanitize_link(job.link))
     comp_text = html.escape(result.estimated_compensation or "Not Stated")
 
     highlights_html = ""
@@ -148,7 +156,10 @@ def send_match_notification(
 
     mailto_url = extract_mailto_from_outreach(outreach_txt_path)
     html_content = build_notification_html(job, result, mailto_url=mailto_url)
-    subject = f"🎯 Job Match ({result.fit_score}/100): {job.title} [{job.source}]"
+
+    clean_title = re.sub(r"[\r\n\t]+", " ", job.title).strip()
+    clean_source = re.sub(r"[\r\n\t]+", " ", job.source).strip()
+    subject = f"🎯 Job Match ({result.fit_score}/100): {clean_title} [{clean_source}]"
 
     # Prepare PDF attachment
     attachments = []

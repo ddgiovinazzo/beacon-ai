@@ -164,3 +164,73 @@ def test_send_match_notification_api_error_handling(
         config=config,
     )
     assert success is False
+
+
+@patch("resend.Emails.send")
+def test_send_match_notification_sanitizes_crlf_subject(
+    mock_resend_send: MagicMock,
+    sample_job: JobPosting,
+    sample_result: EvaluationResult,
+    tmp_path: Path,
+):
+    """Verify that CRLF characters in job titles are sanitized to prevent email header injection."""
+    mock_resend_send.return_value = {"id": "msg_crlf_123"}
+
+    pdf_path = tmp_path / "resume.pdf"
+    pdf_path.write_bytes(b"%PDF-test")
+    outreach_path = tmp_path / "outreach.txt"
+    outreach_path.write_text("mailto:?test", encoding="utf-8")
+
+    sample_job.title = "Senior Bookkeeper\r\nBcc: evil@attacker.com\n\tSpecialist"
+    sample_job.source = "Craigslist\r\n"
+
+    config = Settings(
+        resend_api_key="re_valid_key",
+        notification_email_to="test@example.com",
+    )
+
+    send_match_notification(
+        sample_job,
+        sample_result,
+        pdf_path,
+        outreach_path,
+        config=config,
+    )
+
+    assert mock_resend_send.called
+    params = mock_resend_send.call_args[0][0]
+    subject = params["subject"]
+
+    assert "\r" not in subject
+    assert "\n" not in subject
+    assert "\t" not in subject
+    assert "Senior Bookkeeper Bcc: evil@attacker.com Specialist" in subject
+
+
+def test_build_notification_html_sanitizes_dangerous_schemes(
+    sample_job: JobPosting,
+    sample_result: EvaluationResult,
+):
+    """Verify that dangerous URI schemes like javascript: are replaced with # in HTML email links."""
+    sample_job.link = "javascript:alert(document.cookie)"
+    html_out = build_notification_html(sample_job, sample_result)
+
+    assert 'href="javascript:' not in html_out
+    assert 'href="#"' in html_out
+
+    # Verify standard HTTPS links are preserved
+    sample_job.link = "https://legit-job-board.org/jobs/123"
+    html_out_valid = build_notification_html(sample_job, sample_result)
+    assert 'href="https://legit-job-board.org/jobs/123"' in html_out_valid
+
+
+def test_settings_validates_email_format():
+    """Verify that Settings rejects malformed email addresses for notification_email_to."""
+    with pytest.raises(ValueError) as exc_info:
+        Settings(notification_email_to="not-a-valid-email")
+    assert "Invalid email address" in str(exc_info.value)
+
+    # Valid emails should not raise
+    cfg = Settings(notification_email_to="candidate@example.com")
+    assert cfg.notification_email_to == "candidate@example.com"
+

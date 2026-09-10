@@ -182,42 +182,58 @@ def scan(
 
         # Evaluate posting
         result = engine.evaluate(posting, user_profile)
-        record_job(posting, result, settings.db_path)
 
         if result.status == EvaluationStatus.MATCH:
-            match_count += 1
-            # Generate Tailored Resume (Markdown & Sandboxed ATS PDF) and Outreach Draft
-            resume_path = generate_tailored_resume(
-                posting, user_profile, result, settings, dry_run=dry_run
-            )
-            pdf_path = export_markdown_to_pdf(resume_path)
-            outreach_path = generate_outreach_draft(
-                posting, user_profile, result, settings
-            )
-            generated_matches.append((posting, result, resume_path, outreach_path))
-
-            # Dispatch notification if enabled
-            if notify:
-                sent = send_match_notification(
-                    posting, result, pdf_path, outreach_path, config=settings
+            try:
+                # Generate Tailored Resume (Markdown & Sandboxed ATS PDF) and Outreach Draft
+                resume_path = generate_tailored_resume(
+                    posting, user_profile, result, settings, dry_run=dry_run
                 )
-                if sent:
-                    console.print(
-                        f"  [bold blue]✉ Email alert dispatched to {settings.notification_email_to}[/bold blue]"
-                    )
-                else:
-                    console.print(
-                        "  [dim yellow]⚠ Email alert skipped (check RESEND_API_KEY and NOTIFICATION_EMAIL_TO)[/dim yellow]"
-                    )
+                pdf_path = export_markdown_to_pdf(resume_path)
+                outreach_path = generate_outreach_draft(
+                    posting, user_profile, result, settings
+                )
+                generated_matches.append((posting, result, resume_path, outreach_path))
 
-            results_table.add_row(
-                "[bold green]MATCH[/bold green]",
-                f"T{result.tier_evaluated}",
-                f"[bold green]{result.fit_score}[/bold green]",
-                posting.title[:32],
-                f"[green]Matched[/green] -> [underline]{pdf_path.name}[/underline]",
-            )
+                # Dispatch notification if enabled
+                if notify:
+                    sent = send_match_notification(
+                        posting, result, pdf_path, outreach_path, config=settings
+                    )
+                    if sent:
+                        console.print(
+                            f"  [bold blue]✉ Email alert dispatched to {settings.notification_email_to}[/bold blue]"
+                        )
+                    else:
+                        console.print(
+                            "  [dim yellow]⚠ Email alert skipped (check RESEND_API_KEY and NOTIFICATION_EMAIL_TO)[/dim yellow]"
+                        )
+
+                # Persist match state only after successful artifact synthesis
+                record_job(posting, result, settings.db_path)
+                match_count += 1
+
+                results_table.add_row(
+                    "[bold green]MATCH[/bold green]",
+                    f"T{result.tier_evaluated}",
+                    f"[bold green]{result.fit_score}[/bold green]",
+                    posting.title[:32],
+                    f"[green]Matched[/green] -> [underline]{pdf_path.name}[/underline]",
+                )
+            except Exception as e:
+                logging.getLogger("beacon.main").error(
+                    f"Artifact generation failed for '{posting.title}': {e}", exc_info=True
+                )
+                results_table.add_row(
+                    "[bold red]ERROR[/bold red]",
+                    f"T{result.tier_evaluated}",
+                    f"[dim]{result.fit_score}[/dim]",
+                    posting.title[:32],
+                    f"[red]Synthesis failed: {str(e)[:25]}[/red]",
+                )
+                continue
         elif result.status == EvaluationStatus.DEFERRED:
+            record_job(posting, result, settings.db_path)
             deferred_count += 1
             reason = result.rejection_reason or "Throttled"
             results_table.add_row(
@@ -228,6 +244,7 @@ def scan(
                 f"[yellow]{reason[:40]}[/yellow]",
             )
         else:
+            record_job(posting, result, settings.db_path)
             reject_count += 1
             reason = result.rejection_reason or "Disqualified"
             results_table.add_row(

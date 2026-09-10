@@ -303,12 +303,19 @@ def export_markdown_to_pdf(
 
     import markdown
     import weasyprint
+    from bs4 import BeautifulSoup
 
     # Parse Markdown into HTML
-    html_body = markdown.markdown(
+    raw_html_body = markdown.markdown(
         md_content,
         extensions=["extra", "sane_lists"],
     )
+
+    # Decompose dangerous or layout-disrupting inline tags
+    soup = BeautifulSoup(raw_html_body, "html.parser")
+    for tag in soup(["script", "style", "iframe", "object", "embed", "form", "applet"]):
+        tag.decompose()
+    html_body = str(soup)
 
     full_html = f"""<!DOCTYPE html>
 <html lang="en">

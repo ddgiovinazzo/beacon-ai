@@ -9,6 +9,10 @@ on:
 permissions:
   contents: write
 
+concurrency:
+  group: daily-scan-execution
+  cancel-in-progress: false
+
 jobs:
   scan-and-persist:
     runs-on: ubuntu-latest

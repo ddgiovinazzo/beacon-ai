@@ -4,6 +4,7 @@ import os
 from functools import lru_cache
 from pathlib import Path
 from typing import Optional
+from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -39,6 +40,18 @@ class Settings(BaseSettings):
     resend_api_key: Optional[str] = None
     notification_email_to: Optional[str] = None
     notification_email_from: str = "BeaconAI <alerts@ddgiovinazzo.com>"
+
+    @field_validator("notification_email_to")
+    @classmethod
+    def validate_email_to(cls, v: Optional[str]) -> Optional[str]:
+        """Validate destination notification email address format."""
+        if v is not None:
+            v = v.strip()
+            if not v:
+                return None
+            if "@" not in v or "." not in v.split("@")[-1]:
+                raise ValueError(f"Invalid email address provided for notification_email_to: {v}")
+        return v
 
     # Artifact output directories
     artifacts_dir: Path = Path("artifacts")

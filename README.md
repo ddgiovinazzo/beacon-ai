@@ -18,7 +18,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-F59E0B?style=for-the-badge&logo=opensourceinitiative&logoColor=white)](LICENSE)
 [![Pydantic V2](https://img.shields.io/badge/Schema-Pydantic%20V2-E92063?style=for-the-badge&logo=pydantic&logoColor=white)](https://docs.pydantic.dev/)
 [![Model Agnostic](https://img.shields.io/badge/LLM-Agnostic%20(LiteLLM)-6366F1?style=for-the-badge&logo=openai&logoColor=white)](https://docs.litellm.ai/)
-[![Tests: Pytest 35/35](https://img.shields.io/badge/Tests-35%2F35%20Passing-10B981?style=for-the-badge&logo=pytest&logoColor=white)](tests/)
+[![Tests: Pytest 40/40](https://img.shields.io/badge/Tests-40%2F40%20Passing-10B981?style=for-the-badge&logo=pytest&logoColor=white)](tests/)
 
 [Quick Start](#-quick-start) • [System Architecture](#-system-architecture) • [Security & Cost Shield](#-security--cost-shield) • [Why This Exists](#-the-human-origin-why-i-built-this) • [CLI Reference](#-cli-reference)
 
@@ -276,6 +276,7 @@ python main.py stats
 
 BeaconAI runs autonomously via a headless GitHub Actions workflow ([`.github/workflows/daily_scan.yml`](.github/workflows/daily_scan.yml)):
 * **Schedule Trigger:** Runs daily at `0 12 * * *` (8:00 AM EST) with manual on-demand triggers via `workflow_dispatch`.
+* **Concurrency Protection:** Uses `concurrency: daily-scan-execution` serialization to eliminate parallel SQLite merge hazards.
 * **ATS PDF & Notifications:** Compiles clean PDFs using sandboxed WeasyPrint with Ubuntu system libraries (`libpango-1.0-0 libharfbuzz0b libpangoft2-1.0-0`) and dispatches transactional alerts via Resend.
 * **State Persistence:** Automatically stages, commits, and pushes `matches.db` deduplication state and daily digest artifacts with `[skip ci]`.
 
@@ -283,7 +284,7 @@ BeaconAI runs autonomously via a headless GitHub Actions workflow ([`.github/wor
 
 ## 🧪 Test Suite & QA Verification
 
-BeaconAI includes 35 automated test fixtures verifying deterministic regex parsers, prompt injection boundaries, circuit-breaker states, model-agnostic routing, sandboxed PDF compilation, and Resend email alerts:
+BeaconAI includes 40 automated test fixtures verifying deterministic regex parsers, prompt injection boundaries, circuit-breaker states, model-agnostic routing, sandboxed PDF compilation, CRLF header sanitization, scheme whitelisting, tag decomposition, and scan fault tolerance:
 
 ```bash
 # Run complete test suite
@@ -292,18 +293,17 @@ pytest -v
 
 ```text
 tests/test_evaluator.py::test_hourly_wage_extraction_ranges PASSED          [  2%]
-tests/test_evaluator.py::test_circuit_breaker_deferred_status PASSED       [ 40%]
-tests/test_evaluator.py::test_evaluate_tier2_llm_model_agnostic_routing PASSED [ 45%]
-tests/test_generator.py::test_blocked_url_fetcher_prevents_ssrf_and_lfi PASSED [ 51%]
-tests/test_generator.py::test_export_markdown_to_pdf_generates_valid_pdf PASSED [ 54%]
-tests/test_generator.py::test_export_markdown_to_pdf_blocks_remote_image_ssrf PASSED [ 57%]
-tests/test_generator.py::test_export_markdown_to_pdf_blocks_local_file_lfi PASSED [ 60%]
-tests/test_ingestion.py::test_case_insensitive_tag_neutralization PASSED   [ 77%]
-tests/test_notifier.py::test_build_notification_html PASSED              [ 91%]
-tests/test_notifier.py::test_send_match_notification_success PASSED      [ 97%]
-tests/test_notifier.py::test_send_match_notification_api_error_handling PASSED [100%]
+tests/test_evaluator.py::test_circuit_breaker_deferred_status PASSED       [ 35%]
+tests/test_evaluator.py::test_evaluate_tier2_llm_model_agnostic_routing PASSED [ 40%]
+tests/test_generator.py::test_blocked_url_fetcher_prevents_ssrf_and_lfi PASSED [ 45%]
+tests/test_generator.py::test_export_markdown_to_pdf_decomposes_inline_dangerous_tags PASSED [ 55%]
+tests/test_generator.py::test_scan_fault_tolerance_on_artifact_error PASSED [ 57%]
+tests/test_ingestion.py::test_case_insensitive_tag_neutralization PASSED   [ 72%]
+tests/test_notifier.py::test_send_match_notification_sanitizes_crlf_subject PASSED [ 95%]
+tests/test_notifier.py::test_build_notification_html_sanitizes_dangerous_schemes PASSED [ 97%]
+tests/test_notifier.py::test_settings_validates_email_format PASSED      [100%]
 
-============================== 35 passed in 2.36s ==============================
+============================== 40 passed in 1.99s ==============================
 ```
 
 ---
