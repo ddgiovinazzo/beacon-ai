@@ -8,7 +8,7 @@
 |____/ \___| \__,_| \___|\___/ |_| |_| /_/   \_\|___|
 ```
 
-### **Deterministic, Constraint-Driven Job Intelligence Engine**
+### **Deterministic, Model-Agnostic Job Intelligence Engine**
 
 *Bypass the algorithmic noise. Automate extraction. Eliminate search fatigue.*
 
@@ -17,7 +17,7 @@
 [![Python 3.11+](https://img.shields.io/badge/Python-3.11%2B-3776AB?style=for-the-badge&logo=python&logoColor=white)](https://www.python.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-F59E0B?style=for-the-badge&logo=opensourceinitiative&logoColor=white)](LICENSE)
 [![Pydantic V2](https://img.shields.io/badge/Schema-Pydantic%20V2-E92063?style=for-the-badge&logo=pydantic&logoColor=white)](https://docs.pydantic.dev/)
-[![LLM: Gemini 2.5 Flash](https://img.shields.io/badge/Evaluator-Gemini%202.5%20Flash-4285F4?style=for-the-badge&logo=google&logoColor=white)](https://ai.google.dev/)
+[![Model Agnostic](https://img.shields.io/badge/LLM-Agnostic%20(LiteLLM)-6366F1?style=for-the-badge&logo=openai&logoColor=white)](https://docs.litellm.ai/)
 [![Tests: Pytest 22/22](https://img.shields.io/badge/Tests-22%2F22%20Passing-10B981?style=for-the-badge&logo=pytest&logoColor=white)](tests/)
 
 [Quick Start](#-quick-start) • [System Architecture](#-system-architecture) • [Security & Cost Shield](#-security--cost-shield) • [Why This Exists](#-the-human-origin-why-i-built-this) • [CLI Reference](#-cli-reference)
@@ -28,13 +28,13 @@
 
 ## 📌 Executive Overview
 
-**BeaconAI** is an autonomous CLI pipeline that flips the traditional hiring board paradigm. Instead of forcing job seekers into high-friction 20-hour/week manual sifting loops across algorithmic aggregators, BeaconAI ingests unstructured RSS/XML feeds, executes **zero-cost deterministic constraint gates** (Tier 1), scores cleared candidates with **structured LLM schemas** (Tier 2), and compiles bespoke Markdown application artifacts alongside a local daily digest.
+**BeaconAI** is an autonomous, model-agnostic CLI pipeline that flips the traditional hiring board paradigm. Instead of forcing job seekers into high-friction 20-hour/week manual sifting loops across algorithmic aggregators, BeaconAI ingests unstructured RSS/XML feeds, executes **zero-cost deterministic constraint gates** (Tier 1), scores cleared candidates with **structured LLM schemas across any provider** (Tier 2 via LiteLLM), and compiles bespoke Markdown application artifacts alongside a local daily digest.
 
 ```
        UNSTRUCTURED FEEDS               DETERMINISTIC GATES               GENERATED ARTIFACTS
  ┌─────────────────────────────┐    ┌─────────────────────────┐    ┌───────────────────────────────┐
  │ • Craigslist RSS            │    │ [Tier 1] Cost Shield    │    │ 📄 Tailored Markdown Resume   │
- │ • Municipal & County Boards │ ──>│ [Tier 2] Pydantic LLM   │ ──>│ ✉️  Draft Outreach / Mailto   │
+ │ • Municipal & County Boards │ ──>│ [Tier 2] Multi-LLM Scorer│ ──>│ ✉️  Draft Outreach / Mailto   │
  │ • Public Sector Feeds       │    │ SQLite Deduplication    │    │ 📊 Local Daily Markdown Digest│
  └─────────────────────────────┘    └─────────────────────────┘    └───────────────────────────────┘
 ```
@@ -46,9 +46,22 @@
 Between 2024 and 2026, the tech job market reached peak algorithmic friction:
 * **The Ghost Requisition Flood:** Up to 30%+ of online listings are ghost postings, drowning applicants in automated rejection emails and 5-round ATS loops.
 * **The "Generalist Trap":** Commercial job boards force candidates to adapt to generic keyword algorithms, actively ignoring non-negotiable boundaries like localized commutes, strict compensation floors, predictable shift boundaries, and physical restrictions.
-* **The Context Drift Problem:** Manually tuning interactive AI chats is fragile—chat threads reset, instructions drift, and prompts hallucinate.
+* **The Context Drift Problem:** Manually tuning interactive AI chats is fragile—chat threads reset, instructions drift, and proprietary models lock users into single ecosystems.
 
-**BeaconAI** was engineered out of operational necessity: shifting job discovery from a draining, manual chore into a deterministic, version-controlled software process.
+**BeaconAI** was engineered out of operational necessity: shifting job discovery from a draining, manual chore into a deterministic, version-controlled, and model-agnostic software process.
+
+---
+
+## 🔌 Zero Lock-In: Model-Agnostic LLM Layer
+
+BeaconAI leverages **LiteLLM** and **Instructor** to normalize API schemas across all major foundation model providers and local runtimes. Switch between models instantly by changing a single `.env` variable with zero code modifications:
+
+| Provider | Supported Engine Examples | Best Use Case |
+| :--- | :--- | :--- |
+| **Anthropic** | `claude-3-5-sonnet-20241022`, `claude-3-haiku` | Complex reasoning & deep resume bullet tailoring |
+| **Google** | `gemini/gemini-2.5-flash`, `gemini/gemini-1.5-pro` | High-speed scoring & large batch processing |
+| **OpenAI** | `gpt-4o`, `gpt-4o-mini` | Standard structured JSON evaluation |
+| **Local / Offline** | `ollama/llama3.2`, `ollama/mistral`, `vllm` | 100% private, zero-token-cost local execution |
 
 ---
 
@@ -75,7 +88,7 @@ flowchart TD
         H -- "Fails Pay Floor / Lifting / Commute" --> I["❌ Save as REJECT in SQLite"]
         H -- "Passes Hard Filters" --> J{"Circuit Breaker Check"}
         J -- "Limit Exceeded" --> K["⏳ Save as DEFERRED (Re-eval Next Run)"]
-        J -- "Within Cap" --> L["Tier 2 Gemini 2.5 Flash Scorer"]
+        J -- "Within Cap" --> L["Tier 2 Model-Agnostic Scorer<br/><i>(Claude / Gemini / OpenAI / Ollama)</i>"]
         L --> M["Pydantic JSON Schema Validation"]
     end
 
@@ -135,9 +148,14 @@ cp .env.example .env
 ```
 
 ```ini
-# Gemini API Key (Required for Tier 2 evaluation & resume tailoring)
-GEMINI_API_KEY=your_actual_api_key_here
-GEMINI_MODEL=gemini-2.5-flash
+# Model Selection (Supports any LiteLLM provider string)
+# Examples: claude-3-5-sonnet-20241022, gemini/gemini-2.5-flash, gpt-4o-mini, ollama/llama3.2
+LLM_MODEL=gemini/gemini-2.5-flash
+
+# API Credentials (Set according to your chosen provider)
+GEMINI_API_KEY=your_gemini_key_here
+# ANTHROPIC_API_KEY=your_claude_key_here
+# OPENAI_API_KEY=your_openai_key_here
 
 # Database path
 DB_PATH=matches.db
