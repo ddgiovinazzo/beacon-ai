@@ -1,0 +1,71 @@
+{
+  "name": "Marcus Vance",
+  "email": "marcus.vance@example.com",
+  "phone": "(555) 345-6789",
+  "location": "San Jose, CA",
+  "linkedin_url": "https://linkedin.com/in/marcusvance-records",
+  "constraints": {
+    "min_hourly_rate": 24.0,
+    "min_annual_salary": 50000.0,
+    "max_commute_miles": 25,
+    "physical_restrictions": [
+      "lift 50 lbs",
+      "carry 70 lbs",
+      "warehouse labor",
+      "forklift operation",
+      "ladder climbing"
+    ],
+    "schedule_boundaries": [
+      "graveyard shift",
+      "third shift",
+      "overnight"
+    ]
+  },
+  "master_experience": {
+    "target_titles": [
+      "Data Clerk",
+      "Data Entry Specialist",
+      "Records Coordinator",
+      "Administrative Data Assistant",
+      "Document Control Specialist"
+    ],
+    "roles": [
+      {
+        "title": "Lead Records & Data Clerk",
+        "organization": "Silicon Valley Health Consortium",
+        "location": "San Jose, CA",
+        "start_date": "Jan 2022",
+        "end_date": "Present",
+        "bullets": [
+          "Digitized and validated 45,000+ confidential patient and billing records in compliance with HIPAA guidelines at 99.9% keystroke accuracy.",
+          "Automated batch validation checks using Excel macros and Python scripts, reducing record entry error rates by 34%.",
+          "Managed daily indexing, optical character recognition (OCR) scanning, and cloud archive retention schedules."
+        ]
+      },
+      {
+        "title": "Data Entry Associate",
+        "organization": "Bay Logistic Logistics Corp",
+        "location": "Fremont, CA",
+        "start_date": "Aug 2019",
+        "end_date": "Dec 2021",
+        "bullets": [
+          "Keyed bills of lading, customs declarations, and dispatch manifests at 78 WPM / 11,500 KPH with zero compliance infractions.",
+          "Audited cross-dock inventory records across 3 warehouse hubs, rectifying tracking mismatches within 2 hours of report receipt."
+        ]
+      }
+    ],
+    "tools_and_technologies": [
+      "Microsoft Excel (Macros, Power Query)",
+      "Google Sheets",
+      "Salesforce Data Loader",
+      "Airtable",
+      "Epic Systems (EMR)",
+      "DocuSign",
+      "Adobe Acrobat Pro"
+    ],
+    "education": [
+      "B.A. in Information Systems, San Jose State University",
+      "Microsoft Office Specialist: Excel Expert Certification"
+    ]
+  }
+}

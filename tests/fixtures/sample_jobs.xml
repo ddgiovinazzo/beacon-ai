@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<rss version="2.0">
+<channel>
+  <title>Regional Job Postings Feed</title>
+  <link>https://bayarea.example.com/jobs</link>
+  <description>Sample syndicated job feed for municipal and commercial postings</description>
+
+  <!-- Job 1: Highly aligned Bookkeeper (Passes Tier 1, Matches Tier 2) -->
+  <item>
+    <title>Senior Bookkeeper &amp; Accounting Specialist</title>
+    <link>https://bayarea.example.com/jobs/101-bookkeeper</link>
+    <description><![CDATA[
+      <p>Established civic consulting firm in Oakland seeks an experienced Full Charge Bookkeeper.</p>
+      <p>Responsibilities include managing accounts payable/receivable in QuickBooks Online, conducting monthly bank reconciliations, and payroll filing via Gusto.</p>
+      <p>Pay: $32.00 - $36.00 per hour. Standard business hours M-F 9am-5pm.</p>
+      <script>alert("malicious script");</script>
+    ]]></description>
+    <pubDate>Thu, 10 Sep 2026 09:00:00 GMT</pubDate>
+  </item>
+
+  <!-- Job 2: Physical labor violation (Lifting 60 lbs) -> REJECT Tier 1 -->
+  <item>
+    <title>Warehouse Inventory &amp; Material Handler</title>
+    <link>https://bayarea.example.com/jobs/102-warehouse-labor</link>
+    <description><![CDATA[
+      <p>Immediate opening in logistics center. Candidate must be capable of repeated physical activity, including ability to lift 60 lbs unassisted and move heavy pallets.</p>
+      <p>Pay: $30/hr.</p>
+    ]]></description>
+    <pubDate>Thu, 10 Sep 2026 10:15:00 GMT</pubDate>
+  </item>
+
+  <!-- Job 3: Pay floor violation ($18/hr < $28/hr) -> REJECT Tier 1 -->
+  <item>
+    <title>Entry Level Junior Bookkeeper</title>
+    <link>https://bayarea.example.com/jobs/103-low-pay-books</link>
+    <description><![CDATA[
+      <p>Small boutique shop looking for helper to input receipts into QuickBooks.</p>
+      <p>Compensation: $18.00 / hour to start. Day shift.</p>
+    ]]></description>
+    <pubDate>Thu, 10 Sep 2026 11:30:00 GMT</pubDate>
+  </item>
+
+  <!-- Job 4: Schedule violation (Overnight/Graveyard) -> REJECT Tier 1 -->
+  <item>
+    <title>Accounts Clerk - Overnight Shift</title>
+    <link>https://bayarea.example.com/jobs/104-night-shift</link>
+    <description><![CDATA[
+      <p>Hotel auditing role. Reconcile daily guest receipts and night transactions.</p>
+      <p>Schedule: Graveyard shift 11:00 PM to 7:00 AM, Tuesday through Saturday.</p>
+      <p>Pay: $31.00/hr.</p>
+    ]]></description>
+    <pubDate>Thu, 10 Sep 2026 12:45:00 GMT</pubDate>
+  </item>
+
+  <!-- Job 5: Unrelated field -> Pass Tier 1, REJECT Tier 2 (Score < 50) -->
+  <item>
+    <title>Lead HVAC Mechanical Maintenance Technician</title>
+    <link>https://bayarea.example.com/jobs/105-hvac-tech</link>
+    <description><![CDATA[
+      <p>Commercial HVAC system diagnostics, compressor repairs, and refrigerant handling for school district facilities.</p>
+      <p>Pay: $42.00/hr. Daytime hours.</p>
+    ]]></description>
+    <pubDate>Thu, 10 Sep 2026 13:00:00 GMT</pubDate>
+  </item>
+
+</channel>
+</rss>

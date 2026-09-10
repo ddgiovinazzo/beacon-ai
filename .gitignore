@@ -1,0 +1,33 @@
+# Environment and secrets
+.env
+*.env
+
+# SQLite Databases
+*.db
+*.sqlite3
+
+# Artifacts / Matches
+artifacts/matches/
+artifacts/daily_digest_*.md
+
+# Virtual Environment
+.venv/
+env/
+venv/
+
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Logs
+*.log
+
+# IDE & OS
+.DS_Store
+.idea/
+.vscode/

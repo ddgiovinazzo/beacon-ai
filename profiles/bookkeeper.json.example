@@ -1,0 +1,79 @@
+{
+  "name": "Sarah Jenkins",
+  "email": "sarah.jenkins@example.com",
+  "phone": "(555) 234-5678",
+  "location": "Oakland, CA",
+  "linkedin_url": "https://linkedin.com/in/sarahjenkins-books",
+  "constraints": {
+    "min_hourly_rate": 28.0,
+    "min_annual_salary": 58000.0,
+    "max_commute_miles": 20,
+    "physical_restrictions": [
+      "lift 50 lbs",
+      "lift 40 lbs",
+      "carry 50 lbs",
+      "ladder",
+      "warehouse labor",
+      "pallet jack",
+      "heavy lifting",
+      "unannounced overtime"
+    ],
+    "schedule_boundaries": [
+      "overnight",
+      "graveyard shift",
+      "mandatory weekends",
+      "night shift"
+    ]
+  },
+  "master_experience": {
+    "target_titles": [
+      "Bookkeeper",
+      "Senior Bookkeeper",
+      "Full Charge Bookkeeper",
+      "Accounting Specialist",
+      "Accounts Payable / Receivable Lead"
+    ],
+    "roles": [
+      {
+        "title": "Full Charge Bookkeeper",
+        "organization": "Apex Advisory Group",
+        "location": "Berkeley, CA",
+        "start_date": "Mar 2021",
+        "end_date": "Present",
+        "bullets": [
+          "Managed end-to-end full-cycle bookkeeping for 18 SMB client accounts with combined annual revenues exceeding $14M.",
+          "Streamlined monthly GL reconciliations and AP/AR workflows in QuickBooks Online, cutting month-end close duration from 12 to 5 business days.",
+          "Processed bi-weekly multi-state payroll for 120+ employees via Gusto, maintaining 99.8% compliance accuracy across state tax jurisdictions.",
+          "Instituted automated bank feed rules and receipt scanning pipelines in Dext, eliminating 15+ hours of manual data entry per monthly cycle."
+        ]
+      },
+      {
+        "title": "Accounting Assistant & Bookkeeper",
+        "organization": "Pacific Crest Retail Partners",
+        "location": "Oakland, CA",
+        "start_date": "Jun 2018",
+        "end_date": "Feb 2021",
+        "bullets": [
+          "Reconciled high-volume commercial checking, merchant credit card, and vendor accounts totaling $4.2M annually.",
+          "Audited vendor invoices, resolved discrepancy claims, and captured $38,000 in early-pay discounts over a 24-month span.",
+          "Prepared quarterly sales tax filings (CDTFA) and assisted senior CPA partners during annual year-end financial audits."
+        ]
+      }
+    ],
+    "tools_and_technologies": [
+      "QuickBooks Online",
+      "QuickBooks Desktop",
+      "Xero",
+      "Gusto",
+      "Excel (Advanced PivotTables, VLOOKUP, XLOOKUP)",
+      "Bill.com",
+      "Dext / Receipt Bank",
+      "ADP Workforce Now"
+    ],
+    "education": [
+      "A.S. in Business Administration (Accounting Concentration), Berkeley City College",
+      "Certified QuickBooks ProAdvisor (Online & Desktop)",
+      "National Bookkeepers Association Certified Bookkeeper (CB)"
+    ]
+  }
+}
