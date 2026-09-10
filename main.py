@@ -107,18 +107,20 @@ def scan(
 
     user_profile = load_profile(profile)
 
-    mode_label = "[bold yellow]DRY-RUN (Deterministic Scoring)[/bold yellow]" if dry_run else "[bold cyan]LIVE (Tier 1 + Gemini 2.5 Flash)[/bold cyan]"
+    mode_label = "[bold yellow]DRY-RUN (Deterministic Scoring)[/bold yellow]" if dry_run else f"[bold cyan]LIVE (Tier 1 + {settings.llm_model})[/bold cyan]"
     console.print(
         Panel(
             f"Candidate: [bold]{user_profile.name}[/bold] ({user_profile.location})\n"
             f"Feed Source: [blue]{feed}[/blue]\n"
             f"Evaluation Mode: {mode_label}\n"
+            f"Active LLM: [magenta]{settings.llm_model}[/magenta]\n"
             f"Min Pay Floor: [green]${user_profile.constraints.min_hourly_rate:.2f}/hr[/green] | [green]${user_profile.constraints.min_annual_salary or 0:,.0f}/yr[/green]\n"
             f"Circuit Breaker Cap: [magenta]{settings.max_llm_evals_per_run} LLM evals/run[/magenta]",
             title="BeaconAI Scan Initiated",
             border_style="cyan",
         )
     )
+
 
     # 1. Ingest postings
     postings = fetch_feed(

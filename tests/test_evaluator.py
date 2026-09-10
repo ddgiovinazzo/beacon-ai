@@ -12,6 +12,7 @@ from src.evaluator import (
     extract_compensation,
 )
 from src.schemas import (
+    EvaluationResult,
     EvaluationStatus,
     JobPosting,
     MasterExperience,
@@ -19,6 +20,7 @@ from src.schemas import (
     UserProfile,
     WorkRole,
 )
+
 
 
 @pytest.fixture
@@ -288,4 +290,116 @@ def test_circuit_breaker_sets_deferred_and_eligible_for_rescan(tmp_path, test_pr
 
     # Must NOT be considered seen (finalized), so it can be re-evaluated on subsequent runs!
     assert is_job_seen(job.link, db_file) is False
+
+
+def test_has_llm_credentials_multi_provider():
+    """Verify credential detection across different foundation model providers."""
+    # Gemini
+    s_gemini = Settings(llm_model="gemini/gemini-2.5-flash", gemini_api_key="key123")
+    assert s_gemini.has_llm_credentials() is True
+
+    # Anthropic
+    s_claude = Settings(llm_model="claude-3-5-sonnet-20241022", anthropic_api_key="sk-ant-123")
+    assert s_claude.has_llm_credentials() is True
+
+    # OpenAI
+    s_openai = Settings(llm_model="gpt-4o-mini", openai_api_key="sk-proj-123")
+    assert s_openai.has_llm_credentials() is True
+
+    # Ollama (local runtime, needs no API key)
+    s_ollama = Settings(llm_model="ollama/llama3.2")
+    assert s_ollama.has_llm_credentials() is True
+
+    # Unset credentials
+    s_empty = Settings(llm_model="claude-3-5-sonnet-20241022", anthropic_api_key=None)
+    assert s_empty.has_llm_credentials() is False
+
+
+def test_evaluate_tier2_llm_model_agnostic_routing(monkeypatch, test_profile):
+    """Verify LiteLLM completion receives the configured model name and returns structured output."""
+    from unittest.mock import MagicMock
+    import instructor
+    from src.evaluator import evaluate_tier2_llm
+
+    mock_result = EvaluationResult(
+        status=EvaluationStatus.MATCH,
+        rejection_reason=None,
+        fit_score=95,
+        estimated_compensation="$35/hr",
+        match_highlights=["Strong bookkeeping background", "QuickBooks expert"],
+        tier_evaluated=2,
+    )
+
+    mock_client = MagicMock()
+    mock_client.chat.completions.create.return_value = mock_result
+    monkeypatch.setattr(instructor, "from_litellm", lambda *args, **kwargs: mock_client)
+
+    settings = Settings(
+        llm_model="anthropic/claude-3-5-sonnet-20241022",
+        anthropic_api_key="sk-ant-test",
+    )
+
+    job = JobPosting(
+        title="Senior Bookkeeper",
+        link="https://example.com/claude-job",
+        raw_text="Experienced Bookkeeper needed. QuickBooks Online.",
+        source="example.com",
+    )
+
+    res = evaluate_tier2_llm(job, test_profile, settings, dry_run=False)
+
+    assert res.status == EvaluationStatus.MATCH
+    assert res.fit_score == 95
+    assert res.tier_evaluated == 2
+
+    # Verify that litellm was called with the exact Anthropic model string
+    mock_client.chat.completions.create.assert_called_once()
+    called_model = mock_client.chat.completions.create.call_args[1]["model"]
+    assert called_model == "anthropic/claude-3-5-sonnet-20241022"
+
+
+def test_generate_tailored_resume_data_model_agnostic(monkeypatch, test_profile):
+    """Verify resume tailoring routes to configured LiteLLM model."""
+    from unittest.mock import MagicMock
+    import instructor
+    from src.generator import generate_tailored_resume_data
+    from src.schemas import TailoredResumeData, WorkRole
+
+    mock_resume = TailoredResumeData(
+        target_headline="Targeted Senior Bookkeeper",
+        tailored_summary="Proven accounting professional.",
+        categorized_skills={"Accounting": ["QuickBooks", "Excel"]},
+        tailored_experience=[
+            WorkRole(
+                title="Bookkeeper",
+                organization="Apex",
+                location="Oakland, CA",
+                start_date="2021",
+                end_date="Present",
+                bullets=["Reconciled financials."],
+            )
+        ],
+    )
+
+    mock_client = MagicMock()
+    mock_client.chat.completions.create.return_value = mock_resume
+    monkeypatch.setattr(instructor, "from_litellm", lambda *args, **kwargs: mock_client)
+
+    settings = Settings(
+        llm_model="gpt-4o-mini",
+        openai_api_key="sk-openai-test",
+    )
+
+    job = JobPosting(
+        title="Senior Bookkeeper",
+        link="https://example.com/gpt-job",
+        raw_text="QuickBooks needed.",
+        source="example.com",
+    )
+
+    resume_out = generate_tailored_resume_data(job, test_profile, settings, dry_run=False)
+    assert resume_out.target_headline == "Targeted Senior Bookkeeper"
+    called_model = mock_client.chat.completions.create.call_args[1]["model"]
+    assert called_model == "gpt-4o-mini"
+
 
