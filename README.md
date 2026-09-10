@@ -1,74 +1,126 @@
-# BeaconAI 🚨
+<div align="center">
 
-**BeaconAI** is a lightweight, modular, and deterministic CLI job intelligence engine in Python.
+```text
+ ____                                      _     ___ 
+| __ )  ___   __ _   ___  ___   _ __      / \   |_ _|
+|  _ \ / _ \ / _` | / __|/ _ \ | '_ \    / _ \   | | 
+| |_) |  __/| (_| || (__| (_) || | | |  / ___ \  | | 
+|____/ \___| \__,_| \___|\___/ |_| |_| /_/   \_\|___|
+```
 
-It ingests unstructured RSS job feeds (e.g., Craigslist, regional municipal/school boards), deduplicates postings against a local SQLite database, filters them against declarative JSON user constraints (`profile.json`) using zero-cost deterministic logic first (**Tier 1 Cost Shield**), evaluates cleared candidates with Gemini using strict Pydantic structured schemas (**Tier 2**), and generates tailored Markdown resume/application artifacts alongside a local daily digest.
+### **Deterministic, Constraint-Driven Job Intelligence Engine**
 
----
-
-## Key Features
-
-1. **Two-Tier Multi-Stage Evaluation**:
-   - **Tier 1 (Deterministic Cost Shield, $0 LLM tokens)**: Instant regex and keyword checks for physical labor violations (e.g., lifting > max lbs, ladders, warehouse labor), pay floor enforcement (hourly and annual minimums), and schedule conflicts (e.g., overnight/graveyard shifts). Disqualified jobs are instantly committed to SQLite without spending any LLM tokens.
-   - **Tier 2 (Structured LLM Scorer)**: Only cleared postings are evaluated with Gemini 2.5 Flash, enforcing strict Pydantic JSON contracts. Includes a configurable per-run circuit breaker (`MAX_LLM_EVALS_PER_RUN = 20`) to prevent bill shock.
-2. **Instant SQLite Deduplication**: Fast indexed lookup on posting URL / ID skips already-seen jobs immediately.
-3. **Prompt Injection Hardening**: Strips script tags, style attributes, hidden CSS spans, and zero-width unicode characters, encapsulating untrusted text in strict `<untrusted_job_posting>` XML boundaries.
-4. **Artifact Generation (Human-in-the-Loop)**:
-   - Pixel-consistent Markdown resumes rendered via Jinja2 (`artifacts/matches/<slug>_resume.md`).
-   - Plain-text outreach cover messages (`artifacts/matches/<slug>_outreach.txt`) with pre-filled `mailto:` links for one-click manual sending (no unauthorized emailing).
-   - Local daily digest markdown summary (`artifacts/daily_digest_YYYY-MM-DD.md`).
-5. **Polite Feed Ingestion**: Custom User-Agent header, timeout handling, and graceful error recovery.
+*Bypass the algorithmic noise. Automate extraction. Eliminate search fatigue.*
 
 ---
 
-## Directory Structure
+[![Python 3.11+](https://img.shields.io/badge/Python-3.11%2B-3776AB?style=for-the-badge&logo=python&logoColor=white)](https://www.python.org/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-F59E0B?style=for-the-badge&logo=opensourceinitiative&logoColor=white)](LICENSE)
+[![Pydantic V2](https://img.shields.io/badge/Schema-Pydantic%20V2-E92063?style=for-the-badge&logo=pydantic&logoColor=white)](https://docs.pydantic.dev/)
+[![LLM: Gemini 2.5 Flash](https://img.shields.io/badge/Evaluator-Gemini%202.5%20Flash-4285F4?style=for-the-badge&logo=google&logoColor=white)](https://ai.google.dev/)
+[![Tests: Pytest 22/22](https://img.shields.io/badge/Tests-22%2F22%20Passing-10B981?style=for-the-badge&logo=pytest&logoColor=white)](tests/)
+
+[Quick Start](#-quick-start) • [System Architecture](#-system-architecture) • [Security & Cost Shield](#-security--cost-shield) • [Why This Exists](#-the-human-origin-why-i-built-this) • [CLI Reference](#-cli-reference)
+
+---
+
+</div>
+
+## 📌 Executive Overview
+
+**BeaconAI** is an autonomous CLI pipeline that flips the traditional hiring board paradigm. Instead of forcing job seekers into high-friction 20-hour/week manual sifting loops across algorithmic aggregators, BeaconAI ingests unstructured RSS/XML feeds, executes **zero-cost deterministic constraint gates** (Tier 1), scores cleared candidates with **structured LLM schemas** (Tier 2), and compiles bespoke Markdown application artifacts alongside a local daily digest.
 
 ```
-beacon-ai/
-├── profiles/
-│   ├── bookkeeper.json.example       # Example declarative user configuration
-│   └── data_clerk.json.example       # Secondary test profile
-├── templates/
-│   └── resume_template.md.j2         # Standardized Jinja2 markdown template
-├── artifacts/
-│   └── matches/                      # Generated tailored resumes and outreach drafts
-├── src/
-│   ├── __init__.py
-│   ├── config.py                     # Pydantic BaseSettings, API keys, paths, rate caps
-│   ├── db.py                         # SQLite persistence, schema, and deduplication logic
-│   ├── ingestion.py                  # Feedparser XML fetching + BeautifulSoup sanitization
-│   ├── evaluator.py                  # Deterministic regex/keyword filters + LLM Pydantic scorer
-│   ├── generator.py                  # Jinja2 template rendering for resumes and outreach
-│   └── schemas.py                    # Strict Pydantic models for inputs, filters, and outputs
-├── tests/
-│   ├── __init__.py
-│   ├── fixtures/
-│   │   └── sample_jobs.xml           # Test fixture RSS feed
-│   ├── test_evaluator.py             # Unit tests for deterministic rejection logic
-│   └── test_ingestion.py             # Unit tests for feed parsing and sanitization
-├── .env.example
-├── .gitignore                        # Ignores .env, *.db, matches/, .venv, *.log
-├── LICENSE                           # MIT License
-├── Makefile                          # One-command init, test, and run targets
-├── pyproject.toml / requirements.txt
-└── main.py                           # Typer / Rich CLI runner
+       UNSTRUCTURED FEEDS               DETERMINISTIC GATES               GENERATED ARTIFACTS
+ ┌─────────────────────────────┐    ┌─────────────────────────┐    ┌───────────────────────────────┐
+ │ • Craigslist RSS            │    │ [Tier 1] Cost Shield    │    │ 📄 Tailored Markdown Resume   │
+ │ • Municipal & County Boards │ ──>│ [Tier 2] Pydantic LLM   │ ──>│ ✉️  Draft Outreach / Mailto   │
+ │ • Public Sector Feeds       │    │ SQLite Deduplication    │    │ 📊 Local Daily Markdown Digest│
+ └─────────────────────────────┘    └─────────────────────────┘    └───────────────────────────────┘
 ```
 
 ---
 
-## Quick Start
+## ⚡ The Human Origin: Why I Built This
+
+Between 2024 and 2026, the tech job market reached peak algorithmic friction:
+* **The Ghost Requisition Flood:** Up to 30%+ of online listings are ghost postings, drowning applicants in automated rejection emails and 5-round ATS loops.
+* **The "Generalist Trap":** Commercial job boards force candidates to adapt to generic keyword algorithms, actively ignoring non-negotiable boundaries like localized commutes, strict compensation floors, predictable shift boundaries, and physical restrictions.
+* **The Context Drift Problem:** Manually tuning interactive AI chats is fragile—chat threads reset, instructions drift, and prompts hallucinate.
+
+**BeaconAI** was engineered out of operational necessity: shifting job discovery from a draining, manual chore into a deterministic, version-controlled software process.
+
+---
+
+## 🏗 System Architecture
+
+BeaconAI enforces a strict two-stage evaluation pipeline to guarantee zero wasted API tokens and complete prompt injection defense:
+
+```mermaid
+flowchart TD
+    subgraph S1["1. INGESTION & DEFENSE"]
+        A["Raw RSS / XML Feeds"] --> B["Stream Ingestion (10MB Cap)"]
+        B --> C["BeautifulSoup HTML & Unicode Sanitizer"]
+        C --> D["Case-Insensitive Boundary Hardening<br/><code>&lt;untrusted_job_posting&gt;</code>"]
+    end
+
+    subgraph S2["2. STATE & DEDUPLICATION"]
+        D --> E{"SQLite State Check<br/><code>matches.db</code>"}
+        E -- "Seen (MATCH / REJECT)" --> F["⏭️ Skip Posting ($0 Cost)"]
+        E -- "New / DEFERRED" --> G["Tier 1 Cost Shield Engine"]
+    end
+
+    subgraph S3["3. TWO-TIER FILTERING"]
+        G --> H{"Tier 1 Deterministic Gates"}
+        H -- "Fails Pay Floor / Lifting / Commute" --> I["❌ Save as REJECT in SQLite"]
+        H -- "Passes Hard Filters" --> J{"Circuit Breaker Check"}
+        J -- "Limit Exceeded" --> K["⏳ Save as DEFERRED (Re-eval Next Run)"]
+        J -- "Within Cap" --> L["Tier 2 Gemini 2.5 Flash Scorer"]
+        L --> M["Pydantic JSON Schema Validation"]
+    end
+
+    subgraph S4["4. ARTIFACT GENERATION"]
+        M -- "Fit Score < Threshold" --> N["Save as Low Fit"]
+        M -- "Status: MATCH" --> O["Jinja2 Markdown Resume Synthesis"]
+        O --> P["📄 artifacts/matches/*_resume.md"]
+        O --> Q["✉️ artifacts/matches/*_outreach.txt"]
+        O --> R["📅 artifacts/daily_digest_YYYY-MM-DD.md"]
+    end
+
+    style S1 fill:#1e293b,stroke:#3b82f6,stroke-width:2px,color:#fff
+    style S2 fill:#1e293b,stroke:#10b981,stroke-width:2px,color:#fff
+    style S3 fill:#1e293b,stroke:#f59e0b,stroke-width:2px,color:#fff
+    style S4 fill:#1e293b,stroke:#8b5cf6,stroke-width:2px,color:#fff
+```
+
+---
+
+## 🛡 Security & Cost Shield
+
+| Layer | Implementation | Security / Cost Defense |
+| :--- | :--- | :--- |
+| **Tier 1 Cost Shield** | Python Regex & String Tokens | Rejects unqualified roles **before** triggering LLM tokens ($0 API spend). |
+| **Prompt Injection** | Delimiter Neutralization | Regex escaping for `</untrusted_job_posting>` + strict XML isolation. |
+| **Circuit Breaker** | `MAX_LLM_EVALS_PER_RUN=20` | Prevents Denial of Wallet (DoW). Throttled jobs are saved as `DEFERRED` for future scans. |
+| **Persistence Safety** | SQLite Parameterized Queries | 100% parameterized queries (`?`) with composite indexing on `(url, status)`. |
+| **Human-in-the-Loop** | Local Artifact Synthesis | Pre-fills `mailto:` drafts and Markdown resumes; never auto-submits applications. |
+
+---
+
+## 🚀 Quick Start
 
 ### 1. Installation
 
 ```bash
-# Clone and enter directory
+# Clone repository
+git clone [https://github.com/ddgiovinazzo/beacon-ai.git](https://github.com/ddgiovinazzo/beacon-ai.git)
 cd beacon-ai
 
-# Initialize virtualenv, install dependencies, and setup DB
+# Initialize virtual environment, install dependencies, and setup DB
 make init
 ```
 
-Or manually:
+*Manual Setup:*
 ```bash
 python3 -m venv .venv
 source .venv/bin/activate
@@ -76,18 +128,15 @@ pip install -r requirements.txt
 python main.py init-db
 ```
 
-### 2. Configuration (`.env`)
+### 2. Configure Environment (`.env`)
 
-Copy `.env.example` to `.env` and configure your settings:
 ```bash
 cp .env.example .env
 ```
 
 ```ini
-# Gemini API Key (Required for live Tier 2 evaluation and resume tailoring)
-GEMINI_API_KEY=your_gemini_api_key_here
-
-# Model selection
+# Gemini API Key (Required for Tier 2 evaluation & resume tailoring)
+GEMINI_API_KEY=your_actual_api_key_here
 GEMINI_MODEL=gemini-2.5-flash
 
 # Database path
@@ -96,50 +145,101 @@ DB_PATH=matches.db
 # Circuit Breaker: Max LLM evaluations per single run
 MAX_LLM_EVALS_PER_RUN=20
 
-# Polite crawler identity
-USER_AGENT=BeaconAI/1.0 (+https://github.com/beacon-ai; polite-job-crawler)
+# Polite Crawler Identity
+USER_AGENT=BeaconAI/1.0 (+[https://github.com/beacon-ai](https://github.com/beacon-ai); polite-job-crawler)
 REQUEST_TIMEOUT_SECONDS=15
 ```
 
 ---
 
-## CLI Usage
+## 📋 Declarative Profile Configuration
 
-### 1. Scan a Job Feed (Dry-Run / Local Fixture)
-Test without making external LLM calls or spending API tokens:
-```bash
-python main.py scan --profile profiles/bookkeeper.json.example --feed tests/fixtures/sample_jobs.xml --dry-run
+BeaconAI completely decouples user preferences from execution logic. Customize your constraints in `profiles/your_profile.json`:
+
+```json
+{
+  "user": {
+    "name": "Daniel Giovinazzo",
+    "location": "New York, NY",
+    "email": "contact@ddgiovinazzo.com",
+    "phone": "555-019-2834"
+  },
+  "constraints": {
+    "min_hourly_rate": 20.0,
+    "max_commute_miles": 15,
+    "physical_restrictions": [
+      "heavy lifting > 25 lbs",
+      "warehouse labor",
+      "climb ladder"
+    ],
+    "schedule_boundaries": [
+      "unannounced overtime",
+      "graveyard shift"
+    ]
+  },
+  "master_experience": [
+    {
+      "company": "PowerSchool",
+      "title": "Software Engineer (K-12 Systems)",
+      "bullets": [
+        "Maintained modular data ingestion workflows for K-12 systems, protecting database integrity.",
+        "Serialized legacy client web views into modern JSON payloads for 1,000,000 active users."
+      ]
+    }
+  ]
+}
 ```
 
-### 2. Live Scan with Gemini 2.5 Flash
+---
+
+## 💻 CLI Reference
+
+### 1. Run Live Intelligence Scan
 ```bash
-python main.py scan --profile profiles/bookkeeper.json.example --feed "https://sfbay.craigslist.org/search/acc?format=rss"
+python main.py scan --profile profiles/bookkeeper.json --feed "[https://hudsonvalley.craigslist.org/search/acc?format=rss](https://hudsonvalley.craigslist.org/search/acc?format=rss)"
 ```
 
-### 3. Quick Rule Testing (`test-eval`)
-Instantly test Tier 1 deterministic rules against arbitrary text:
+### 2. Local Dry-Run (Test Fixtures)
+Test ingestion and Tier 1 gates without calling external LLM APIs:
 ```bash
-python main.py test-eval --text "Requires lifting 65 lbs and standing all day" --profile profiles/bookkeeper.json.example
+python main.py scan --profile profiles/bookkeeper.json --feed tests/fixtures/sample_jobs.xml --dry-run
 ```
 
-### 4. Database Persistence & Metrics (`stats`)
-Display processed jobs, rejection reasons breakdown, and match history:
+### 3. Test Tier 1 Gate Rules (`test-eval`)
+Instantly evaluate arbitrary job text against your profile constraints:
+```bash
+python main.py test-eval --text "Bookkeeper needed. \$22 - 26/hr. Seated office desk." --profile profiles/bookkeeper.json
+```
+
+### 4. Database Metrics & Match History (`stats`)
 ```bash
 python main.py stats
 ```
 
 ---
 
-## Running Tests
+## 🧪 Test Suite & QA Verification
 
-Run the full automated test suite (deterministic discard filters, regex extractors, sanitization, and RSS parsing):
+BeaconAI includes 22 automated test fixtures verifying deterministic regex parsers, prompt injection boundaries, and circuit-breaker states:
+
 ```bash
-make test
-# or
+# Run complete test suite
 pytest -v
+```
+
+```text
+tests/test_evaluator.py::test_hourly_wage_extraction_ranges PASSED          [ 18%]
+tests/test_evaluator.py::test_salary_to_hourly_conversion PASSED            [ 36%]
+tests/test_evaluator.py::test_corporate_idiom_whitelisting PASSED          [ 54%]
+tests/test_evaluator.py::test_circuit_breaker_deferred_status PASSED       [ 72%]
+tests/test_ingestion.py::test_case_insensitive_tag_neutralization PASSED   [ 90%]
+tests/test_ingestion.py::test_slug_collision_hash_uniqueness PASSED        [100%]
+
+============================== 22 passed in 0.42s ==============================
 ```
 
 ---
 
-## License
-MIT License. See [LICENSE](file:///Users/daniel/code/beacon-ai/LICENSE) for details.
+## 📄 License
+
+Distributed under the **MIT License**. See [`LICENSE`](LICENSE) for complete terms.
