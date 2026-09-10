@@ -8,19 +8,21 @@
 |____/ \___| \__,_| \___|\___/ |_| |_| /_/   \_\|___|
 ```
 
-### **Deterministic, Model-Agnostic Job Intelligence Engine**
+### **Deterministic, Model-Agnostic Job Intelligence & Automated Application Engine**
 
-*Bypass the algorithmic noise. Automate extraction. Eliminate search fatigue.*
+*Bypass algorithmic hiring noise. Eliminate search fatigue. Automate targeted application synthesis with zero token waste.*
 
 ---
 
 [![Python 3.11+](https://img.shields.io/badge/Python-3.11%2B-3776AB?style=for-the-badge&logo=python&logoColor=white)](https://www.python.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-F59E0B?style=for-the-badge&logo=opensourceinitiative&logoColor=white)](LICENSE)
-[![Pydantic V2](https://img.shields.io/badge/Schema-Pydantic%20V2-E92063?style=for-the-badge&logo=pydantic&logoColor=white)](https://docs.pydantic.dev/)
-[![Model Agnostic](https://img.shields.io/badge/LLM-Agnostic%20(LiteLLM)-6366F1?style=for-the-badge&logo=openai&logoColor=white)](https://docs.litellm.ai/)
-[![Tests: Pytest 40/40](https://img.shields.io/badge/Tests-40%2F40%20Passing-10B981?style=for-the-badge&logo=pytest&logoColor=white)](tests/)
+[![Schema: Pydantic V2](https://img.shields.io/badge/Schema-Pydantic%20V2-E92063?style=for-the-badge&logo=pydantic&logoColor=white)](https://docs.pydantic.dev/)
+[![Model Agnostic: LiteLLM](https://img.shields.io/badge/LLM-Agnostic%20(LiteLLM)-6366F1?style=for-the-badge&logo=openai&logoColor=white)](https://docs.litellm.ai/)
+[![PDF Engine: Sandboxed WeasyPrint](https://img.shields.io/badge/PDF-Sandboxed%20WeasyPrint-0284C7?style=for-the-badge&logo=adobeacrobatreader&logoColor=white)](https://weasyprint.org/)
+[![Tests: Pytest 40/40 Passing](https://img.shields.io/badge/Tests-40%2F40%20Passing-10B981?style=for-the-badge&logo=pytest&logoColor=white)](tests/)
+[![CI/CD: GitHub Actions Scheduled](https://img.shields.io/badge/CI%2FCD-GitHub%20Actions-2088FF?style=for-the-badge&logo=githubactions&logoColor=white)](.github/workflows/daily_scan.yml)
 
-[Quick Start](#-quick-start) • [System Architecture](#-system-architecture) • [Security & Cost Shield](#-security--cost-shield) • [Why This Exists](#-the-human-origin-why-i-built-this) • [CLI Reference](#-cli-reference)
+[Executive Overview](#-executive-overview) • [System Architecture](#-system-architecture) • [Security & Cost Shield](#-security--cost-shield) • [Model Agnostic Layer](#-zero-vendor-lock-in-model-matrix) • [Quick Start](#-quick-start) • [CLI Reference](#-cli-reference) • [CI/CD Runner](#-headless-github-actions-automation)
 
 ---
 
@@ -28,7 +30,7 @@
 
 ## 📌 Executive Overview
 
-**BeaconAI** is an autonomous, model-agnostic CLI pipeline that flips the traditional hiring board paradigm. Instead of forcing job seekers into high-friction 20-hour/week manual sifting loops across algorithmic aggregators, BeaconAI ingests unstructured RSS/XML feeds, executes **zero-cost deterministic constraint gates** (Tier 1), scores cleared candidates with **structured LLM schemas across any provider** (Tier 2 via LiteLLM), and compiles bespoke Markdown application artifacts alongside a local daily digest.
+**BeaconAI** is an autonomous, model-agnostic CLI pipeline engineered to invert the commercial hiring board paradigm. Instead of trapping applicants in 20-hour weekly manual sifting loops across algorithmic aggregators and ghost postings, BeaconAI ingests unstructured RSS/XML feeds, applies **zero-cost deterministic constraint gates** (Tier 1), scores cleared candidates with **strictly typed Pydantic LLM schemas across any foundation provider** (Tier 2 via LiteLLM), and compiles bespoke, ATS-compliant PDF resumes alongside transactional email notifications and local digests.
 
 ```
        UNSTRUCTURED FEEDS               DETERMINISTIC GATES               GENERATED ARTIFACTS
@@ -39,70 +41,56 @@
  └─────────────────────────────┘    └─────────────────────────┘    └───────────────────────────────┘
 ```
 
----
+### Why This Exists: The Problem Space
 
-## ⚡ The Human Origin: Why I Built This
+Between 2024 and 2026, the tech and administrative job markets reached peak algorithmic friction:
+* **The Ghost Requisition Flood:** Up to 30%+ of syndicated job board entries are ghost requisitions, inflating vanity candidate pipelines with zero hiring intent.
+* **The "Generalist Trap":** Commercial job boards optimize for platform stickiness and generic keyword indexing while ignoring non-negotiable boundaries like localized commutes, strict compensation floors, predictable shift boundaries, and physical restrictions.
+* **Denial of Wallet & Context Drift:** Interactive chatbots require manual prompting, suffer from context drift across long sessions, and rack up expensive API bills re-evaluating unqualified roles.
 
-Between 2024 and 2026, the tech job market reached peak algorithmic friction:
-* **The Ghost Requisition Flood:** Up to 30%+ of online listings are ghost postings, drowning applicants in automated rejection emails and 5-round ATS loops.
-* **The "Generalist Trap":** Commercial job boards force candidates to adapt to generic keyword algorithms, actively ignoring non-negotiable boundaries like localized commutes, strict compensation floors, predictable shift boundaries, and physical restrictions.
-* **The Context Drift Problem:** Manually tuning interactive AI chats is fragile—chat threads reset, instructions drift, and proprietary models lock users into single ecosystems.
-
-**BeaconAI** was engineered out of operational necessity: shifting job discovery from a draining, manual chore into a deterministic, version-controlled, and model-agnostic software process.
-
----
-
-## 🔌 Zero Lock-In: Model-Agnostic LLM Layer
-
-BeaconAI leverages **LiteLLM** and **Instructor** to normalize API schemas across all major foundation model providers and local runtimes. Switch between models instantly by changing a single `.env` variable with zero code modifications:
-
-| Provider | Supported Engine Examples | Best Use Case |
-| :--- | :--- | :--- |
-| **Anthropic** | `claude-3-5-sonnet-20241022`, `claude-3-haiku` | Complex reasoning & deep resume bullet tailoring |
-| **Google** | `gemini/gemini-2.5-flash`, `gemini/gemini-1.5-pro` | High-speed scoring & large batch processing |
-| **OpenAI** | `gpt-4o`, `gpt-4o-mini` | Standard structured JSON evaluation |
-| **Local / Offline** | `ollama/llama3.2`, `ollama/mistral`, `vllm` | 100% private, zero-token-cost local execution |
+**BeaconAI** resolves this through **systems thinking over toy AI prompting**: zero LLM tokens are consumed until deterministic logic certifies that a posting meets every compensation, physical, and geographic boundary.
 
 ---
 
 ## 🏗 System Architecture
 
-BeaconAI enforces a strict two-stage evaluation pipeline to guarantee zero wasted API tokens and complete prompt injection defense:
+BeaconAI operates as an end-to-end deterministic data pipeline with strict boundary hardening and sandboxed artifact compilation:
 
 ```mermaid
 flowchart TD
-    subgraph S1["1. INGESTION & DEFENSE"]
-        A["Raw RSS / XML Feeds"] --> B["Stream Ingestion (10MB Cap)"]
-        B --> C["BeautifulSoup HTML & Unicode Sanitizer"]
+    subgraph S1["1. INGESTION & BOUNDARY HARDENING"]
+        A["Unstructured RSS / XML Feeds"] --> B["Stream Ingestion (10MB Cap)"]
+        B --> C["BeautifulSoup HTML Sanitizer"]
         C --> D["Case-Insensitive Boundary Hardening<br/><code>&lt;untrusted_job_posting&gt;</code>"]
     end
 
-    subgraph S2["2. STATE & DEDUPLICATION"]
+    subgraph S2["2. DEDUPLICATION & STATE MANAGEMENT"]
         D --> E{"SQLite State Check<br/><code>matches.db</code>"}
         E -- "Seen (MATCH / REJECT)" --> F["⏭️ Skip Posting ($0 Cost)"]
-        E -- "New / DEFERRED" --> G["Tier 1 Cost Shield Engine"]
+        E -- "New / DEFERRED" --> G["Tier 1 Deterministic Cost Shield"]
     end
 
-    subgraph S3["3. TWO-TIER FILTERING"]
+    subgraph S3["3. TWO-TIER FILTERING ENGINE"]
         G --> H{"Tier 1 Deterministic Gates"}
         H -- "Fails Pay Floor / Lifting / Commute" --> I["❌ Save as REJECT in SQLite"]
-        H -- "Passes Hard Filters" --> J{"Circuit Breaker Check"}
-        J -- "Limit Exceeded" --> K["⏳ Save as DEFERRED (Re-eval Next Run)"]
+        H -- "Passes Hard Constraints" --> J{"Circuit Breaker Cap<br/><i>MAX_LLM_EVALS_PER_RUN</i>"}
+        J -- "Cap Exceeded" --> K["⏳ Save as DEFERRED (Re-eval Next Run)"]
         J -- "Within Cap" --> L["Tier 2 Model-Agnostic Scorer<br/><i>(Claude / Gemini / OpenAI / Ollama)</i>"]
-        L --> M["Pydantic JSON Schema Validation"]
+        L --> M["Pydantic V2 Schema Validation<br/><code>EvaluationResult</code>"]
     end
 
-    subgraph S4["4. ARTIFACT & ALERT DISPATCH"]
-        M -- "Fit Score < Threshold" --> N["Save as Low Fit"]
+    subgraph S4["4. SANDBOXED ARTIFACT SYNTHESIS & DISPATCH"]
+        M -- "Fit Score < 50" --> N["Save as Low Fit (REJECT)"]
         M -- "Status: MATCH" --> O["Jinja2 Markdown Resume Synthesis"]
         O --> P["📄 artifacts/matches/*_resume.md"]
         O --> Q["✉️ artifacts/matches/*_outreach.txt"]
-        P --> S["🖨️ Sandboxed ATS PDF Engine (WeasyPrint)"]
+        P --> R["HTML Tag Decomposition (BeautifulSoup)"]
+        R --> S["Sandboxed WeasyPrint PDF Engine<br/><code>blocked_url_fetcher (Zero-Trust)</code>"]
         S --> T["📄 artifacts/matches/*_resume.pdf"]
         T --> U{"--notify Flag"}
         U -- "Enabled" --> V["📬 Transactional Resend Email Alert<br/><i>(HTML Summary + Attached PDF)</i>"]
-        U -- "Disabled" --> W["⏭️ Local-Only Artifacts"]
-        O --> R["📅 artifacts/daily_digest_YYYY-MM-DD.md"]
+        U -- "Disabled" --> W["Local-Only Persistence"]
+        T --> X["💾 SQLite Commit & Daily Digest Update"]
     end
 
     style S1 fill:#1e293b,stroke:#3b82f6,stroke-width:2px,color:#fff
@@ -115,76 +103,37 @@ flowchart TD
 
 ## 🛡 Security & Cost Shield
 
-| Layer | Implementation | Security / Cost Defense |
+Every external input is treated as untrusted. BeaconAI enforces multi-layered defense-in-depth across deterministic parsers, LLM boundaries, PDF layout rendering, and outbound mail transport:
+
+| Security Vector | Implementation Mechanism | Defensive Guarantee |
 | :--- | :--- | :--- |
-| **Tier 1 Cost Shield** | Python Regex & String Tokens | Rejects unqualified roles **before** triggering LLM tokens ($0 API spend). |
-| **Prompt Injection** | Delimiter Neutralization | Regex escaping for `</untrusted_job_posting>` + strict XML isolation. |
-| **Sandboxed PDF Engine** | `blocked_url_fetcher` (Zero-Trust) | Raises `PermissionError` on all network and file URIs, preventing SSRF and LFI attacks. |
-| **Circuit Breaker** | `MAX_LLM_EVALS_PER_RUN=20` | Prevents Denial of Wallet (DoW). Throttled jobs are saved as `DEFERRED` for future scans. |
-| **Persistence Safety** | SQLite Parameterized Queries | 100% parameterized queries (`?`) with composite indexing on `(url, status)`. |
-| **Human-in-the-Loop** | Local Artifact Synthesis & Resend | Pre-fills `mailto:` drafts and sends email alerts; never auto-submits applications. |
+| **Tier 1 Cost Shield** | Deterministic Regex & String Parsing | Automatically rejects unqualified postings ($0 API spend) **before** calling foundation models. |
+| **Zero-Trust PDF Sandbox** | Custom `blocked_url_fetcher` in WeasyPrint | Unconditionally raises `PermissionError` on all network (`http://`, `https://`, `169.254.169.254`), filesystem (`file://`), and base64 (`data:`) URIs, neutralizing SSRF and LFI attacks. |
+| **Prompt Injection Isolation** | Regex Delimiter Neutralization | Escapes closing `</untrusted_job_posting>` tags with whitespace/case variants to prevent context breakout in LLM prompts. |
+| **HTML Tag Decomposition** | BeautifulSoup Pre-Processing | Decomposes `<script>`, `<style>`, `<iframe>`, `<object>`, `<embed>`, and `<form>` elements in markdown prior to PDF layout compilation. |
+| **Email Transport Hardening** | CRLF Stripping & URI Protocol Whitelist | Strips `[\r\n\t]+` from email subjects to prevent header splitting; forces `http://`/`https://` on links, replacing dangerous schemes (`javascript:`) with `"#"`. |
+| **Circuit Breaker** | `MAX_LLM_EVALS_PER_RUN=20` | Prevents Denial of Wallet (DoW) attacks from malicious or oversized RSS floods. Throttled roles are tagged `DEFERRED` for future scans. |
+| **State Poisoning Guard** | Isolated Artifact Synthesis | Defers SQLite `MATCH` commits until all artifacts generate successfully. Failed compilations do not burn candidate records. |
+| **Persistence Safety** | SQLite Parameterized Queries | 100% parameterized queries (`?`) with composite indexing on `(url, status)` to prevent SQL injection and guarantee fast deduplication. |
 
 ---
 
-## 🚀 Quick Start
+## 🔌 Zero Vendor Lock-In: Model Matrix
 
-### 1. Installation
+BeaconAI leverages **LiteLLM** and **Instructor** to normalize structured outputs into strict Pydantic V2 models. Switch between foundation model providers or private local engines via a single `.env` setting with zero code refactoring:
 
-```bash
-# Clone repository
-git clone https://github.com/ddgiovinazzo/beacon-ai.git
-cd beacon-ai
-
-# Initialize virtual environment, install dependencies, and setup DB
-make init
-```
-
-*Manual Setup:*
-```bash
-python3 -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
-python main.py init-db
-```
-
-### 2. Configure Environment (`.env`)
-
-```bash
-cp .env.example .env
-```
-
-```ini
-# Model Selection (Supports any LiteLLM provider string)
-# Examples: claude-3-5-sonnet-20241022, gemini/gemini-2.5-flash, gpt-4o-mini, ollama/llama3.2
-LLM_MODEL=gemini/gemini-2.5-flash
-
-# API Credentials (Set according to your chosen provider)
-GEMINI_API_KEY=your_gemini_key_here
-# ANTHROPIC_API_KEY=your_claude_key_here
-# OPENAI_API_KEY=your_openai_key_here
-# OLLAMA_API_BASE=http://localhost:11434
-
-# Database path
-DB_PATH=matches.db
-
-# Circuit Breaker: Max LLM evaluations per single run
-MAX_LLM_EVALS_PER_RUN=20
-
-# Polite Crawler Identity
-USER_AGENT=BeaconAI/1.0 (+https://github.com/beacon-ai; polite-job-crawler)
-REQUEST_TIMEOUT_SECONDS=15
-
-# Resend Transactional Email Alerts
-# RESEND_API_KEY=re_123456789
-# NOTIFICATION_EMAIL_TO=you@example.com
-NOTIFICATION_EMAIL_FROM=BeaconAI <alerts@ddgiovinazzo.com>
-```
+| Provider | Engine Identifier Example | Ideal Use Case | Operational Profile |
+| :--- | :--- | :--- | :--- |
+| **Anthropic** | `claude-3-5-sonnet-20241022` | Complex technical roles & deep resume tailoring | State-of-the-art qualitative synthesis |
+| **Google** | `gemini/gemini-2.5-flash` | High-speed batch scoring & rapid extraction | Low latency, cost-effective high-throughput |
+| **OpenAI** | `gpt-4o`, `gpt-4o-mini` | Industry standard structured JSON extraction | High availability & standard enterprise SLA |
+| **Local / Offline** | `ollama/llama3.2`, `ollama/mistral` | Air-gapped, zero-cost, 100% private local execution | Complete data privacy with zero token cost |
 
 ---
 
 ## 📋 Declarative Profile Configuration
 
-BeaconAI completely decouples user preferences from execution logic. Customize your profile in `profiles/your_profile.json` (or copy one of the provided templates):
+BeaconAI decouples user constraints and professional history from execution logic. Candidate preferences are version-controlled in `profiles/your_profile.json`:
 
 ```bash
 cp profiles/bookkeeper.json.example profiles/bookkeeper.json
@@ -246,64 +195,158 @@ cp profiles/bookkeeper.json.example profiles/bookkeeper.json
 
 ---
 
+## 🚀 Quick Start
+
+### 1. Installation
+
+```bash
+# Clone the repository
+git clone https://github.com/ddgiovinazzo/beacon-ai.git
+cd beacon-ai
+
+# Automated setup: creates virtualenv, installs dependencies, and initializes SQLite
+make init
+```
+
+*Manual alternative:*
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+python main.py init-db
+```
+
+### 2. Configure Environment (`.env`)
+
+```bash
+cp .env.example .env
+```
+
+```ini
+# Multi-Provider Model Selection (LiteLLM format)
+LLM_MODEL=gemini/gemini-2.5-flash
+
+# API Credentials (Set corresponding to your chosen LLM_MODEL)
+GEMINI_API_KEY=your_gemini_api_key_here
+# ANTHROPIC_API_KEY=your_claude_api_key_here
+# OPENAI_API_KEY=your_openai_api_key_here
+# OLLAMA_API_BASE=http://localhost:11434
+
+# Transactional Email Alerts (Resend)
+# RESEND_API_KEY=re_123456789
+# NOTIFICATION_EMAIL_TO=contact@ddgiovinazzo.com
+NOTIFICATION_EMAIL_FROM=BeaconAI <alerts@ddgiovinazzo.com>
+
+# Database & Circuit Breaker Limits
+DB_PATH=matches.db
+MAX_LLM_EVALS_PER_RUN=20
+
+# Polite Web Crawler Identity
+USER_AGENT=BeaconAI/1.0 (+https://github.com/beacon-ai; polite-job-crawler)
+REQUEST_TIMEOUT_SECONDS=15
+```
+
+---
+
 ## 💻 CLI Reference
 
-### 1. Run Live Intelligence Scan (with Email Notifications)
+### 1. Run Live Scan with Notifications
+Ingests the target feed, filters candidates, evaluates matches with your LLM, compiles ATS PDFs, and dispatches transactional emails:
 ```bash
 python main.py scan --profile profiles/bookkeeper.json.example --feed "https://hudsonvalley.craigslist.org/search/acc?format=rss" --notify
 ```
 
-### 2. Local Dry-Run (Test Fixtures)
-Test ingestion, Tier 1 gates, and ATS PDF compilation without calling external LLM APIs:
+### 2. Local Dry-Run (Zero Token Cost)
+Tests ingestion, SQLite deduplication, Tier 1 gates, and sandboxed PDF compilation against test fixtures without calling external APIs:
 ```bash
 python main.py scan --profile profiles/bookkeeper.json.example --feed tests/fixtures/sample_jobs.xml --dry-run
 ```
 
-### 3. Test Tier 1 Gate Rules (`test-eval`)
-Instantly evaluate arbitrary job text against your profile constraints:
+### 3. Interactive Gate Testing (`test-eval`)
+Instantly tests Tier 1 deterministic rules and compensation extractors against arbitrary text:
 ```bash
-python main.py test-eval --text "Bookkeeper needed. \$22 - 26/hr. Seated office desk." --profile profiles/bookkeeper.json.example
+python main.py test-eval --text "Bookkeeper needed. \$25 - 30/hr. Full-time seated office role." --profile profiles/bookkeeper.json.example
 ```
 
-### 4. Database Metrics & Match History (`stats`)
+### 4. Database Metrics & Rejection Analytics (`stats`)
+Displays persistent crawl metrics, match averages, and detailed categorical rejection breakdowns:
 ```bash
 python main.py stats
 ```
 
 ---
 
-## ⚙️ Automated GitHub Actions Workflow
+## ⚙️ Headless GitHub Actions Automation
 
-BeaconAI runs autonomously via a headless GitHub Actions workflow ([`.github/workflows/daily_scan.yml`](.github/workflows/daily_scan.yml)):
-* **Schedule Trigger:** Runs daily at `0 12 * * *` (8:00 AM EST) with manual on-demand triggers via `workflow_dispatch`.
-* **Concurrency Protection:** Uses `concurrency: daily-scan-execution` serialization to eliminate parallel SQLite merge hazards.
-* **ATS PDF & Notifications:** Compiles clean PDFs using sandboxed WeasyPrint with Ubuntu system libraries (`libpango-1.0-0 libharfbuzz0b libpangoft2-1.0-0`) and dispatches transactional alerts via Resend.
-* **State Persistence:** Automatically stages, commits, and pushes `matches.db` deduplication state and daily digest artifacts with `[skip ci]`.
+BeaconAI operates as an autonomous background agent via a scheduled GitHub Actions workflow ([`.github/workflows/daily_scan.yml`](.github/workflows/daily_scan.yml)):
+
+* **Cron Schedule:** Executes daily at `0 12 * * *` (8:00 AM EST) with support for on-demand `workflow_dispatch` manual triggers.
+* **Concurrency Lock:** Enforces `concurrency: daily-scan-execution` to prevent overlapping runs and eliminate race conditions on binary SQLite databases.
+* **Automated State Persistence:** Automatically stages, commits, and pushes updated `matches.db` tracking and daily Markdown digests back to GitHub with `[skip ci]`.
+* **Zero Binary Bloat:** Binary PDF resumes are compiled in a local sandbox and excluded from git history via `.gitignore` rules (`artifacts/matches/*.pdf`), keeping the repository lightweight.
 
 ---
 
-## 🧪 Test Suite & QA Verification
+## 🧪 Automated QA Test Suite
 
-BeaconAI includes 40 automated test fixtures verifying deterministic regex parsers, prompt injection boundaries, circuit-breaker states, model-agnostic routing, sandboxed PDF compilation, CRLF header sanitization, scheme whitelisting, tag decomposition, and scan fault tolerance:
+BeaconAI includes **40 automated test fixtures** validating deterministic regex parsers, prompt injection defenses, circuit-breaker states, model-agnostic routing, sandboxed PDF rendering, and transactional email security:
 
 ```bash
-# Run complete test suite
+# Run full automated test suite
 pytest -v
 ```
 
 ```text
-tests/test_evaluator.py::test_hourly_wage_extraction_ranges PASSED          [  2%]
-tests/test_evaluator.py::test_circuit_breaker_deferred_status PASSED       [ 35%]
+============================= test session starts ==============================
+platform darwin -- Python 3.14.7, pytest-9.1.1, pluggy-1.6.0
+rootdir: /Users/daniel/code/beacon-ai
+configfile: pyproject.toml
+testpaths: tests
+plugins: anyio-4.15.1
+collected 40 items
+
+tests/test_evaluator.py::test_extract_compensation_hourly PASSED         [  2%]
+tests/test_evaluator.py::test_extract_compensation_annual PASSED         [  5%]
+tests/test_evaluator.py::test_tier1_rejects_lifting_violation PASSED     [  7%]
+tests/test_evaluator.py::test_tier1_rejects_keyword_physical_restriction PASSED [ 10%]
+tests/test_evaluator.py::test_tier1_rejects_hourly_pay_floor_violation PASSED [ 12%]
+tests/test_evaluator.py::test_tier1_rejects_schedule_conflict PASSED     [ 15%]
+tests/test_evaluator.py::test_tier1_passes_qualified_job PASSED          [ 17%]
+tests/test_evaluator.py::test_tier2_heuristic_matches_aligned_role PASSED [ 20%]
+tests/test_evaluator.py::test_circuit_breaker_caps_evaluations PASSED    [ 22%]
+tests/test_evaluator.py::test_extract_compensation_single_dollar_range PASSED [ 25%]
+tests/test_evaluator.py::test_extract_compensation_salary_shorthand_and_ranges PASSED [ 27%]
+tests/test_evaluator.py::test_idiomatic_ladder_not_rejected PASSED       [ 30%]
+tests/test_evaluator.py::test_physical_ladder_rejected PASSED            [ 32%]
+tests/test_evaluator.py::test_circuit_breaker_sets_deferred_and_eligible_for_rescan PASSED [ 35%]
+tests/test_evaluator.py::test_has_llm_credentials_multi_provider PASSED  [ 37%]
 tests/test_evaluator.py::test_evaluate_tier2_llm_model_agnostic_routing PASSED [ 40%]
+tests/test_evaluator.py::test_generate_tailored_resume_data_model_agnostic PASSED [ 42%]
 tests/test_generator.py::test_blocked_url_fetcher_prevents_ssrf_and_lfi PASSED [ 45%]
+tests/test_generator.py::test_export_markdown_to_pdf_generates_valid_pdf PASSED [ 47%]
+tests/test_generator.py::test_export_markdown_to_pdf_blocks_remote_image_ssrf PASSED [ 50%]
+tests/test_generator.py::test_export_markdown_to_pdf_blocks_local_file_lfi PASSED [ 52%]
 tests/test_generator.py::test_export_markdown_to_pdf_decomposes_inline_dangerous_tags PASSED [ 55%]
 tests/test_generator.py::test_scan_fault_tolerance_on_artifact_error PASSED [ 57%]
-tests/test_ingestion.py::test_case_insensitive_tag_neutralization PASSED   [ 72%]
+tests/test_ingestion.py::test_sanitize_html_strips_scripts_and_styles PASSED [ 60%]
+tests/test_ingestion.py::test_sanitize_html_strips_hidden_elements PASSED [ 62%]
+tests/test_ingestion.py::test_sanitize_html_removes_zero_width_chars PASSED [ 65%]
+tests/test_ingestion.py::test_wrap_untrusted_content_boundaries PASSED   [ 67%]
+tests/test_ingestion.py::test_fetch_feed_parses_sample_xml PASSED        [ 70%]
+tests/test_ingestion.py::test_wrap_untrusted_content_case_and_whitespace_variants PASSED [ 72%]
+tests/test_ingestion.py::test_slug_uniqueness_for_identical_titles PASSED [ 75%]
+tests/test_ingestion.py::test_fetch_feed_enforces_byte_limit PASSED      [ 77%]
+tests/test_notifier.py::test_extract_mailto_from_outreach PASSED         [ 80%]
+tests/test_notifier.py::test_extract_mailto_nonexistent_file PASSED      [ 82%]
+tests/test_notifier.py::test_build_notification_html PASSED              [ 85%]
+tests/test_notifier.py::test_send_match_notification_missing_credentials PASSED [ 87%]
+tests/test_notifier.py::test_send_match_notification_success PASSED      [ 90%]
+tests/test_notifier.py::test_send_match_notification_api_error_handling PASSED [ 92%]
 tests/test_notifier.py::test_send_match_notification_sanitizes_crlf_subject PASSED [ 95%]
 tests/test_notifier.py::test_build_notification_html_sanitizes_dangerous_schemes PASSED [ 97%]
 tests/test_notifier.py::test_settings_validates_email_format PASSED      [100%]
 
-============================== 40 passed in 1.99s ==============================
+======================= 40 passed, 10 warnings in 1.99s ========================
 ```
 
 ---
