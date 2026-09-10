@@ -13,8 +13,14 @@ from rich.table import Table
 from src.config import get_settings
 from src.db import get_recent_matches, get_stats, init_db, is_job_seen, record_job
 from src.evaluator import EvaluationEngine, evaluate_tier1_deterministic
-from src.generator import append_daily_digest, generate_outreach_draft, generate_tailored_resume
+from src.generator import (
+    append_daily_digest,
+    export_markdown_to_pdf,
+    generate_outreach_draft,
+    generate_tailored_resume,
+)
 from src.ingestion import fetch_feed
+from src.notifier import send_match_notification
 from src.schemas import EvaluationStatus, JobPosting, UserProfile
 
 # Configure logging
@@ -91,13 +97,18 @@ def scan(
         False,
         "--dry-run",
         "-d",
-        help="Run without calling live Gemini LLM APIs (deterministic scoring).",
+        help="Run without calling live LLM APIs (deterministic scoring).",
     ),
     limit: Optional[int] = typer.Option(
         None,
         "--limit",
         "-l",
         help="Maximum number of postings to evaluate.",
+    ),
+    notify: bool = typer.Option(
+        False,
+        "--notify/--no-notify",
+        help="Compile ATS PDF resume and dispatch email notifications for matched jobs via Resend.",
     ),
 ):
     """Ingest, deduplicate, filter, evaluate, and generate tailored application artifacts."""
@@ -108,11 +119,13 @@ def scan(
     user_profile = load_profile(profile)
 
     mode_label = "[bold yellow]DRY-RUN (Deterministic Scoring)[/bold yellow]" if dry_run else f"[bold cyan]LIVE (Tier 1 + {settings.llm_model})[/bold cyan]"
+    notify_label = "[bold green]ENABLED (Resend)[/bold green]" if notify else "[dim]DISABLED[/dim]"
     console.print(
         Panel(
             f"Candidate: [bold]{user_profile.name}[/bold] ({user_profile.location})\n"
             f"Feed Source: [blue]{feed}[/blue]\n"
             f"Evaluation Mode: {mode_label}\n"
+            f"Notifications: {notify_label}\n"
             f"Active LLM: [magenta]{settings.llm_model}[/magenta]\n"
             f"Min Pay Floor: [green]${user_profile.constraints.min_hourly_rate:.2f}/hr[/green] | [green]${user_profile.constraints.min_annual_salary or 0:,.0f}/yr[/green]\n"
             f"Circuit Breaker Cap: [magenta]{settings.max_llm_evals_per_run} LLM evals/run[/magenta]",
@@ -173,21 +186,36 @@ def scan(
 
         if result.status == EvaluationStatus.MATCH:
             match_count += 1
-            # Generate Tailored Resume and Outreach Draft
+            # Generate Tailored Resume (Markdown & Sandboxed ATS PDF) and Outreach Draft
             resume_path = generate_tailored_resume(
                 posting, user_profile, result, settings, dry_run=dry_run
             )
+            pdf_path = export_markdown_to_pdf(resume_path)
             outreach_path = generate_outreach_draft(
                 posting, user_profile, result, settings
             )
             generated_matches.append((posting, result, resume_path, outreach_path))
+
+            # Dispatch notification if enabled
+            if notify:
+                sent = send_match_notification(
+                    posting, result, pdf_path, outreach_path, config=settings
+                )
+                if sent:
+                    console.print(
+                        f"  [bold blue]✉ Email alert dispatched to {settings.notification_email_to}[/bold blue]"
+                    )
+                else:
+                    console.print(
+                        "  [dim yellow]⚠ Email alert skipped (check RESEND_API_KEY and NOTIFICATION_EMAIL_TO)[/dim yellow]"
+                    )
 
             results_table.add_row(
                 "[bold green]MATCH[/bold green]",
                 f"T{result.tier_evaluated}",
                 f"[bold green]{result.fit_score}[/bold green]",
                 posting.title[:32],
-                f"[green]Matched[/green] -> Resume: [underline]{resume_path.name}[/underline]",
+                f"[green]Matched[/green] -> [underline]{pdf_path.name}[/underline]",
             )
         elif result.status == EvaluationStatus.DEFERRED:
             deferred_count += 1

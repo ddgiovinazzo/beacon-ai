@@ -35,6 +35,11 @@ class Settings(BaseSettings):
     user_agent: str = "BeaconAI/1.0 (+https://github.com/beacon-ai; polite-job-crawler)"
     request_timeout_seconds: int = 15
 
+    # Outbound Notifications (Resend)
+    resend_api_key: Optional[str] = None
+    notification_email_to: Optional[str] = None
+    notification_email_from: str = "BeaconAI <alerts@ddgiovinazzo.com>"
+
     # Artifact output directories
     artifacts_dir: Path = Path("artifacts")
     matches_dir: Path = Path("artifacts/matches")

@@ -18,7 +18,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-F59E0B?style=for-the-badge&logo=opensourceinitiative&logoColor=white)](LICENSE)
 [![Pydantic V2](https://img.shields.io/badge/Schema-Pydantic%20V2-E92063?style=for-the-badge&logo=pydantic&logoColor=white)](https://docs.pydantic.dev/)
 [![Model Agnostic](https://img.shields.io/badge/LLM-Agnostic%20(LiteLLM)-6366F1?style=for-the-badge&logo=openai&logoColor=white)](https://docs.litellm.ai/)
-[![Tests: Pytest 25/25](https://img.shields.io/badge/Tests-25%2F25%20Passing-10B981?style=for-the-badge&logo=pytest&logoColor=white)](tests/)
+[![Tests: Pytest 35/35](https://img.shields.io/badge/Tests-35%2F35%20Passing-10B981?style=for-the-badge&logo=pytest&logoColor=white)](tests/)
 
 [Quick Start](#-quick-start) • [System Architecture](#-system-architecture) • [Security & Cost Shield](#-security--cost-shield) • [Why This Exists](#-the-human-origin-why-i-built-this) • [CLI Reference](#-cli-reference)
 
@@ -33,8 +33,8 @@
 ```
        UNSTRUCTURED FEEDS               DETERMINISTIC GATES               GENERATED ARTIFACTS
  ┌─────────────────────────────┐    ┌─────────────────────────┐    ┌───────────────────────────────┐
- │ • Craigslist RSS            │    │ [Tier 1] Cost Shield    │    │ 📄 Tailored Markdown Resume   │
- │ • Municipal & County Boards │ ──>│ [Tier 2] Multi-LLM Scorer│ ──>│ ✉️  Draft Outreach / Mailto   │
+ │ • Craigslist RSS            │    │ [Tier 1] Cost Shield    │    │ 📄 Sandboxed ATS PDF Resume   │
+ │ • Municipal & County Boards │ ──>│ [Tier 2] Multi-LLM Scorer│ ──>│ ✉️  Resend Email Alert + Mailto│
  │ • Public Sector Feeds       │    │ SQLite Deduplication    │    │ 📊 Local Daily Markdown Digest│
  └─────────────────────────────┘    └─────────────────────────┘    └───────────────────────────────┘
 ```
@@ -92,11 +92,16 @@ flowchart TD
         L --> M["Pydantic JSON Schema Validation"]
     end
 
-    subgraph S4["4. ARTIFACT GENERATION"]
+    subgraph S4["4. ARTIFACT & ALERT DISPATCH"]
         M -- "Fit Score < Threshold" --> N["Save as Low Fit"]
         M -- "Status: MATCH" --> O["Jinja2 Markdown Resume Synthesis"]
         O --> P["📄 artifacts/matches/*_resume.md"]
         O --> Q["✉️ artifacts/matches/*_outreach.txt"]
+        P --> S["🖨️ Sandboxed ATS PDF Engine (WeasyPrint)"]
+        S --> T["📄 artifacts/matches/*_resume.pdf"]
+        T --> U{"--notify Flag"}
+        U -- "Enabled" --> V["📬 Transactional Resend Email Alert<br/><i>(HTML Summary + Attached PDF)</i>"]
+        U -- "Disabled" --> W["⏭️ Local-Only Artifacts"]
         O --> R["📅 artifacts/daily_digest_YYYY-MM-DD.md"]
     end
 
@@ -114,9 +119,10 @@ flowchart TD
 | :--- | :--- | :--- |
 | **Tier 1 Cost Shield** | Python Regex & String Tokens | Rejects unqualified roles **before** triggering LLM tokens ($0 API spend). |
 | **Prompt Injection** | Delimiter Neutralization | Regex escaping for `</untrusted_job_posting>` + strict XML isolation. |
+| **Sandboxed PDF Engine** | `blocked_url_fetcher` (Zero-Trust) | Raises `PermissionError` on all network and file URIs, preventing SSRF and LFI attacks. |
 | **Circuit Breaker** | `MAX_LLM_EVALS_PER_RUN=20` | Prevents Denial of Wallet (DoW). Throttled jobs are saved as `DEFERRED` for future scans. |
 | **Persistence Safety** | SQLite Parameterized Queries | 100% parameterized queries (`?`) with composite indexing on `(url, status)`. |
-| **Human-in-the-Loop** | Local Artifact Synthesis | Pre-fills `mailto:` drafts and Markdown resumes; never auto-submits applications. |
+| **Human-in-the-Loop** | Local Artifact Synthesis & Resend | Pre-fills `mailto:` drafts and sends email alerts; never auto-submits applications. |
 
 ---
 
@@ -167,6 +173,11 @@ MAX_LLM_EVALS_PER_RUN=20
 # Polite Crawler Identity
 USER_AGENT=BeaconAI/1.0 (+https://github.com/beacon-ai; polite-job-crawler)
 REQUEST_TIMEOUT_SECONDS=15
+
+# Resend Transactional Email Alerts
+# RESEND_API_KEY=re_123456789
+# NOTIFICATION_EMAIL_TO=you@example.com
+NOTIFICATION_EMAIL_FROM=BeaconAI <alerts@ddgiovinazzo.com>
 ```
 
 ---
@@ -237,13 +248,13 @@ cp profiles/bookkeeper.json.example profiles/bookkeeper.json
 
 ## 💻 CLI Reference
 
-### 1. Run Live Intelligence Scan
+### 1. Run Live Intelligence Scan (with Email Notifications)
 ```bash
-python main.py scan --profile profiles/bookkeeper.json.example --feed "https://hudsonvalley.craigslist.org/search/acc?format=rss"
+python main.py scan --profile profiles/bookkeeper.json.example --feed "https://hudsonvalley.craigslist.org/search/acc?format=rss" --notify
 ```
 
 ### 2. Local Dry-Run (Test Fixtures)
-Test ingestion and Tier 1 gates without calling external LLM APIs:
+Test ingestion, Tier 1 gates, and ATS PDF compilation without calling external LLM APIs:
 ```bash
 python main.py scan --profile profiles/bookkeeper.json.example --feed tests/fixtures/sample_jobs.xml --dry-run
 ```
@@ -261,9 +272,18 @@ python main.py stats
 
 ---
 
+## ⚙️ Automated GitHub Actions Workflow
+
+BeaconAI runs autonomously via a headless GitHub Actions workflow ([`.github/workflows/daily_scan.yml`](.github/workflows/daily_scan.yml)):
+* **Schedule Trigger:** Runs daily at `0 12 * * *` (8:00 AM EST) with manual on-demand triggers via `workflow_dispatch`.
+* **ATS PDF & Notifications:** Compiles clean PDFs using sandboxed WeasyPrint with Ubuntu system libraries (`libpango-1.0-0 libharfbuzz0b libpangoft2-1.0-0`) and dispatches transactional alerts via Resend.
+* **State Persistence:** Automatically stages, commits, and pushes `matches.db` deduplication state and daily digest artifacts with `[skip ci]`.
+
+---
+
 ## 🧪 Test Suite & QA Verification
 
-BeaconAI includes 25 automated test fixtures verifying deterministic regex parsers, prompt injection boundaries, circuit-breaker states, and multi-provider LLM routing:
+BeaconAI includes 35 automated test fixtures verifying deterministic regex parsers, prompt injection boundaries, circuit-breaker states, model-agnostic routing, sandboxed PDF compilation, and Resend email alerts:
 
 ```bash
 # Run complete test suite
@@ -271,15 +291,19 @@ pytest -v
 ```
 
 ```text
-tests/test_evaluator.py::test_hourly_wage_extraction_ranges PASSED          [ 16%]
-tests/test_evaluator.py::test_salary_to_hourly_conversion PASSED            [ 32%]
-tests/test_evaluator.py::test_corporate_idiom_whitelisting PASSED          [ 48%]
-tests/test_evaluator.py::test_circuit_breaker_deferred_status PASSED       [ 64%]
-tests/test_evaluator.py::test_evaluate_tier2_llm_model_agnostic_routing PASSED [ 80%]
-tests/test_ingestion.py::test_case_insensitive_tag_neutralization PASSED   [ 92%]
-tests/test_ingestion.py::test_slug_uniqueness_for_identical_titles PASSED   [100%]
+tests/test_evaluator.py::test_hourly_wage_extraction_ranges PASSED          [  2%]
+tests/test_evaluator.py::test_circuit_breaker_deferred_status PASSED       [ 40%]
+tests/test_evaluator.py::test_evaluate_tier2_llm_model_agnostic_routing PASSED [ 45%]
+tests/test_generator.py::test_blocked_url_fetcher_prevents_ssrf_and_lfi PASSED [ 51%]
+tests/test_generator.py::test_export_markdown_to_pdf_generates_valid_pdf PASSED [ 54%]
+tests/test_generator.py::test_export_markdown_to_pdf_blocks_remote_image_ssrf PASSED [ 57%]
+tests/test_generator.py::test_export_markdown_to_pdf_blocks_local_file_lfi PASSED [ 60%]
+tests/test_ingestion.py::test_case_insensitive_tag_neutralization PASSED   [ 77%]
+tests/test_notifier.py::test_build_notification_html PASSED              [ 91%]
+tests/test_notifier.py::test_send_match_notification_success PASSED      [ 97%]
+tests/test_notifier.py::test_send_match_notification_api_error_handling PASSED [100%]
 
-============================== 25 passed in 1.80s ==============================
+============================== 35 passed in 2.36s ==============================
 ```
 
 ---

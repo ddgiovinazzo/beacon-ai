@@ -276,3 +276,120 @@ def append_daily_digest(
     logger.info(f"Updated daily digest: {digest_path}")
     return digest_path
 
+
+def blocked_url_fetcher(url: str, *args, **kwargs):
+    """Strict URL fetcher that rejects all external and local URI resolution to prevent SSRF and LFI."""
+    raise PermissionError(
+        f"URL fetching is strictly forbidden in sandboxed PDF generation: {url}"
+    )
+
+blocked_url_fetcher._fail_on_errors = True
+
+
+def export_markdown_to_pdf(
+    markdown_path: Path,
+    output_pdf_path: Optional[Path] = None,
+) -> Path:
+    """Compile a Markdown resume artifact into a sandboxed ATS-compliant PDF."""
+    if not markdown_path.exists():
+        raise FileNotFoundError(f"Markdown file not found: {markdown_path}")
+
+    if output_pdf_path is None:
+        output_pdf_path = markdown_path.with_suffix(".pdf")
+
+    output_pdf_path.parent.mkdir(parents=True, exist_ok=True)
+
+    md_content = markdown_path.read_text(encoding="utf-8")
+
+    import markdown
+    import weasyprint
+
+    # Parse Markdown into HTML
+    html_body = markdown.markdown(
+        md_content,
+        extensions=["extra", "sane_lists"],
+    )
+
+    full_html = f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Resume</title>
+<style>
+@page {{
+  size: letter;
+  margin: 0.6in;
+}}
+body {{
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  font-size: 9.5pt;
+  line-height: 1.35;
+  color: #111111;
+  margin: 0;
+  padding: 0;
+}}
+h1 {{
+  font-size: 16pt;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin: 0 0 2px 0;
+  color: #111111;
+  border-bottom: 2px solid #111111;
+  padding-bottom: 4px;
+}}
+h2 {{
+  font-size: 11pt;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  border-bottom: 1px solid #333333;
+  padding-bottom: 2px;
+  margin-top: 10px;
+  margin-bottom: 4px;
+  color: #111111;
+}}
+h3 {{
+  font-size: 10pt;
+  margin-top: 6px;
+  margin-bottom: 2px;
+  color: #222222;
+}}
+p {{
+  margin: 0 0 4px 0;
+}}
+ul {{
+  margin: 2px 0 6px 0;
+  padding-left: 18px;
+}}
+li {{
+  margin-bottom: 2px;
+}}
+hr {{
+  display: none;
+}}
+a {{
+  color: #111111;
+  text-decoration: none;
+}}
+strong {{
+  color: #000000;
+}}
+</style>
+</head>
+<body>
+{html_body}
+</body>
+</html>
+"""
+
+    try:
+        doc = weasyprint.HTML(string=full_html, url_fetcher=blocked_url_fetcher)
+        doc.write_pdf(target=str(output_pdf_path))
+    except BaseException as e:
+        if isinstance(e, PermissionError) or (e.__cause__ and isinstance(e.__cause__, PermissionError)):
+            raise PermissionError(f"Sandboxed PDF engine blocked unauthorized URL access: {e}") from e
+        raise
+
+    logger.info(f"Generated sandboxed ATS PDF: {output_pdf_path}")
+    return output_pdf_path
+
+

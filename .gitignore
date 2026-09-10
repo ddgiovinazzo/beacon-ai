@@ -4,11 +4,11 @@
 
 # SQLite Databases
 *.db
+!matches.db
 *.sqlite3
 
-# Artifacts / Matches
-artifacts/matches/
-artifacts/daily_digest_*.md
+# Artifacts (ignore compiled binary PDFs, track markdown digests/outreach)
+artifacts/matches/*.pdf
 
 # Virtual Environment
 .venv/
