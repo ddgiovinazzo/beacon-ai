@@ -18,7 +18,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-F59E0B?style=for-the-badge&logo=opensourceinitiative&logoColor=white)](LICENSE)
 [![Pydantic V2](https://img.shields.io/badge/Schema-Pydantic%20V2-E92063?style=for-the-badge&logo=pydantic&logoColor=white)](https://docs.pydantic.dev/)
 [![Model Agnostic](https://img.shields.io/badge/LLM-Agnostic%20(LiteLLM)-6366F1?style=for-the-badge&logo=openai&logoColor=white)](https://docs.litellm.ai/)
-[![Tests: Pytest 22/22](https://img.shields.io/badge/Tests-22%2F22%20Passing-10B981?style=for-the-badge&logo=pytest&logoColor=white)](tests/)
+[![Tests: Pytest 25/25](https://img.shields.io/badge/Tests-25%2F25%20Passing-10B981?style=for-the-badge&logo=pytest&logoColor=white)](tests/)
 
 [Quick Start](#-quick-start) • [System Architecture](#-system-architecture) • [Security & Cost Shield](#-security--cost-shield) • [Why This Exists](#-the-human-origin-why-i-built-this) • [CLI Reference](#-cli-reference)
 
@@ -126,7 +126,7 @@ flowchart TD
 
 ```bash
 # Clone repository
-git clone [https://github.com/ddgiovinazzo/beacon-ai.git](https://github.com/ddgiovinazzo/beacon-ai.git)
+git clone https://github.com/ddgiovinazzo/beacon-ai.git
 cd beacon-ai
 
 # Initialize virtual environment, install dependencies, and setup DB
@@ -156,6 +156,7 @@ LLM_MODEL=gemini/gemini-2.5-flash
 GEMINI_API_KEY=your_gemini_key_here
 # ANTHROPIC_API_KEY=your_claude_key_here
 # OPENAI_API_KEY=your_openai_key_here
+# OLLAMA_API_BASE=http://localhost:11434
 
 # Database path
 DB_PATH=matches.db
@@ -164,7 +165,7 @@ DB_PATH=matches.db
 MAX_LLM_EVALS_PER_RUN=20
 
 # Polite Crawler Identity
-USER_AGENT=BeaconAI/1.0 (+[https://github.com/beacon-ai](https://github.com/beacon-ai); polite-job-crawler)
+USER_AGENT=BeaconAI/1.0 (+https://github.com/beacon-ai; polite-job-crawler)
 REQUEST_TIMEOUT_SECONDS=15
 ```
 
@@ -172,18 +173,22 @@ REQUEST_TIMEOUT_SECONDS=15
 
 ## 📋 Declarative Profile Configuration
 
-BeaconAI completely decouples user preferences from execution logic. Customize your constraints in `profiles/your_profile.json`:
+BeaconAI completely decouples user preferences from execution logic. Customize your profile in `profiles/your_profile.json` (or copy one of the provided templates):
+
+```bash
+cp profiles/bookkeeper.json.example profiles/bookkeeper.json
+```
 
 ```json
 {
-  "user": {
-    "name": "Daniel Giovinazzo",
-    "location": "New York, NY",
-    "email": "contact@ddgiovinazzo.com",
-    "phone": "555-019-2834"
-  },
+  "name": "Daniel Giovinazzo",
+  "email": "contact@ddgiovinazzo.com",
+  "phone": "555-019-2834",
+  "location": "New York, NY",
+  "linkedin_url": "https://linkedin.com/in/ddgiovinazzo",
   "constraints": {
     "min_hourly_rate": 20.0,
+    "min_annual_salary": 45000.0,
     "max_commute_miles": 15,
     "physical_restrictions": [
       "heavy lifting > 25 lbs",
@@ -195,16 +200,36 @@ BeaconAI completely decouples user preferences from execution logic. Customize y
       "graveyard shift"
     ]
   },
-  "master_experience": [
-    {
-      "company": "PowerSchool",
-      "title": "Software Engineer (K-12 Systems)",
-      "bullets": [
-        "Maintained modular data ingestion workflows for K-12 systems, protecting database integrity.",
-        "Serialized legacy client web views into modern JSON payloads for 1,000,000 active users."
-      ]
-    }
-  ]
+  "master_experience": {
+    "target_titles": [
+      "Software Engineer",
+      "Systems Engineer",
+      "Full Stack Developer"
+    ],
+    "roles": [
+      {
+        "title": "Software Engineer (K-12 Systems)",
+        "organization": "PowerSchool",
+        "location": "Remote / Folsom, CA",
+        "start_date": "Jan 2021",
+        "end_date": "Present",
+        "bullets": [
+          "Maintained modular data ingestion workflows for K-12 systems, protecting database integrity.",
+          "Serialized legacy client web views into modern JSON payloads for 1,000,000 active users."
+        ]
+      }
+    ],
+    "tools_and_technologies": [
+      "Python",
+      "FastAPI",
+      "SQLite",
+      "Docker",
+      "Git"
+    ],
+    "education": [
+      "B.S. in Computer Science"
+    ]
+  }
 }
 ```
 
@@ -214,19 +239,19 @@ BeaconAI completely decouples user preferences from execution logic. Customize y
 
 ### 1. Run Live Intelligence Scan
 ```bash
-python main.py scan --profile profiles/bookkeeper.json --feed "[https://hudsonvalley.craigslist.org/search/acc?format=rss](https://hudsonvalley.craigslist.org/search/acc?format=rss)"
+python main.py scan --profile profiles/bookkeeper.json.example --feed "https://hudsonvalley.craigslist.org/search/acc?format=rss"
 ```
 
 ### 2. Local Dry-Run (Test Fixtures)
 Test ingestion and Tier 1 gates without calling external LLM APIs:
 ```bash
-python main.py scan --profile profiles/bookkeeper.json --feed tests/fixtures/sample_jobs.xml --dry-run
+python main.py scan --profile profiles/bookkeeper.json.example --feed tests/fixtures/sample_jobs.xml --dry-run
 ```
 
 ### 3. Test Tier 1 Gate Rules (`test-eval`)
 Instantly evaluate arbitrary job text against your profile constraints:
 ```bash
-python main.py test-eval --text "Bookkeeper needed. \$22 - 26/hr. Seated office desk." --profile profiles/bookkeeper.json
+python main.py test-eval --text "Bookkeeper needed. \$22 - 26/hr. Seated office desk." --profile profiles/bookkeeper.json.example
 ```
 
 ### 4. Database Metrics & Match History (`stats`)
@@ -238,7 +263,7 @@ python main.py stats
 
 ## 🧪 Test Suite & QA Verification
 
-BeaconAI includes 22 automated test fixtures verifying deterministic regex parsers, prompt injection boundaries, and circuit-breaker states:
+BeaconAI includes 25 automated test fixtures verifying deterministic regex parsers, prompt injection boundaries, circuit-breaker states, and multi-provider LLM routing:
 
 ```bash
 # Run complete test suite
@@ -246,14 +271,15 @@ pytest -v
 ```
 
 ```text
-tests/test_evaluator.py::test_hourly_wage_extraction_ranges PASSED          [ 18%]
-tests/test_evaluator.py::test_salary_to_hourly_conversion PASSED            [ 36%]
-tests/test_evaluator.py::test_corporate_idiom_whitelisting PASSED          [ 54%]
-tests/test_evaluator.py::test_circuit_breaker_deferred_status PASSED       [ 72%]
-tests/test_ingestion.py::test_case_insensitive_tag_neutralization PASSED   [ 90%]
-tests/test_ingestion.py::test_slug_collision_hash_uniqueness PASSED        [100%]
+tests/test_evaluator.py::test_hourly_wage_extraction_ranges PASSED          [ 16%]
+tests/test_evaluator.py::test_salary_to_hourly_conversion PASSED            [ 32%]
+tests/test_evaluator.py::test_corporate_idiom_whitelisting PASSED          [ 48%]
+tests/test_evaluator.py::test_circuit_breaker_deferred_status PASSED       [ 64%]
+tests/test_evaluator.py::test_evaluate_tier2_llm_model_agnostic_routing PASSED [ 80%]
+tests/test_ingestion.py::test_case_insensitive_tag_neutralization PASSED   [ 92%]
+tests/test_ingestion.py::test_slug_uniqueness_for_identical_titles PASSED   [100%]
 
-============================== 22 passed in 0.42s ==============================
+============================== 25 passed in 1.80s ==============================
 ```
 
 ---
