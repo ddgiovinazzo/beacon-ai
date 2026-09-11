@@ -205,10 +205,33 @@ def scan(
     total_deferred_count = 0
     all_generated_matches = []
 
-    # Build sequence of ingestion sources (RSS + IMAP)
-    scan_sources = [("rss", f) for f in target_feeds]
-    if email_enabled:
-        scan_sources.append(("imap", f"{settings.imap_mailbox} ({settings.imap_server})"))
+    # Build sequence of ingestion sources (RSS + IMAP) according to configured priority/order
+    rss_sources = [("rss", f) for f in target_feeds]
+    email_sources = [("imap", f"{settings.imap_mailbox} ({settings.imap_server})")] if email_enabled else []
+
+    if settings.scan_source_order:
+        order_tokens = [t.strip().lower() for t in settings.scan_source_order.split(",") if t.strip()]
+        scan_sources = []
+        for token in order_tokens:
+            if token in ("email", "imap", "mail"):
+                scan_sources.extend(email_sources)
+            elif token in ("rss", "feed", "feeds"):
+                scan_sources.extend(rss_sources)
+        for s in email_sources:
+            if s not in scan_sources:
+                scan_sources.append(s)
+        for s in rss_sources:
+            if s not in scan_sources:
+                scan_sources.append(s)
+    else:
+        grouped_sources = [
+            (settings.email_priority, email_sources),
+            (settings.rss_priority, rss_sources),
+        ]
+        grouped_sources.sort(key=lambda x: x[0])
+        scan_sources = []
+        for _, group in grouped_sources:
+            scan_sources.extend(group)
 
     for source_type, source_id in scan_sources:
         all_imap_msg_ids = set()
@@ -261,7 +284,12 @@ def scan(
             result = engine.evaluate(posting, user_profile)
 
             # Enforce sequential delay between live LLM evaluations to stay strictly within 5-15 RPM quotas
-            if not dry_run and result.tier_evaluated == 2 and settings.llm_rate_limit_delay > 0:
+            if (
+                not dry_run
+                and result.tier_evaluated == 2
+                and result.status != EvaluationStatus.DEFERRED
+                and settings.llm_rate_limit_delay > 0
+            ):
                 time.sleep(settings.llm_rate_limit_delay)
 
             if result.status == EvaluationStatus.MATCH:

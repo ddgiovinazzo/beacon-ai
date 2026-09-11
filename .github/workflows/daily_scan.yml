@@ -74,6 +74,9 @@ jobs:
           IMAP_SEARCH_CRITERIA: ${{ vars.IMAP_SEARCH_CRITERIA || 'UNSEEN' }}
           IMAP_MARK_SEEN: ${{ vars.IMAP_MARK_SEEN || 'true' }}
           IMAP_ALLOWED_SENDERS: ${{ vars.IMAP_ALLOWED_SENDERS || secrets.IMAP_ALLOWED_SENDERS }}
+          EMAIL_PRIORITY: ${{ vars.EMAIL_PRIORITY || '1' }}
+          RSS_PRIORITY: ${{ vars.RSS_PRIORITY || vars.FEEDS_PRIORITY || '2' }}
+          SCAN_SOURCE_ORDER: ${{ vars.SCAN_SOURCE_ORDER }}
         run: |
           FEED_ARGS=()
           while IFS= read -r feed || [ -n "$feed" ]; do

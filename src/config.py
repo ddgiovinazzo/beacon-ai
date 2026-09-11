@@ -42,6 +42,9 @@ class Settings(BaseSettings):
     http_user_agent: str = HTTP_USER_AGENT
     request_timeout_seconds: int = 15
     target_feed_urls: Optional[str] = None
+    email_priority: int = 1
+    rss_priority: int = 2
+    scan_source_order: Optional[str] = None
 
     # Rate Limiting & Throttling
     llm_rate_limit_delay: float = LLM_RATE_LIMIT_DELAY
