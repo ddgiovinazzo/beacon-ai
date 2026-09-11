@@ -193,6 +193,8 @@ class JobPosting(BaseModel):
     published: Optional[str] = Field(default=None, description="Publication timestamp string.")
     raw_text: str = Field(..., description="Plain-text sanitized body enclosed in XML guard boundaries.")
     source: str = Field(..., description="Source feed identifier or domain.")
+    contact_email: Optional[str] = Field(default=None, description="Optional direct employer contact email.")
+    description: Optional[str] = Field(default=None, description="Optional job description body.")
 
 
 class EvaluationResult(BaseModel):

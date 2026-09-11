@@ -19,7 +19,7 @@
 [![Schema: Pydantic V2](https://img.shields.io/badge/Schema-Pydantic%20V2-E92063?style=for-the-badge&logo=pydantic&logoColor=white)](https://docs.pydantic.dev/)
 [![Model Agnostic: LiteLLM](https://img.shields.io/badge/LLM-Agnostic%20(LiteLLM)-6366F1?style=for-the-badge&logo=openai&logoColor=white)](https://docs.litellm.ai/)
 [![PDF Engine: Sandboxed WeasyPrint](https://img.shields.io/badge/PDF-Sandboxed%20WeasyPrint-0284C7?style=for-the-badge&logo=adobeacrobatreader&logoColor=white)](https://weasyprint.org/)
-[![Tests: Pytest 47/47 Passing](https://img.shields.io/badge/Tests-47%2F47%20Passing-10B981?style=for-the-badge&logo=pytest&logoColor=white)](tests/)
+[![Tests: Pytest 51/51 Passing](https://img.shields.io/badge/Tests-51%2F51%20Passing-10B981?style=for-the-badge&logo=pytest&logoColor=white)](tests/)
 [![CI/CD: Zero-Storage GitHub Actions](https://img.shields.io/badge/CI%2FCD-Zero--Storage%20Actions-2088FF?style=for-the-badge&logo=githubactions&logoColor=white)](.github/workflows/daily_scan.yml)
 
 [Executive Overview](#-executive-overview) • [System Architecture](#-system-architecture) • [Security & Cost Shield](#-security--cost-shield) • [Model Agnostic Layer](#-zero-vendor-lock-in-model-matrix) • [Declarative Profile Configuration](#-declarative-profile-configuration) • [Quick Start](#-quick-start) • [CLI Reference](#-cli-reference) • [CI/CD Runner](#-zero-storage-github-actions-automation) • [Author & Contact](#-author--contact)
@@ -393,17 +393,21 @@ tests/test_ingestion.py::test_fetch_feed_parses_sample_xml PASSED        [ 74%]
 tests/test_ingestion.py::test_wrap_untrusted_content_case_and_whitespace_variants PASSED [ 76%]
 tests/test_ingestion.py::test_slug_uniqueness_for_identical_titles PASSED [ 78%]
 tests/test_ingestion.py::test_fetch_feed_enforces_byte_limit PASSED      [ 80%]
-tests/test_notifier.py::test_extract_mailto_from_outreach PASSED         [ 82%]
-tests/test_notifier.py::test_extract_mailto_nonexistent_file PASSED      [ 85%]
-tests/test_notifier.py::test_build_notification_html PASSED              [ 87%]
-tests/test_notifier.py::test_send_match_notification_missing_credentials PASSED [ 89%]
-tests/test_notifier.py::test_send_match_notification_success PASSED      [ 91%]
-tests/test_notifier.py::test_send_match_notification_api_error_handling PASSED [ 93%]
-tests/test_notifier.py::test_send_match_notification_sanitizes_crlf_subject PASSED [ 95%]
-tests/test_notifier.py::test_build_notification_html_sanitizes_dangerous_schemes PASSED [ 97%]
+tests/test_notifier.py::test_extract_mailto_from_outreach PASSED         [ 76%]
+tests/test_notifier.py::test_extract_mailto_nonexistent_file PASSED      [ 78%]
+tests/test_notifier.py::test_build_notification_html PASSED              [ 80%]
+tests/test_notifier.py::test_email_alignment_renders_table_container PASSED [ 82%]
+tests/test_notifier.py::test_button_routing_direct_email PASSED          [ 84%]
+tests/test_notifier.py::test_button_routing_no_email_portal PASSED       [ 86%]
+tests/test_notifier.py::test_extract_target_email_from_description_and_raw_text PASSED [ 88%]
+tests/test_notifier.py::test_send_match_notification_missing_credentials PASSED [ 90%]
+tests/test_notifier.py::test_send_match_notification_success PASSED      [ 92%]
+tests/test_notifier.py::test_send_match_notification_api_error_handling PASSED [ 94%]
+tests/test_notifier.py::test_send_match_notification_sanitizes_crlf_subject PASSED [ 96%]
+tests/test_notifier.py::test_build_notification_html_sanitizes_dangerous_schemes PASSED [ 98%]
 tests/test_notifier.py::test_settings_validates_email_format PASSED      [100%]
 
-======================= 47 passed, 30 warnings in 2.69s ========================
+======================= 51 passed, 30 warnings in 2.68s ========================
 ```
 
 ---

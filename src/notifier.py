@@ -2,10 +2,12 @@
 
 import html
 import logging
-import re
 from pathlib import Path
+import re
 from typing import Optional
+import urllib.parse
 
+from jinja2 import Environment, FileSystemLoader, select_autoescape
 import resend
 
 from src.config import Settings, get_settings
@@ -22,6 +24,27 @@ def sanitize_link(url: str) -> str:
     return "#"
 
 
+def extract_target_email(job: JobPosting) -> Optional[str]:
+    """
+    Extract contact email from job metadata or via regex in description/raw_text.
+    Checks job.contact_email, job.description, and job.raw_text.
+    """
+    contact = getattr(job, "contact_email", None)
+    if contact and isinstance(contact, str) and "@" in contact:
+        clean = contact.strip()
+        if re.match(r"^[^@\s]+@[^@\s]+\.[^@\s]+$", clean):
+            return clean
+
+    text = getattr(job, "description", None) or getattr(job, "raw_text", "")
+    if text:
+        matches = re.findall(r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b", text)
+        for m in matches:
+            if not m.lower().endswith((".png", ".jpg", ".jpeg", ".gif", ".svg", ".webp")):
+                return m
+
+    return None
+
+
 def extract_mailto_from_outreach(outreach_path: Path) -> Optional[str]:
     """Extract one-click mailto: link from generated outreach text file if present."""
     if not outreach_path.exists():
@@ -36,98 +59,93 @@ def extract_mailto_from_outreach(outreach_path: Path) -> Optional[str]:
     return None
 
 
+def extract_draft_body_from_outreach(outreach_path: Path) -> Optional[str]:
+    """Extract the email draft body from the outreach text file if present."""
+    if not outreach_path.exists():
+        return None
+    try:
+        content = outreach_path.read_text(encoding="utf-8")
+        match = re.search(r"BODY:\s*\n(.*?)(?:\n-{3,}|\n={3,}|\nONE-CLICK|\Z)", content, re.DOTALL)
+        if match:
+            return match.group(1).strip()
+        mailto_match = re.search(r"mailto:[^?\s]*\?([^#\s]*)", content)
+        if mailto_match:
+            query = urllib.parse.parse_qs(mailto_match.group(1))
+            if "body" in query and query["body"]:
+                return query["body"][0].strip()
+    except Exception as e:
+        logger.debug(f"Could not extract draft body from {outreach_path}: {e}")
+    return None
+
+
+def get_email_jinja_env(template_dir: Path = Path("templates")) -> Environment:
+    """Initialize and return Jinja2 environment for email alerts."""
+    search_paths = [str(template_dir)]
+    base_dir = Path(__file__).resolve().parent.parent / "templates"
+    if str(base_dir) not in search_paths:
+        search_paths.append(str(base_dir))
+    return Environment(
+        loader=FileSystemLoader(search_paths),
+        autoescape=select_autoescape(["html", "xml", "j2"]),
+        trim_blocks=True,
+        lstrip_blocks=True,
+    )
+
+
 def build_notification_html(
     job: JobPosting,
     result: EvaluationResult,
     mailto_url: Optional[str] = None,
+    target_email: Optional[str] = None,
+    email_draft: Optional[str] = None,
+    template_dir: Path = Path("templates"),
 ) -> str:
-    """Render responsive, ATS-tailored HTML email template for candidate match notification."""
-    safe_title = html.escape(re.sub(r"[\r\n\t]+", " ", job.title).strip())
-    safe_source = html.escape(re.sub(r"[\r\n\t]+", " ", job.source).strip())
-    safe_link = html.escape(sanitize_link(job.link))
-    comp_text = html.escape(result.estimated_compensation or "Not Stated")
+    """
+    Render responsive, ATS-tailored HTML email template for candidate match notification.
+    Passes target_email, posting_url, job_title, match_score, email_draft, and match_highlights
+    to the template renderer.
+    """
+    clean_title = re.sub(r"[\r\n\t]+", " ", job.title).strip()
+    clean_source = re.sub(r"[\r\n\t]+", " ", job.source).strip()
+    safe_posting_url = sanitize_link(job.link)
+    comp_text = result.estimated_compensation or "Not Stated"
+    verdict = result.status.value
 
-    highlights_html = ""
-    if result.match_highlights:
-        items = "".join(f"<li style='margin-bottom: 6px;'>{html.escape(h)}</li>" for h in result.match_highlights)
-        highlights_html = f"""
-        <div style="margin: 16px 0;">
-            <h3 style="font-size: 14px; text-transform: uppercase; color: #475569; margin-bottom: 8px;">Key Match Highlights</h3>
-            <ul style="padding-left: 20px; color: #1e293b; margin: 0;">
-                {items}
-            </ul>
-        </div>
-        """
+    # Determine target email if not explicitly provided
+    if not target_email:
+        target_email = extract_target_email(job)
 
-    mailto_cta_html = ""
-    if mailto_url:
-        safe_mailto = html.escape(mailto_url)
-        mailto_cta_html = f"""
-        <div style="margin: 24px 0 16px 0; text-align: center;">
-            <a href="{safe_mailto}" style="background-color: #2563eb; color: #ffffff; padding: 12px 24px; text-decoration: none; font-weight: 600; border-radius: 6px; display: inline-block;">
-                ✉️ Open Pre-Filled Application Outreach
-            </a>
-        </div>
-        """
+    # If mailto_url was passed and target_email is still None, attempt extraction from mailto_url
+    if not target_email and mailto_url:
+        mailto_match = re.match(r"^mailto:([^?]+)", mailto_url)
+        if mailto_match and mailto_match.group(1).strip():
+            target_email = mailto_match.group(1).strip()
 
-    return f"""<!DOCTYPE html>
-<html>
-<head>
-<meta charset="utf-8">
-<style>
-  body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f8fafc; margin: 0; padding: 20px; }}
-  .card {{ background-color: #ffffff; max-width: 600px; margin: 0 auto; border-radius: 8px; border: 1px solid #e2e8f0; overflow: hidden; }}
-  .header {{ background-color: #0f172a; color: #ffffff; padding: 20px 24px; }}
-  .badge {{ background-color: #10b981; color: #ffffff; padding: 4px 10px; border-radius: 12px; font-weight: bold; font-size: 12px; display: inline-block; }}
-  .body {{ padding: 24px; color: #334155; line-height: 1.5; }}
-  .meta-table {{ width: 100%; border-collapse: collapse; margin: 16px 0; }}
-  .meta-table td {{ padding: 8px 12px; border: 1px solid #f1f5f9; font-size: 14px; }}
-  .meta-label {{ background-color: #f8fafc; font-weight: 600; width: 35%; color: #475569; }}
-  .footer {{ background-color: #f1f5f9; padding: 16px 24px; text-align: center; font-size: 12px; color: #64748b; }}
-</style>
-</head>
-<body>
-<div class="card">
-  <div class="header">
-    <div style="display: flex; justify-content: space-between; align-items: center;">
-      <span style="font-size: 12px; letter-spacing: 1px; text-transform: uppercase; color: #94a3b8;">BeaconAI Job Alert</span>
-      <span class="badge">{result.fit_score}/100 MATCH</span>
-    </div>
-    <h1 style="margin: 12px 0 4px 0; font-size: 20px; color: #ffffff;">{safe_title}</h1>
-    <div style="font-size: 14px; color: #cbd5e1;">Source: {safe_source}</div>
-  </div>
-  <div class="body">
-    <table class="meta-table">
-      <tr>
-        <td class="meta-label">Direct Posting</td>
-        <td><a href="{safe_link}" style="color: #2563eb; text-decoration: none; word-break: break-all;">{safe_link}</a></td>
-      </tr>
-      <tr>
-        <td class="meta-label">Est. Compensation</td>
-        <td><strong>{comp_text}</strong></td>
-      </tr>
-      <tr>
-        <td class="meta-label">Evaluation Verdict</td>
-        <td><span style="color: #10b981; font-weight: 600;">{result.status.value}</span></td>
-      </tr>
-    </table>
+    # Determine email draft if not explicitly provided
+    if not email_draft and mailto_url:
+        parsed = urllib.parse.parse_qs(urllib.parse.urlsplit(mailto_url).query)
+        if "body" in parsed and parsed["body"]:
+            email_draft = parsed["body"][0].strip()
 
-    {highlights_html}
-
-    <p style="font-size: 14px; color: #64748b; margin-top: 16px;">
-      📎 <strong>Attached:</strong> Tailored, single-page ATS-compliant PDF resume generated specifically for this role.
-    </p>
-
-    {mailto_cta_html}
-  </div>
-  <div class="footer">
-    Sent autonomously by <strong>BeaconAI</strong> Job Intelligence Engine.<br>
-    Deterministic Zero-Trust Architecture • All rights reserved.
-  </div>
-</div>
-</body>
-</html>
-"""
+    try:
+        env = get_email_jinja_env(template_dir)
+        template = env.get_template("email_alert.html.j2")
+        return template.render(
+            target_email=target_email,
+            posting_url=safe_posting_url,
+            job_title=clean_title,
+            job_source=clean_source,
+            match_score=result.fit_score,
+            email_draft=email_draft,
+            match_highlights=result.match_highlights,
+            comp_text=comp_text,
+            verdict=verdict,
+            job=job,
+            result=result,
+        )
+    except Exception as e:
+        logger.error(f"Template rendering failed for email alert: {e}", exc_info=True)
+        raise
 
 
 def send_match_notification(
@@ -155,7 +173,16 @@ def send_match_notification(
     resend.api_key = config.resend_api_key
 
     mailto_url = extract_mailto_from_outreach(outreach_txt_path)
-    html_content = build_notification_html(job, result, mailto_url=mailto_url)
+    email_draft = extract_draft_body_from_outreach(outreach_txt_path)
+    target_email = extract_target_email(job)
+
+    html_content = build_notification_html(
+        job=job,
+        result=result,
+        mailto_url=mailto_url,
+        target_email=target_email,
+        email_draft=email_draft,
+    )
 
     clean_title = re.sub(r"[\r\n\t]+", " ", job.title).strip()
     clean_source = re.sub(r"[\r\n\t]+", " ", job.source).strip()

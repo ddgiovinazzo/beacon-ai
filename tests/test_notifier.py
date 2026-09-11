@@ -62,13 +62,74 @@ def test_build_notification_html(sample_job: JobPosting, sample_result: Evaluati
     html_out = build_notification_html(
         sample_job,
         sample_result,
-        mailto_url="mailto:?subject=Test",
+        target_email="candidate@example.com",
+        email_draft="Draft message",
     )
     assert "Full Charge Bookkeeper" in html_out
     assert "92/100 MATCH" in html_out
     assert "$28 - $32/hr" in html_out
     assert "QuickBooks Online" in html_out
-    assert "mailto:?subject=Test" in html_out
+    assert "mailto:candidate@example.com?subject=Application:%20Full%20Charge%20Bookkeeper&body=Draft%20message" in html_out
+
+
+def test_email_alignment_renders_table_container(
+    sample_job: JobPosting,
+    sample_result: EvaluationResult,
+):
+    """Verify that header label and MATCH pill badge are wrapped in a table with vertical-align: middle."""
+    html_out = build_notification_html(sample_job, sample_result)
+    assert '<table role="presentation"' in html_out
+    assert 'vertical-align: middle;' in html_out
+    assert "BEACONAI JOB ALERT" in html_out
+    assert f"{sample_result.fit_score}/100 MATCH" in html_out
+
+
+def test_button_routing_direct_email(
+    sample_job: JobPosting,
+    sample_result: EvaluationResult,
+):
+    """Case 1: Posting with direct contact email renders a mailto: link with encoded subject and body."""
+    sample_job.contact_email = "contact@company.com"
+    html_out = build_notification_html(
+        sample_job,
+        sample_result,
+        email_draft="Dear Team,\n\nHere is my application.",
+    )
+    assert "mailto:contact@company.com?subject=Application:%20Full%20Charge%20Bookkeeper&body=Dear%20Team%2C%0A%0AHere%20is%20my%20application." in html_out
+    assert "✉ Send Pre-Filled Outreach" in html_out
+
+
+def test_button_routing_no_email_portal(
+    sample_job: JobPosting,
+    sample_result: EvaluationResult,
+):
+    """Case 2: Posting with no contact email renders Open Application Portal link and displays draft text block."""
+    sample_job.contact_email = None
+    sample_job.raw_text = "No email here"
+    draft_text = "Dear Hiring Team,\n\nI am applying for this role."
+    html_out = build_notification_html(
+        sample_job,
+        sample_result,
+        email_draft=draft_text,
+    )
+    assert "Open Application Portal &nearr;" in html_out
+    assert f'href="{sample_job.link}"' in html_out
+    assert "Pre-Generated Pitch Draft" in html_out
+    assert "Dear Hiring Team," in html_out
+    assert "mailto:" not in html_out
+
+
+def test_extract_target_email_from_description_and_raw_text(sample_job: JobPosting):
+    """Verify regex extraction from job.description and job.raw_text when contact_email is empty."""
+    from src.notifier import extract_target_email
+
+    sample_job.contact_email = None
+    sample_job.description = "Inquiries to hiring@startup.io please."
+    assert extract_target_email(sample_job) == "hiring@startup.io"
+
+    sample_job.description = None
+    sample_job.raw_text = "<untrusted_job_posting>Send resume to careers@corp.org</untrusted_job_posting>"
+    assert extract_target_email(sample_job) == "careers@corp.org"
 
 
 def test_send_match_notification_missing_credentials(
