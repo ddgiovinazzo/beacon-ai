@@ -2,8 +2,14 @@ name: Daily Job Intelligence Scan
 
 on:
   schedule:
-    - cron: "0 12 * * *"
+    - cron: "0 13 * * *"
   workflow_dispatch:
+    inputs:
+      force_rescan:
+        description: "Force re-evaluate all active postings (wipe cached matches.db)"
+        required: false
+        type: boolean
+        default: false
 
 concurrency:
   group: daily-scan-execution
@@ -18,6 +24,12 @@ jobs:
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
+
+      - name: Handle Force Rescan (Wipe Deduplication Cache)
+        if: ${{ inputs.force_rescan == true || github.event.inputs.force_rescan == 'true' }}
+        run: |
+          echo "Force rescan requested: wiping matches.db to re-evaluate all active postings."
+          rm -f matches.db
 
       - name: Set up Python 3.11
         uses: actions/setup-python@v5
