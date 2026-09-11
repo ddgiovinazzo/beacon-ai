@@ -356,10 +356,10 @@ def generate_tailored_resume_data(
             "- tailored_summary: Write a concise 2-3 sentence Professional Summary directly mirroring the JD's requested seniority tier and core technical/operational requirements.\n"
             "  * STRICT ANTI-FLUFF RULE: Absolutely NEVER use subjective filler adjectives or empty resume buzzwords like 'Methodical', 'detail-oriented', 'structured professional', 'results-driven', 'proven expertise', 'adept at', 'quiet efficiency', or 'hard-working'.\n"
             "  * NO CANNED SIGN-OFFS: Do NOT conclude with generic boilerplate like 'Prepared to make an immediate impact in this role' or 'seeking to leverage skills'.\n"
-            "  * DIRECT FACTUAL OPENING: Open directly with the target role or specialization (e.g., 'Software Engineer with experience in...', 'Administrative and operations specialist with background in...'). Ground the summary strictly in concrete systems, tools, workflows, datasets, and operational competencies.\n"
+            "  * DIRECT FACTUAL OPENING: Open directly with the target role or specialization (e.g., '[Target Title] with experience in...'). Ground the summary strictly in concrete systems, tools, workflows, domain competencies, and operational scope.\n"
             "  * TACTICAL SENIORITY: Be strategic with stated years of experience: do NOT rigidly state an exact number of years if it might trigger over-qualification or mismatch the JD tier (use phrasing like 'Proven experience' or 'Solid foundation' for lower tiers, and explicitly state years only when directly aligned with the target tier).\n"
             "- target_headline: Set to clean role title matching the JD (without employer name).\n"
-            "- categorized_skills: MANDATORY REQUIREMENT. You must ALWAYS categorize the candidate's skills into 2-4 logical categories with 3-6 skills per category from the provided candidate skills bank. NEVER return an empty dictionary or leave this blank. For non-tech, administrative, accounting, or operations roles, group under relevant categories (e.g. 'Software & Productivity Tools', 'Spreadsheets & Data Verification', 'Systems & Reporting', or 'Core Technical Competencies'). Always include the candidate's transferable technical, software, spreadsheet, and database capabilities.\n"
+            "- categorized_skills: MANDATORY REQUIREMENT. You must ALWAYS organize the candidate's skills from the Context Prompt into 2-4 logical, domain-appropriate categories (with 3-6 skills per category) that best align with the JD requirements. NEVER return an empty dictionary or leave this blank.\n"
             "- tailored_experience: Select 2-3 most relevant roles with 3-4 bullets each following the bold dynamic heading and hard quantification rules.\n"
             "- tailored_projects: If candidate has relevant portfolio or engineering projects, select up to 2 with bullets ending in quantifiable/concrete results; otherwise leave empty."
         )
@@ -392,7 +392,7 @@ CANDIDATE EDUCATION BANK:
 INSTRUCTIONS:
 1. target_headline: Set to "{clean_title}". Do NOT include the employer name.
 2. tailored_summary: Write a punchy 2-3 sentence summary mirroring the JD's requested seniority tier and core requirements. STRICT ANTI-FLUFF: Absolutely NO subjective buzzwords ('Methodical', 'detail-oriented', 'adept at', 'proven expertise', 'quiet efficiency') and NO boilerplate endings ('Prepared to make an immediate impact'). Open directly with the target title and concrete systems/workflows.
-3. categorized_skills: MANDATORY. You must ALWAYS categorize candidate's skills into 2-4 logical categories (e.g. 'Software & Productivity Tools', 'Data & Spreadsheets', 'Systems & Methodologies'). Include transferable technical/data skills for non-tech roles. NEVER leave empty.
+3. categorized_skills: MANDATORY. Organize the candidate's skills from the Context Prompt into 2-4 logical, domain-appropriate categories that align with the JD requirements. NEVER leave empty.
 4. tailored_experience: 2-3 most relevant roles. Format every bullet with bold heading '**[Competency Heading]:** [Grounded verb] ... [Quantifiable result / concrete outcome]'.
 5. tailored_projects: Select relevant projects with quantifiable outcomes if applicable, else empty list.
 6. tailored_education: Education credentials aligned with context.
