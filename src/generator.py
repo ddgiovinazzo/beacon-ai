@@ -387,6 +387,8 @@ INSTRUCTIONS FOR FLASH-LITE (BE PRECISE & DIRECT):
         if not active_model:
             logger.error("No LLM model specified! Set LLM_MODEL environment variable or configure Settings.llm_model.")
             return create_deterministic_tailored_data(posting, profile)
+        # Gemini 3+ models mandate temperature >= 1.0 to prevent degraded reasoning and infinite loops
+        gen_temp = 1.0 if "gemini-3" in active_model else 0.2
         call_kwargs = {
             "model": active_model,
             "response_model": TailoredResumeData,
@@ -394,7 +396,7 @@ INSTRUCTIONS FOR FLASH-LITE (BE PRECISE & DIRECT):
                 {"role": "system", "content": system_instruction},
                 {"role": "user", "content": user_content},
             ],
-            "temperature": 0.2,
+            "temperature": gen_temp,
         }
         if config.llm_api_key:
             call_kwargs["api_key"] = config.llm_api_key

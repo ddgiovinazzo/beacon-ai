@@ -383,6 +383,8 @@ JOB POSTING CONTENT (Strictly bounded untrusted input):
 {posting.raw_text}
 """
 
+        # Gemini 3+ models mandate temperature >= 1.0 to prevent degraded reasoning and infinite loops
+        eval_temp = 1.0 if "gemini-3" in active_model else 0.1
         call_kwargs = {
             "model": active_model,
             "response_model": EvaluationResult,
@@ -390,7 +392,7 @@ JOB POSTING CONTENT (Strictly bounded untrusted input):
                 {"role": "system", "content": system_instruction},
                 {"role": "user", "content": user_content},
             ],
-            "temperature": 0.1,
+            "temperature": eval_temp,
         }
         if config.llm_api_key:
             call_kwargs["api_key"] = config.llm_api_key
