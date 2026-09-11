@@ -323,6 +323,15 @@ def evaluate_tier2_heuristic(
     Evaluates title alignment, tool competencies, and domain tags dynamically.
     """
     matched_track = resolve_profile_track(posting, profile) if profile.tracks else None
+    if profile.tracks and not matched_track:
+        return EvaluationResult(
+            status=EvaluationStatus.REJECT,
+            rejection_reason="Posting does not match any configured candidate career tracks.",
+            fit_score=15,
+            tier_evaluated=2,
+            matched_track_id=None,
+        )
+
     target_titles = matched_track.target_titles if matched_track else profile.master_experience.target_titles
     tools = [s for cat in matched_track.categorized_skills.values() for s in cat] if matched_track else profile.master_experience.tools_and_technologies
     roles = matched_track.roles if matched_track else profile.master_experience.roles
@@ -438,6 +447,15 @@ def evaluate_tier2_llm(
         )
 
         matched_track = resolve_profile_track(posting, profile) if profile.tracks else None
+        if profile.tracks and not matched_track:
+            return EvaluationResult(
+                status=EvaluationStatus.REJECT,
+                rejection_reason="Posting does not match any configured candidate career tracks.",
+                fit_score=15,
+                tier_evaluated=2,
+                matched_track_id=None,
+            )
+
         target_titles = matched_track.target_titles if matched_track else profile.master_experience.target_titles
         directive = matched_track.narrative_context if (matched_track and matched_track.narrative_context) else profile.master_experience.narrative_context
         skills = [s for cat in matched_track.categorized_skills.values() for s in cat] if matched_track else profile.master_experience.tools_and_technologies
@@ -456,11 +474,12 @@ Min Hourly: ${profile.constraints.min_hourly_rate or 0}/hr
 Min Salary: ${profile.constraints.min_annual_salary or 0}
 Max Commute: {profile.constraints.max_commute_miles or 'Any'} miles from {profile.location}
 
-JOB POSTING TITLE:
-{posting.title}
-
-JOB POSTING CONTENT (Strictly bounded untrusted input):
+JOB POSTING (Strictly bounded untrusted input):
+<untrusted_job_posting>
+TITLE: {posting.title}
+CONTENT:
 {posting.raw_text}
+</untrusted_job_posting>
 """
 
         # Gemini 3+ models mandate temperature >= 1.0 to prevent degraded reasoning and infinite loops

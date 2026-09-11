@@ -630,3 +630,25 @@ def test_resolve_profile_track_all_six_tracks():
         source="craigslist.org",
     )
     assert resolve_profile_track(job_unrelated, profile) is None
+
+
+def test_evaluate_tier2_rejects_immediately_when_no_track_matched():
+    """Verify evaluate_tier2_heuristic rejects early without evaluating master context when no track matches."""
+    from src.evaluator import evaluate_tier2_heuristic
+    from src.schemas import EvaluationStatus, JobPosting, UserProfile
+    from pathlib import Path
+
+    profile_path = Path("profiles/daniel_giovinazzo.json")
+    profile = UserProfile.model_validate_json(profile_path.read_text())
+
+    job_unrelated = JobPosting(
+        title="Forklift Operator",
+        link="https://example.com/forklift",
+        raw_text="Warehouse forklift operator needed.",
+        source="craigslist.org",
+    )
+    result = evaluate_tier2_heuristic(job_unrelated, profile)
+    assert result.status == EvaluationStatus.REJECT
+    assert "does not match any configured candidate career tracks" in (result.rejection_reason or "")
+    assert result.fit_score == 15
+

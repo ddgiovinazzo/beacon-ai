@@ -1307,3 +1307,127 @@ def test_select_best_approved_title_always_picks_from_track_bank():
     assert select_best_approved_title(approved, "Full Charge Bookkeeper / Accountant") == "Bookkeeper"
     # Unmatched fallback returns first approved title
     assert select_best_approved_title(approved, "Financial Auditor") in approved
+
+
+def test_sanitize_target_company_rejects_recruitment_announcements():
+    """Verify sanitize_target_company rejects generic recruitment headers."""
+    from src.generator import sanitize_target_company, extract_company_from_title
+
+    assert sanitize_target_company("Now Hiring") is None
+    assert sanitize_target_company("Help Wanted") is None
+    assert sanitize_target_company("Immediate Opening") is None
+    assert sanitize_target_company("Urgently Hiring") is None
+    assert sanitize_target_company("Acme Health Corp") == "Acme Health Corp"
+
+    # From messy title: "Now Hiring: Accounts Payable Clerk"
+    assert extract_company_from_title("Now Hiring: Accounts Payable Clerk") is None
+    assert extract_company_from_title("Stripe: Software Engineer") == "Stripe"
+
+
+def test_build_grounded_email_pitch_uses_track_traits_and_outcomes():
+    """Verify build_grounded_email_pitch adapts middle phrasing strictly from track traits and outcomes."""
+    from src.generator import build_grounded_email_pitch
+    from src.schemas import EvaluationResult, EvaluationStatus, JobPosting, UserProfile
+    from pathlib import Path
+
+    profile_path = Path("profiles/daniel_giovinazzo.json")
+    profile = UserProfile.model_validate_json(profile_path.read_text())
+
+    # 1. Clerical job
+    clerical_job = JobPosting(
+        title="Data Entry Specialist",
+        link="https://example.com/data-clerk",
+        raw_text="Seeking high-accuracy data entry specialist with 10-key touch.",
+        source="craigslist.org",
+    )
+    res_c = EvaluationResult(status=EvaluationStatus.MATCH, fit_score=85, matched_track_id="clerical_data_entry")
+    _, body_c = build_grounded_email_pitch(clerical_job, profile, res_c)
+
+    assert "specializing in verification accuracy to consistently deliver 100% data integrity" in body_c
+
+    # 2. Software Engineering job
+    tech_job = JobPosting(
+        title="Full Stack Engineer",
+        link="https://example.com/swe-app",
+        raw_text="Build scalable backend microservices in Python and modern web applications.",
+        source="craigslist.org",
+    )
+    res_t = EvaluationResult(status=EvaluationStatus.MATCH, fit_score=92, matched_track_id="software_engineering")
+    _, body_t = build_grounded_email_pitch(tech_job, profile, res_t)
+
+    assert "specializing in scalable full-stack architecture to consistently deliver high-performance distributed systems" in body_t
+
+
+def test_sanitize_target_company_rejects_job_board_platforms():
+    """Verify job board platforms like craigslist, indeed, linkedin are rejected as employer names."""
+    from src.generator import sanitize_target_company, extract_company_from_title
+
+    assert sanitize_target_company("craigslist") is None
+    assert sanitize_target_company("Craigslist") is None
+    assert sanitize_target_company("indeed") is None
+    assert sanitize_target_company("LinkedIn") is None
+    assert sanitize_target_company("ziprecruiter") is None
+    assert sanitize_target_company("rss_feed") is None
+
+    # Verify when title has job board prefix: "Craigslist: Data Entry Specialist"
+    assert extract_company_from_title("Craigslist: Data Entry Specialist") is None
+    assert extract_company_from_title("Indeed: Office Assistant") is None
+
+
+def test_generate_tailored_resume_data_grounds_experience_to_track():
+    """Verify that tailored_experience strictly preserves track.roles verified bullets verbatim."""
+    from src.generator import generate_tailored_resume_data
+    from src.schemas import JobPosting, UserProfile, TailoredResumeData, ExperienceRole
+    from src.config import Settings
+    from pathlib import Path
+    from unittest.mock import patch
+
+    profile_path = Path("profiles/daniel_giovinazzo.json")
+    profile = UserProfile.model_validate_json(profile_path.read_text())
+    config = Settings()
+
+    job = JobPosting(
+        title="Data Entry Clerk",
+        link="https://example.com/job",
+        raw_text="Looking for a data entry clerk with 10-key and spreadsheet experience.",
+        source="craigslist",
+    )
+
+    # Mock an LLM response that attempted to hallucinate creative bullet points
+    hallucinated_data = TailoredResumeData(
+        target_headline="Data Entry Specialist",
+        tailored_summary="Data Entry Specialist with proven experience in High-Speed Alphanumeric Data Entry, specializing in verification accuracy. Experienced in structured workflow execution, delivering 100% data integrity.",
+        categorized_skills={"Skills": ["Hallucinated Skill"]},
+        tailored_experience=[
+            ExperienceRole(
+                id="role-1",
+                title="Hallucinated Title",
+                organization="PowerSchool",
+                location="Remote",
+                start_date="June 2022",
+                end_date="August 2024",
+                bullets=["**Invented Fluff:** Solved all world problems with AI synergy."],
+            )
+        ],
+        tailored_projects=[],
+        tailored_education=[],
+        include_portfolio_link=True,
+        include_github_link=True,
+        skills_header="INVENTED HEADER",
+    )
+
+    config.llm_model = "gpt-4o"
+    config.llm_api_key = "sk-test"
+
+    with patch("src.generator.execute_llm_completion", return_value=hallucinated_data), \
+         patch("instructor.from_litellm"):
+        result = generate_tailored_resume_data(job, profile, config, dry_run=False)
+
+    # Verify bullets were snapped back to track.roles verified bullets verbatim
+    assert result.tailored_experience[0].organization == "PowerSchool"
+    assert "**Data Verification & Entry:** Validated and processed high-volume student and institutional data records across web portals, maintaining 100% data entry integrity." in result.tailored_experience[0].bullets[0]
+    assert "Invented Fluff" not in result.tailored_experience[0].bullets[0]
+    # Verify github link was forced to False
+    assert result.include_github_link is False
+    assert result.include_portfolio_link is False
+

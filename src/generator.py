@@ -71,10 +71,10 @@ def generate_clean_resume_filename(candidate_name: str, company_name: Optional[s
 
 
 def sanitize_target_company(company_name: Optional[str]) -> Optional[str]:
-    """Sanitize company name to prevent source URLs or feed filenames from leaking into resume text.
+    """Sanitize company name to prevent source URLs, feed filenames, or generic ad phrases from leaking into text.
 
     If company_name is None, empty, ends in an extension/TLD (e.g. .xml, .com, .org, .net),
-    or matches a URL scheme, returns None.
+    matches a URL scheme, or matches a generic recruitment announcement, returns None.
     """
     if not company_name:
         return None
@@ -84,6 +84,11 @@ def sanitize_target_company(company_name: Optional[str]) -> Optional[str]:
     if re.search(r"\.(xml|com|org|net|io|co|us|gov|edu|rss|json|html|htm)$", cleaned, flags=re.IGNORECASE):
         return None
     if "/" in cleaned or "\\" in cleaned:
+        return None
+    # Filter out common job board aggregation platforms and protocols
+    if re.search(r"^(?:craigslist|indeed|linkedin|ziprecruiter|glassdoor|monster|dice|careerbuilder|simplyhired|snagajob|upwork|fiverr|rss|feed|rss_feed|job_board|email|alert|alerts)$", cleaned, flags=re.IGNORECASE):
+        return None
+    if re.search(r"^(?:now\s+hiring|urgent(?:ly)?\s+(?:hiring|needed)|help\s+wanted|immediate\s+opening|job\s+opening|position\s+available|hiring\s+immediately|we\s+are\s+hiring|seeking|wanted|needed|full[- ]time|part[- ]time|remote|entry[- ]level)$", cleaned, flags=re.IGNORECASE):
         return None
     return cleaned
 
@@ -530,6 +535,29 @@ INSTRUCTIONS:
             resume_data.tailored_projects = track.projects
             resume_data.include_portfolio_link = track.include_portfolio
             resume_data.include_github_link = False
+
+            # Ground experience roles strictly to track's pre-approved roles and bullets
+            if track.roles:
+                role_by_id = {r.id: r for r in track.roles}
+                role_by_org = {r.organization.lower(): r for r in track.roles}
+                guarded_roles = []
+                for exp_role in (resume_data.tailored_experience or []):
+                    matched_role = role_by_id.get(exp_role.id) or role_by_org.get(exp_role.organization.lower())
+                    if matched_role and matched_role not in guarded_roles:
+                        guarded_roles.append(matched_role)
+                if guarded_roles:
+                    resume_data.tailored_experience = guarded_roles
+                else:
+                    resume_data.tailored_experience = list(track.roles)
+
+            # Sanitize summary and enforce strict 2-sentence formula
+            clean_summary = re.sub(r"\[(?:cite|source|citation|ref)[:\s][^\]]+\]", "", resume_data.tailored_summary, flags=re.IGNORECASE).strip()
+            sentences = [s.strip() for s in clean_summary.split(".") if s.strip()]
+            if len(sentences) != 2 or not clean_summary.startswith(resume_data.target_headline):
+                fallback_data = create_deterministic_tailored_data(posting, profile)
+                resume_data.tailored_summary = fallback_data.tailored_summary
+            else:
+                resume_data.tailored_summary = clean_summary
         else:
             if not resume_data.skill_categories:
                 fallback_data = create_deterministic_tailored_data(posting, profile)
@@ -620,6 +648,30 @@ def build_grounded_email_pitch(
         if not matched:
             matched = all_skills[:3]
         is_tech = track.include_portfolio
+
+        trait = track.approved_summary_traits[0] if track.approved_summary_traits else "structured execution"
+        for t in track.approved_summary_traits:
+            if any(w in combined_text for w in t.lower().split() if len(w) > 4):
+                trait = t
+                break
+
+        outcome = track.approved_summary_outcomes[0] if track.approved_summary_outcomes else "dependable results"
+        for o in track.approved_summary_outcomes:
+            if any(w in combined_text for w in o.lower().split() if len(w) > 4):
+                outcome = o
+                break
+
+        if len(matched) == 1:
+            skills_phrase = matched[0]
+        elif len(matched) == 2:
+            skills_phrase = f"{matched[0]} and {matched[1]}"
+        else:
+            skills_phrase = f"{', '.join(matched[:-1])}, and {matched[-1]}"
+
+        middle = (
+            f"My background includes hands-on experience in {skills_phrase}, "
+            f"specializing in {trait} to consistently deliver {outcome}."
+        )
     else:
         domain_skills = filter_skills_for_target_domain(profile.master_experience.tools_and_technologies, combined_text)
         matched = [s for s in domain_skills if s.lower() in combined_text][:3]
@@ -628,22 +680,22 @@ def build_grounded_email_pitch(
         tech_keywords = {"software", "engineer", "developer", "backend", "frontend", "fullstack", "python", "devops", "cloud", "data engineer", "systems"}
         is_tech = any(kw in combined_text for kw in tech_keywords)
 
-    if matched:
-        if len(matched) == 1:
-            skills_phrase = matched[0]
-        elif len(matched) == 2:
-            skills_phrase = f"{matched[0]} and {matched[1]}"
+        if matched:
+            if len(matched) == 1:
+                skills_phrase = matched[0]
+            elif len(matched) == 2:
+                skills_phrase = f"{matched[0]} and {matched[1]}"
+            else:
+                skills_phrase = f"{', '.join(matched[:-1])}, and {matched[-1]}"
+            middle = (
+                f"My background includes hands-on experience in {skills_phrase}, "
+                "with a strong focus on data accuracy, structured workflows, and dependable execution."
+            )
         else:
-            skills_phrase = f"{', '.join(matched[:-1])}, and {matched[-1]}"
-        middle = (
-            f"My background includes hands-on experience in {skills_phrase}, "
-            "with a strong focus on data accuracy, structured workflows, and dependable execution."
-        )
-    else:
-        middle = (
-            "With a solid background in structured data management and operational workflows, "
-            "I focus on delivering accurate results, clear communication, and dependable execution."
-        )
+            middle = (
+                "With a solid background in structured data management and operational workflows, "
+                "I focus on delivering accurate results, clear communication, and dependable execution."
+            )
 
     closing = (
         "My tailored resume is attached for your review. "
