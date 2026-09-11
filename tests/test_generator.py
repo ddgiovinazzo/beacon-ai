@@ -672,13 +672,13 @@ def test_resume_template_certifications_bullet_and_separation(tmp_path: Path):
     resume_path = generate_tailored_resume(job, profile, eval_result, test_settings, dry_run=True)
     content = resume_path.read_text(encoding="utf-8")
 
-    # Verify distinct bullet format without extra markdown bold
-    assert "* AWS Certified Solutions Architect (Active)" in content
-    assert "* Certified Kubernetes Administrator (Active)" in content
+    # Verify certifications section and format
+    assert "## CERTIFICATIONS" in content
+    assert "### AWS Certified Solutions Architect\nActive" in content
+    assert "### Certified Kubernetes Administrator\nActive" in content
 
     # Verify clean education formatting and separation
     assert "### Boston University\nB.S. Information Systems | 2019" in content
-    assert "B.S. Information Systems | 2019\n\n* AWS Certified Solutions Architect" in content
 
 
 def test_technical_skills_all_lines_start_with_bullet(tmp_path: Path):
@@ -742,7 +742,7 @@ def test_technical_skills_all_lines_start_with_bullet(tmp_path: Path):
 
     # Extract TECHNICAL SKILLS section
     assert "## TECHNICAL SKILLS" in content
-    skills_part = content.split("## TECHNICAL SKILLS")[1].split("## EDUCATION & CERTIFICATIONS")[0]
+    skills_part = content.split("## TECHNICAL SKILLS")[1].split("## EDUCATION")[0]
     skill_lines = [line.strip() for line in skills_part.splitlines() if line.strip()]
 
     assert len(skill_lines) >= 2
@@ -819,7 +819,7 @@ def test_experience_headers_render_pipe_delimiter_with_location(tmp_path: Path):
 
     # Header with location has pipe delimiter
     assert "### Tech Systems | Chicago, IL" in content
-    assert "#### **Backend Engineer | 2021 – Present**" in content
+    assert "#### **Backend Engineer | 2021 to Present**" in content
 
     # Header without location does not have trailing pipe
     assert "### Solo Practice\n" in content

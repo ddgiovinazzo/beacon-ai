@@ -1,9 +1,9 @@
-# **{{ profile.name | upper }}**
+# **{{ profile.name }}**
 {% if tailored_data.headline %}
 ## {{ tailored_data.headline }}
 {% endif %}
 
-{{ profile.location }}{% if profile.phone %} | {{ profile.phone }}{% endif %}{% if profile.email %} | [{{ profile.email }}](mailto:{{ profile.email }}){% endif %}{% if profile.linkedin_url %} | [{{ profile.linkedin_url }}]({{ profile.linkedin_url }}){% endif %}{% if profile.portfolio_url %} | [{{ profile.portfolio_url }}]({{ profile.portfolio_url }}){% endif %}{% if profile.github_url %} | [{{ profile.github_url }}]({{ profile.github_url }}){% endif %}
+{{ profile.location }}{% if profile.phone %} | {{ profile.phone }}{% endif %}{% if profile.email %} | [{{ profile.email }}](mailto:{{ profile.email }}){% endif %}{% if profile.linkedin_url %} | [{{ profile.linkedin_url | replace("https://", "") | replace("http://", "") }}]({{ profile.linkedin_url }}){% endif %}{% if profile.portfolio_url %} | [{{ profile.portfolio_url | replace("https://", "") | replace("http://", "") }}]({{ profile.portfolio_url }}){% endif %}{% if profile.github_url %} | [{{ profile.github_url | replace("https://", "") | replace("http://", "") }}]({{ profile.github_url }}){% endif %}
 
 ## PROFESSIONAL SUMMARY
 
@@ -13,31 +13,34 @@
 
 {% for role in tailored_data.experience %}
 ### {{ role.organization }}{% if role.location %} | {{ role.location }}{% endif +%}
-#### **{{ role.title }}{% if role.start_date and role.end_date %} | {{ role.start_date }} – {{ role.end_date }}{% elif role.start_date %} | {{ role.start_date }}{% endif %}**
+#### **{{ role.title }}{% if role.start_date and role.end_date %} | {{ role.start_date }} to {{ role.end_date }}{% elif role.start_date %} | {{ role.start_date }}{% endif %}**
 
 {% for bullet in role.bullets %}
 * {{ bullet }}
 {% endfor %}
 
 {% endfor %}
-{% if tailored_data.projects and tailored_data.projects | length > 0 %}
-## KEY PROJECTS
-
-{% for project in tailored_data.projects %}
-### {{ project.name }}
-{% for bullet in project.bullets %}
-* {{ bullet }}
-{% endfor %}
-
-{% endfor %}
-{% endif %}
 ## TECHNICAL SKILLS
 
 {% for category in tailored_data.skill_categories %}
 * **{{ category.name }}:** {{ category.skills | join(", ") }}
 {% endfor %}
 
-## EDUCATION & CERTIFICATIONS
+{% if tailored_data.projects and tailored_data.projects | length > 0 %}
+## PROJECTS
+
+{% for project in tailored_data.projects %}
+### {{ project.name }}
+
+{% if project.technologies and project.technologies | length > 0 %}*{{ project.technologies | join(", ") }}*{% endif %}{% if project.link %} | [{{ project.link }}]({{ project.link }}){% endif %}
+
+{% for bullet in project.bullets %}
+* {{ bullet }}
+{% endfor %}
+
+{% endfor %}
+{% endif %}
+## EDUCATION
 
 {% set edu_entries = tailored_data.education if (tailored_data.education and tailored_data.education | length > 0) else profile.master_experience.education %}
 {% for edu in edu_entries %}
@@ -47,7 +50,11 @@
 {% endfor %}
 {% set cert_entries = profile.master_experience.certifications %}
 {% if cert_entries and cert_entries | length > 0 %}
+## CERTIFICATIONS
+
 {% for cert in cert_entries %}
-* {{ cert.name }}{% if cert.status %} ({{ cert.status }}){% endif +%}
+### {{ cert.name }}
+{% if cert.status %}{{ cert.status }}{% endif +%}
+
 {% endfor %}
 {% endif %}
