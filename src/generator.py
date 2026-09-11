@@ -352,9 +352,12 @@ def generate_tailored_resume_data(
             "4. HARD QUANTIFICATION RULE (CRITICAL): You must ruthlessly edit the end of every single bullet point so it concludes with a concrete, measurable impact or definitive operational/technical resolution. NEVER end a bullet with vague filler like 'improving workflows', 'ensuring reliability', or 'optimizing operations'.\n"
             "   - Use Exact Numbers: Extract exact metrics from Context Prompt wherever possible (e.g., 'eliminating a 10-hour communication blocker', 'scaling across a 10-person team', 'processing 500+ records daily').\n"
             "   - Use Definitive Concrete Outcomes: If hard numbers are missing, end on the absolute functional, business, or technical result (e.g., 'enabling 100% offline functionality in zero-connectivity environments', 'eliminating manual data reconciliation bottlenecks without disrupting daily operations').\n\n"
-            "Step 5: Tactical Experience Framing:\n"
-            "- tailored_summary: Tweak the Professional Summary to directly mirror the JD's requested seniority tier and core requirements. "
-            "Be highly strategic with stated years of experience: do NOT rigidly state an exact number of years if it might trigger over-qualification or mismatch the JD's requested tier (use phrasing like 'Proven experience' or 'Solid foundation' for lower tiers, and explicitly state years only when directly aligned with the target tier). Conclude with 'Prepared to make an immediate impact in this role' (or at verified company).\n"
+            "Step 5: Tactical Experience Framing (STRICT ANTI-FLUFF GUARDRAIL):\n"
+            "- tailored_summary: Write a concise 2-3 sentence Professional Summary directly mirroring the JD's requested seniority tier and core technical/operational requirements.\n"
+            "  * STRICT ANTI-FLUFF RULE: Absolutely NEVER use subjective filler adjectives or empty resume buzzwords like 'Methodical', 'detail-oriented', 'structured professional', 'results-driven', 'proven expertise', 'adept at', 'quiet efficiency', or 'hard-working'.\n"
+            "  * NO CANNED SIGN-OFFS: Do NOT conclude with generic boilerplate like 'Prepared to make an immediate impact in this role' or 'seeking to leverage skills'.\n"
+            "  * DIRECT FACTUAL OPENING: Open directly with the target role or specialization (e.g., 'Software Engineer with experience in...', 'Administrative and operations specialist with background in...'). Ground the summary strictly in concrete systems, tools, workflows, datasets, and operational competencies.\n"
+            "  * TACTICAL SENIORITY: Be strategic with stated years of experience: do NOT rigidly state an exact number of years if it might trigger over-qualification or mismatch the JD tier (use phrasing like 'Proven experience' or 'Solid foundation' for lower tiers, and explicitly state years only when directly aligned with the target tier).\n"
             "- target_headline: Set to clean role title matching the JD (without employer name).\n"
             "- categorized_skills: Group candidate's actual matching skills into logical categories relevant to the role (e.g. 'Core Competencies', 'Tools & Technologies', 'Methodologies', or domain-specific groupings).\n"
             "- tailored_experience: Select 2-3 most relevant roles with 3-4 bullets each following the bold dynamic heading and hard quantification rules.\n"
@@ -388,7 +391,7 @@ CANDIDATE EDUCATION BANK:
 
 INSTRUCTIONS:
 1. target_headline: Set to "{clean_title}". Do NOT include the employer name.
-2. tailored_summary: Write a dynamic 3-4 sentence summary mirroring the JD's requested seniority tier and core requirements. Apply tactical experience framing for years of experience.
+2. tailored_summary: Write a punchy 2-3 sentence summary mirroring the JD's requested seniority tier and core requirements. STRICT ANTI-FLUFF: Absolutely NO subjective buzzwords ('Methodical', 'detail-oriented', 'adept at', 'proven expertise', 'quiet efficiency') and NO boilerplate endings ('Prepared to make an immediate impact'). Open directly with the target title and concrete systems/workflows.
 3. categorized_skills: Group candidate's actual skills into logical domain categories relevant to this role.
 4. tailored_experience: 2-3 most relevant roles. Format every bullet with bold heading '**[Competency Heading]:** [Grounded verb] ... [Quantifiable result / concrete outcome]'.
 5. tailored_projects: Select relevant projects with quantifiable outcomes if applicable, else empty list.
