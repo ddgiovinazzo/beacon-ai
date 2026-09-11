@@ -22,7 +22,7 @@
 [![Tests: Pytest 47/47 Passing](https://img.shields.io/badge/Tests-47%2F47%20Passing-10B981?style=for-the-badge&logo=pytest&logoColor=white)](tests/)
 [![CI/CD: Zero-Storage GitHub Actions](https://img.shields.io/badge/CI%2FCD-Zero--Storage%20Actions-2088FF?style=for-the-badge&logo=githubactions&logoColor=white)](.github/workflows/daily_scan.yml)
 
-[Executive Overview](#-executive-overview) • [System Architecture](#-system-architecture) • [Security & Cost Shield](#-security--cost-shield) • [Model Agnostic Layer](#-zero-vendor-lock-in-model-matrix) • [Declarative Profile Configuration](#-declarative-profile-configuration) • [Quick Start](#-quick-start) • [CLI Reference](#-cli-reference) • [CI/CD Runner](#-zero-storage-github-actions-automation)
+[Executive Overview](#-executive-overview) • [System Architecture](#-system-architecture) • [Security & Cost Shield](#-security--cost-shield) • [Model Agnostic Layer](#-zero-vendor-lock-in-model-matrix) • [Declarative Profile Configuration](#-declarative-profile-configuration) • [Quick Start](#-quick-start) • [CLI Reference](#-cli-reference) • [CI/CD Runner](#-zero-storage-github-actions-automation) • [Author & Contact](#-author--contact)
 
 ---
 
@@ -405,6 +405,16 @@ tests/test_notifier.py::test_settings_validates_email_format PASSED      [100%]
 
 ======================= 47 passed, 30 warnings in 2.69s ========================
 ```
+
+---
+
+## 📬 Author & Contact
+
+**Daniel Giovinazzo** — *Systems Architect & AI Engineer*
+
+- **LinkedIn:** [linkedin.com/in/ddgiovinazzo](https://linkedin.com/in/ddgiovinazzo)
+- **Email:** [contact@ddgiovinazzo.com](mailto:contact@ddgiovinazzo.com)
+- **GitHub:** [@ddgiovinazzo](https://github.com/ddgiovinazzo)
 
 ---
 
