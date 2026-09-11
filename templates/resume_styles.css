@@ -1,67 +1,77 @@
 @page {
     size: letter portrait;
-    margin: 0.5in 0.55in 0.5in 0.55in;
+    margin: 0.55in 0.6in 0.55in 0.6in;
 }
 
+/*
+ * Design System: Restrained Executive Editorial
+ * - Base Ink: #1e293b (Slate 800 - 14.6:1 WCAG AAA)
+ * - Muted Neutral: #475569 (Slate 600 - 7.6:1 WCAG AAA)
+ * - Restrained Signature: #1e3d34 (Deep Forest Slate - 11.9:1 WCAG AAA)
+ */
+
 body {
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
     font-size: 9.5pt;
-    line-height: 1.38;
-    color: #1e293b; /* Slate 800: 14.63:1 contrast (WCAG AAA) */
+    line-height: 1.4;
+    color: #1e293b;
     margin: 0;
     padding: 0;
 }
 
+/* Candidate Name */
 h1 {
-    font-size: 16pt;
+    font-size: 17pt;
     font-weight: 800;
-    margin: 0 0 2pt 0;
+    margin: 0 0 3pt 0;
     text-align: left;
     letter-spacing: 0.5px;
-    color: #0f172a; /* Slate 900: 17.85:1 contrast (WCAG AAA) */
+    color: #1e293b;
     page-break-after: avoid;
     break-after: avoid;
 }
 
-/* Sub-headline below Candidate Name */
+/* Sub-headline / Target Role (Quiet, understated accent) */
 h1 + h2 {
     font-size: 10pt;
     font-weight: 600;
     text-transform: none;
-    color: #064e3b; /* Deep Forest Green: 9.72:1 contrast (WCAG AAA) */
+    color: #1e3d34;
     border-bottom: none;
     padding-bottom: 0;
-    margin: 0 0 4pt 0;
+    margin: 0 0 5pt 0;
     letter-spacing: 0.2px;
 }
 
-/* Major Section Headers (SUMMARY, EXPERIENCE, SKILLS, EDUCATION) */
+/* Major Section Dividers (SUMMARY, EXPERIENCE, SKILLS, EDUCATION) */
 h2 {
-    font-size: 10.5pt;
+    font-size: 10pt;
     font-weight: 700;
     text-transform: uppercase;
-    color: #065f46; /* Emerald/Forest: 7.68:1 contrast (WCAG AAA) */
-    border-bottom: 1.5pt solid #065f46;
+    color: #1e3d34;
+    border-bottom: 1px solid #1e3d34;
     padding-bottom: 2pt;
-    margin: 11pt 0 4pt 0;
-    letter-spacing: 0.8px;
+    margin: 12pt 0 4pt 0;
+    letter-spacing: 1px;
     page-break-after: avoid;
     break-after: avoid;
 }
 
+/* Organization / Company / Institution */
 h3 {
     font-size: 9.8pt;
     font-weight: 700;
     margin: 6pt 0 1pt 0;
-    color: #0f172a; /* Slate 900: 17.85:1 contrast (WCAG AAA) */
+    color: #1e293b;
     page-break-after: avoid;
     break-after: avoid;
 }
 
+/* Role Title & Dates (Subtle neutral tone) */
 h4 {
     font-size: 9pt;
     font-weight: 600;
-    color: #334155; /* Slate 700: 10.35:1 contrast (WCAG AAA) */
+    color: #475569;
     margin: 1pt 0 3pt 0;
     page-break-after: avoid;
     break-after: avoid;
@@ -75,12 +85,12 @@ p {
 
 ul {
     margin: 2pt 0 5pt 0;
-    padding-left: 15pt;
+    padding-left: 14pt;
 }
 
 li {
     margin-bottom: 2.5pt;
-    line-height: 1.34;
+    line-height: 1.35;
     page-break-inside: avoid;
     break-inside: avoid;
 }
@@ -93,13 +103,14 @@ hr {
     display: none;
 }
 
+/* Tasteful links matching signature accent */
 a {
-    color: #065f46; /* Forest Green: 7.68:1 contrast (WCAG AAA) */
+    color: #1e3d34;
     text-decoration: none;
-    font-weight: 500;
+    border-bottom: 1px dotted rgba(30, 61, 52, 0.4);
 }
 
 strong {
-    color: #0f172a; /* Slate 900: 17.85:1 contrast (WCAG AAA) */
+    color: #1e293b;
     font-weight: 700;
 }
