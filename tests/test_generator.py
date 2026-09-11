@@ -742,7 +742,7 @@ def test_technical_skills_all_lines_start_with_bullet(tmp_path: Path):
 
     # Extract TECHNICAL SKILLS section
     assert "## TECHNICAL SKILLS" in content
-    skills_part = content.split("## TECHNICAL SKILLS")[1].split("## PROFESSIONAL EXPERIENCE")[0]
+    skills_part = content.split("## TECHNICAL SKILLS")[1].split("## EDUCATION & CERTIFICATIONS")[0]
     skill_lines = [line.strip() for line in skills_part.splitlines() if line.strip()]
 
     assert len(skill_lines) >= 2

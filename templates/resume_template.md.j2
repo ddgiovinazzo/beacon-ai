@@ -3,17 +3,11 @@
 ## {{ tailored_data.headline }}
 {% endif %}
 
-{{ profile.location }} | {{ profile.phone }} | [{{ profile.email }}](mailto:{{ profile.email }}){% if profile.linkedin_url %} | [{{ profile.linkedin_url | replace("https://", "") | replace("http://", "") }}]({{ profile.linkedin_url }}){% endif %}{% if profile.portfolio_url %} | [{{ profile.portfolio_url | replace("https://", "") | replace("http://", "") }}]({{ profile.portfolio_url }}){% endif %}{% if profile.github_url %} | [{{ profile.github_url | replace("https://", "") | replace("http://", "") }}]({{ profile.github_url }}){% endif %}
+{{ profile.location }}{% if profile.phone %} | {{ profile.phone }}{% endif %}{% if profile.email %} | [{{ profile.email }}](mailto:{{ profile.email }}){% endif %}{% if profile.linkedin_url %} | [{{ profile.linkedin_url }}]({{ profile.linkedin_url }}){% endif %}{% if profile.portfolio_url %} | [{{ profile.portfolio_url }}]({{ profile.portfolio_url }}){% endif %}{% if profile.github_url %} | [{{ profile.github_url }}]({{ profile.github_url }}){% endif %}
 
 ## PROFESSIONAL SUMMARY
 
 {{ tailored_data.summary }}
-
-## TECHNICAL SKILLS
-
-{% for category in tailored_data.skill_categories %}
-* **{{ category.name }}:** {{ category.skills | join(", ") }}
-{% endfor %}
 
 ## PROFESSIONAL EXPERIENCE
 
@@ -37,18 +31,23 @@
 
 {% endfor %}
 {% endif %}
+## TECHNICAL SKILLS
+
+{% for category in tailored_data.skill_categories %}
+* **{{ category.name }}:** {{ category.skills | join(", ") }}
+{% endfor %}
+
 ## EDUCATION & CERTIFICATIONS
 
 {% set edu_entries = tailored_data.education if (tailored_data.education and tailored_data.education | length > 0) else profile.master_experience.education %}
 {% for edu in edu_entries %}
 ### {{ edu.institution }}
-{{ edu.degree }}{% if edu.end_date %} | {{ edu.end_date }}{% endif %}
+{{ edu.degree }}{% if edu.end_date %} | {{ edu.end_date }}{% endif +%}
 
 {% endfor %}
-
-{% if profile.master_experience.certifications and profile.master_experience.certifications | length > 0 %}
-{% for cert in profile.master_experience.certifications %}
-* {{ cert.name }} ({{ cert.status }})
+{% set cert_entries = profile.master_experience.certifications %}
+{% if cert_entries and cert_entries | length > 0 %}
+{% for cert in cert_entries %}
+* {{ cert.name }}{% if cert.status %} ({{ cert.status }}){% endif +%}
 {% endfor %}
 {% endif %}
-
