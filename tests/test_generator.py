@@ -1156,8 +1156,8 @@ def test_multi_track_deterministic_tailored_data_clerical():
 
     data = create_deterministic_tailored_data(job, profile)
 
-    # 1. Title cleaned
-    assert data.target_headline == "Clerical / Administrative Assistant"
+    # 1. Title selected from approved_titles
+    assert data.target_headline == "Administrative Assistant"
 
     # 2. Section headers and link flags for office_administrative
     assert data.skills_header == "CORE COMPETENCIES & OFFICE TOOLS"
@@ -1170,7 +1170,7 @@ def test_multi_track_deterministic_tailored_data_clerical():
     # 4. Strict 2-Sentence summary format
     sentences = [s.strip() for s in data.tailored_summary.split(".") if s.strip()]
     assert len(sentences) == 2
-    assert "Clerical / Administrative Assistant with proven experience in" in sentences[0]
+    assert "Administrative Assistant with proven experience in" in sentences[0]
     assert "specializing in" in sentences[0]
     assert "delivering" in sentences[1]
 
@@ -1182,6 +1182,7 @@ def test_multi_track_deterministic_tailored_data_clerical():
         source="craigslist.org",
     )
     clerk_data = create_deterministic_tailored_data(data_entry_job, profile)
+    assert clerk_data.target_headline == "Data Entry Clerk"
     assert clerk_data.skills_header == "CORE COMPETENCIES & SKILLS"
     assert len(clerk_data.tailored_projects) == 0
     assert "Data Entry & Office Systems" in clerk_data.categorized_skills
@@ -1206,7 +1207,8 @@ def test_multi_track_deterministic_tailored_data_swe():
 
     data = create_deterministic_tailored_data(job, profile)
 
-    assert data.target_headline == "Python Software Engineer"
+    # Title selected from approved_titles
+    assert data.target_headline == "Software Engineer"
     assert data.skills_header == "TECHNICAL SKILLS"
     assert data.include_portfolio_link is True
     assert data.include_github_link is False
@@ -1287,7 +1289,21 @@ def test_build_grounded_email_pitch_with_tracks():
     res_tech = EvaluationResult(status=EvaluationStatus.MATCH, fit_score=92, matched_track_id="software_engineering")
     subject_tech, body_tech = build_grounded_email_pitch(tech_job, profile, res_tech)
 
-    assert "Application for Python Software Engineer - Daniel Giovinazzo" in subject_tech
+    assert "Application for Software Engineer - Daniel Giovinazzo" in subject_tech
     assert "ddgiovinazzo.com | linkedin.com/in/ddgiovinazzo" in body_tech
     assert "github.com" not in body_tech
     assert "linkedin.com/in/ddgiovinazzo" in body_tech
+
+
+def test_select_best_approved_title_always_picks_from_track_bank():
+    """Verify select_best_approved_title picks exactly from the 3 track approved titles."""
+    from src.generator import select_best_approved_title
+
+    approved = ["Accounts Payable Clerk", "Billing Specialist", "Bookkeeper"]
+
+    # Posting with messy title and extra ad text
+    assert select_best_approved_title(approved, "Urgent! Accounts Payable / AP Clerk Needed") == "Accounts Payable Clerk"
+    assert select_best_approved_title(approved, "Billing and Collections Specialist - Remote") == "Billing Specialist"
+    assert select_best_approved_title(approved, "Full Charge Bookkeeper / Accountant") == "Bookkeeper"
+    # Unmatched fallback returns first approved title
+    assert select_best_approved_title(approved, "Financial Auditor") in approved

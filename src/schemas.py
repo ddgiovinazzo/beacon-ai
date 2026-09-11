@@ -106,6 +106,10 @@ class ProfileTrack(BaseModel):
     display_name: str = Field(..., description="Human-readable track name.")
     skills_header: str = Field(default="TECHNICAL SKILLS", description="Custom markdown header for skills section.")
     target_titles: List[str] = Field(default_factory=list, description="Target job titles that trigger this track.")
+    approved_titles: List[str] = Field(
+        default_factory=list,
+        description="Top 3 standard, professional titles for this track from which the resume headline is selected.",
+    )
     trigger_keywords: List[str] = Field(default_factory=list, description="Keywords in posting title/body that align with this track.")
     approved_summary_traits: List[str] = Field(
         default_factory=list,

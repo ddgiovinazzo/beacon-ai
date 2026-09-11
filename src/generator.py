@@ -184,6 +184,36 @@ def get_jinja_env(template_dir: Path = Path("templates")) -> Environment:
     )
 
 
+def select_best_approved_title(approved_titles: List[str], job_title: str, job_text: str = "") -> str:
+    """Deterministically select the best matching title from the approved titles bank."""
+    if not approved_titles:
+        return job_title
+    combined = f"{job_title} {job_text}".lower()
+    title_lower = job_title.lower()
+
+    # 1. Exact or substring match against posting title
+    for title in approved_titles:
+        if title.lower() in title_lower:
+            return title
+
+    # 2. Exact or substring match against full posting text
+    for title in approved_titles:
+        if title.lower() in combined:
+            return title
+
+    # 3. Maximum token overlap
+    best_title = approved_titles[0]
+    best_overlap = -1
+    for title in approved_titles:
+        tokens = [tok for tok in title.lower().split() if len(tok) > 2]
+        overlap = sum(1 for tok in tokens if tok in combined)
+        if overlap > best_overlap:
+            best_overlap = overlap
+            best_title = title
+
+    return best_title
+
+
 def create_deterministic_tailored_data(
     posting: JobPosting,
     profile: UserProfile,
@@ -201,7 +231,11 @@ def create_deterministic_tailored_data(
     track = resolve_profile_track(posting, profile) if profile.tracks else None
 
     if track:
-        # Multi-Track Persona Mode
+        # Multi-Track Persona Mode: Select from pre-approved titles
+        approved_titles = track.approved_titles if track.approved_titles else track.target_titles[:3]
+        if approved_titles:
+            headline = select_best_approved_title(approved_titles, posting.title, posting.raw_text)
+
         trait = track.approved_summary_traits[0] if track.approved_summary_traits else "verification accuracy"
         outcome = track.approved_summary_outcomes[0] if track.approved_summary_outcomes else "100% data integrity"
         for t in track.approved_summary_traits:
@@ -365,6 +399,7 @@ def generate_tailored_resume_data(
     target_company = company
 
     if track:
+        approved_titles = track.approved_titles if track.approved_titles else track.target_titles[:3]
         active_roles = track.roles if track.roles else profile.master_experience.roles
         active_projects = track.projects
         active_skills = track.categorized_skills
@@ -375,6 +410,7 @@ def generate_tailored_resume_data(
         include_portfolio = track.include_portfolio
         narrative = track.narrative_context or profile.master_experience.narrative_context
     else:
+        approved_titles = [clean_title]
         active_roles = profile.master_experience.roles
         active_projects = profile.master_experience.engineering_projects
         combined_job_text = f"{posting.title} {posting.raw_text}"
@@ -432,6 +468,9 @@ CANDIDATE NAME: {profile.name}
 HOME LOCATION: {profile.location}
 POSITIONING DIRECTIVE: {narrative or 'Aligned professional contributor'}
 
+APPROVED RESUME HEADLINES (Choose exactly 1):
+{json.dumps(approved_titles)}
+
 CANDIDATE MASTER ROLES & ACCOMPLISHMENTS:
 {json.dumps([r.model_dump() for r in active_roles])}
 
@@ -451,7 +490,7 @@ CANDIDATE EDUCATION BANK:
 {json.dumps([e.model_dump() for e in active_education])}
 
 INSTRUCTIONS:
-1. target_headline: Set to "{clean_title}".
+1. target_headline: Set to the 1 title from APPROVED RESUME HEADLINES that best matches the job posting.
 2. tailored_summary: Write exactly 2 sentences following the strict blueprint with 1 approved trait and 1 approved outcome.
 3. categorized_skills: Output the exact candidate skills matrix provided above.
 4. tailored_experience: Select 2-3 most relevant roles with bold headings '**[Heading]:** ...'.
@@ -484,6 +523,8 @@ INSTRUCTIONS:
 
         # Enforce deterministic track constraints
         if track:
+            if approved_titles and resume_data.target_headline not in approved_titles:
+                resume_data.target_headline = select_best_approved_title(approved_titles, posting.title, posting.raw_text)
             resume_data.categorized_skills = track.categorized_skills
             resume_data.skills_header = track.skills_header
             resume_data.tailored_projects = track.projects
@@ -552,7 +593,16 @@ def build_grounded_email_pitch(
     - Clean contact and link formatting
     """
     company = extract_company_from_title(posting.title) or sanitize_target_company(posting.source)
-    clean_title = clean_role_title(posting.title, company)
+
+    from src.evaluator import resolve_profile_track
+    track = resolve_profile_track(posting, profile) if profile.tracks else None
+
+    if track and (track.approved_titles or track.target_titles):
+        approved_titles = track.approved_titles if track.approved_titles else track.target_titles[:3]
+        clean_title = select_best_approved_title(approved_titles, posting.title, posting.raw_text)
+    else:
+        clean_title = clean_role_title(posting.title, company)
+
     subject = f"Application for {clean_title} - {profile.name}"
 
     if company:
@@ -563,9 +613,6 @@ def build_grounded_email_pitch(
     opening = f"Please accept my application for the {clean_title} position."
 
     combined_text = f"{posting.title} {posting.raw_text}".lower()
-
-    from src.evaluator import resolve_profile_track
-    track = resolve_profile_track(posting, profile) if profile.tracks else None
 
     if track:
         all_skills = [s for cat in track.categorized_skills.values() for s in cat]
