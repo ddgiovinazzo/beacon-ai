@@ -21,7 +21,7 @@ from src.generator import (
     generate_outreach_draft,
     generate_tailored_resume,
 )
-from src.ingestion import fetch_feed, fetch_imap_emails
+from src.ingestion import fetch_feed, fetch_imap_emails, mark_imap_messages_seen
 from src.notifier import send_match_notification
 from src.schemas import EvaluationStatus, JobPosting, UserProfile
 
@@ -211,6 +211,9 @@ def scan(
         scan_sources.append(("imap", f"{settings.imap_mailbox} ({settings.imap_server})"))
 
     for source_type, source_id in scan_sources:
+        all_imap_msg_ids = set()
+        deferred_imap_msg_ids = set()
+
         if source_type == "rss":
             console.print(f"\n[bold blue]==> Scanning Target Feed: {source_id}[/bold blue]")
             postings = fetch_feed(
@@ -220,7 +223,7 @@ def scan(
             )
         else:
             console.print(f"\n[bold blue]==> Scanning Inbound Email (IMAP): {source_id}[/bold blue]")
-            postings = fetch_imap_emails(settings)
+            postings = fetch_imap_emails(settings, mark_seen=False)
 
         if not postings:
             console.print(f"[yellow]No postings found or failed to parse: {source_id}[/yellow]")
@@ -239,6 +242,9 @@ def scan(
         results_table.add_column("Verdict / Details", width=42)
 
         for posting in postings:
+            if posting.email_msg_id:
+                all_imap_msg_ids.add(posting.email_msg_id)
+
             # Check SQLite deduplication
             if is_job_seen(posting.link, settings.db_path):
                 total_skipped_count += 1
@@ -307,6 +313,8 @@ def scan(
                     )
                     continue
             elif result.status == EvaluationStatus.DEFERRED:
+                if posting.email_msg_id:
+                    deferred_imap_msg_ids.add(posting.email_msg_id)
                 record_job(posting, result, settings.db_path)
                 total_deferred_count += 1
                 reason = result.rejection_reason or "Throttled"
@@ -330,6 +338,16 @@ def scan(
                 )
 
         console.print(results_table)
+
+        # Non-destructive IMAP seen marking: only mark seen if all postings were resolved without deferral
+        if source_type == "imap" and settings.imap_mark_seen and all_imap_msg_ids:
+            safe_to_mark = all_imap_msg_ids - deferred_imap_msg_ids
+            if safe_to_mark:
+                mark_imap_messages_seen(settings, list(safe_to_mark))
+            if deferred_imap_msg_ids:
+                console.print(
+                    f"  [bold yellow]ℹ Notice: {len(deferred_imap_msg_ids)} email alert(s) kept UNREAD in mailbox because postings were deferred by circuit breaker. They will resume on next scan.[/bold yellow]"
+                )
 
     # Append to daily digest if matches occurred across all feeds
     if all_generated_matches:

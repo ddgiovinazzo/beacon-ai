@@ -58,6 +58,7 @@ jobs:
         env:
           LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
           LLM_MODEL: ${{ vars.LLM_MODEL || secrets.LLM_MODEL }}
+          MAX_LLM_EVALS_PER_RUN: ${{ vars.MAX_LLM_EVALS_PER_RUN || '50' }}
           LLM_RATE_LIMIT_DELAY: ${{ vars.LLM_RATE_LIMIT_DELAY }}
           LLM_MAX_RETRIES: ${{ vars.LLM_MAX_RETRIES }}
           HTTP_USER_AGENT: ${{ vars.HTTP_USER_AGENT }}

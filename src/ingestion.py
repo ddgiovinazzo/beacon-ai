@@ -427,7 +427,7 @@ def parse_email_message(msg: email.message.Message) -> List[JobPosting]:
     )
 
 
-def fetch_imap_emails(settings: "Settings") -> List[JobPosting]:
+def fetch_imap_emails(settings: "Settings", mark_seen: Optional[bool] = None) -> List[JobPosting]:
     """Connect to an IMAP mailbox, search for unread job alert emails, and parse job postings."""
     if not settings.is_imap_configured:
         logger.debug("IMAP credentials not configured; skipping email ingestion.")
@@ -461,6 +461,8 @@ def fetch_imap_emails(settings: "Settings") -> List[JobPosting]:
         if allowed:
             logger.info(f"Filtering emails by allowed senders/domains: {', '.join(allowed)}")
 
+        should_mark_seen = settings.imap_mark_seen if mark_seen is None else mark_seen
+
         for msg_id in msg_ids:
             try:
                 res, data = client.fetch(msg_id, "(RFC822)")
@@ -476,9 +478,13 @@ def fetch_imap_emails(settings: "Settings") -> List[JobPosting]:
                     continue
 
                 extracted = parse_email_message(msg)
+                msg_id_str = msg_id.decode("utf-8", errors="replace") if isinstance(msg_id, bytes) else str(msg_id)
+                for p in extracted:
+                    p.email_msg_id = msg_id_str
+
                 postings.extend(extracted)
 
-                if settings.imap_mark_seen:
+                if should_mark_seen:
                     client.store(msg_id, "+FLAGS", "\\Seen")
             except Exception as e:
                 logger.warning(f"Error parsing email ID {msg_id}: {e}")
@@ -500,3 +506,33 @@ def fetch_imap_emails(settings: "Settings") -> List[JobPosting]:
 
     logger.info(f"Total postings ingested via IMAP email: {len(postings)}")
     return postings
+
+
+def mark_imap_messages_seen(settings: "Settings", message_ids: List[str]) -> None:
+    """Connect to IMAP and explicitly mark specific message IDs as \\Seen."""
+    if not settings.is_imap_configured or not message_ids:
+        return
+
+    client = None
+    try:
+        client = imaplib.IMAP4_SSL(settings.imap_server, settings.imap_port)
+        client.login(settings.imap_username, settings.imap_password)
+        client.select(settings.imap_mailbox)
+        for msg_id in message_ids:
+            try:
+                client.store(msg_id, "+FLAGS", "\\Seen")
+            except Exception as e:
+                logger.warning(f"Failed marking message {msg_id} as \\Seen: {e}")
+        logger.info(f"Marked {len(message_ids)} IMAP message(s) as \\Seen")
+    except Exception as e:
+        logger.error(f"Error connecting to IMAP to mark messages seen: {e}")
+    finally:
+        if client:
+            try:
+                client.close()
+            except Exception:
+                pass
+            try:
+                client.logout()
+            except Exception:
+                pass

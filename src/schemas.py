@@ -194,6 +194,7 @@ class JobPosting(BaseModel):
     source: str = Field(..., description="Source feed identifier or domain.")
     contact_email: Optional[str] = Field(default=None, description="Optional direct employer contact email.")
     description: Optional[str] = Field(default=None, description="Optional job description body.")
+    email_msg_id: Optional[str] = Field(default=None, description="IMAP message ID for non-destructive seen tracking.")
 
 
 class EvaluationResult(BaseModel):
