@@ -12,6 +12,7 @@ from typing import Dict, List, Optional
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 
 from src.config import Settings
+from src.evaluator import execute_llm_completion
 from src.schemas import (
     EvaluationResult,
     JobPosting,
@@ -338,7 +339,7 @@ INSTRUCTIONS:
         if config.llm_api_key:
             call_kwargs["api_key"] = config.llm_api_key
 
-        resume_data: TailoredResumeData = client.chat.completions.create(**call_kwargs)
+        resume_data: TailoredResumeData = execute_llm_completion(client, **call_kwargs)
         for role in resume_data.tailored_experience:
             if role.organization and role.location:
                 role.organization = role.organization.strip(" |")

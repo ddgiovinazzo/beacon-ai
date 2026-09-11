@@ -3,6 +3,7 @@
 import json
 import logging
 import re
+import time
 from pathlib import Path
 from typing import List, Optional
 
@@ -210,11 +211,17 @@ def scan(
             # Evaluate posting
             result = engine.evaluate(posting, user_profile)
 
+            # Enforce sequential delay between live LLM evaluations to stay strictly within 5-15 RPM quotas
+            if not dry_run and result.tier_evaluated == 2 and settings.llm_rate_limit_delay_seconds > 0:
+                time.sleep(settings.llm_rate_limit_delay_seconds)
+
             if result.status == EvaluationStatus.MATCH:
                 try:
                     resume_path = generate_tailored_resume(
                         posting, user_profile, result, settings, dry_run=dry_run
                     )
+                    if not dry_run and settings.llm_rate_limit_delay_seconds > 0:
+                        time.sleep(settings.llm_rate_limit_delay_seconds)
                     pdf_path = export_markdown_to_pdf(resume_path)
                     outreach_path = generate_outreach_draft(
                         posting, user_profile, result, settings

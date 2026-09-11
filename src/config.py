@@ -28,9 +28,12 @@ class Settings(BaseSettings):
     db_path: Path = Path("matches.db")
 
     # Ingestion
-    user_agent: str = "BeaconAI/1.0 (+https://github.com/beacon-ai; polite-job-crawler)"
+    user_agent: str = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
     request_timeout_seconds: int = 15
     target_feed_urls: Optional[str] = None
+
+    # Rate Limiting & Throttling
+    llm_rate_limit_delay_seconds: float = 6.0
 
     # Outbound Notifications (Resend)
     resend_api_key: Optional[str] = None

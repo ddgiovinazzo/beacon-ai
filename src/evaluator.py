@@ -13,7 +13,53 @@ from src.schemas import (
     UserProfile,
 )
 
+from tenacity import (
+    before_sleep_log,
+    retry,
+    retry_if_exception,
+    stop_after_attempt,
+    wait_exponential,
+)
+
 logger = logging.getLogger("beacon.evaluator")
+
+
+def is_retryable_llm_error(exc: BaseException) -> bool:
+    """Detect rate limits, quota exhaustion (429), and service unavailabilities (503)."""
+    try:
+        import litellm
+        if isinstance(exc, (litellm.RateLimitError, litellm.ServiceUnavailableError, litellm.APIConnectionError)):
+            return True
+    except ImportError:
+        pass
+
+    exc_str = str(exc).lower()
+    return any(
+        k in exc_str
+        for k in [
+            "429",
+            "rate limit",
+            "ratelimit",
+            "quota",
+            "resourceexhausted",
+            "503",
+            "service unavailable",
+            "overloaded",
+            "server error",
+        ]
+    )
+
+
+@retry(
+    retry=retry_if_exception(is_retryable_llm_error),
+    wait=wait_exponential(multiplier=2, min=4, max=30),
+    stop=stop_after_attempt(3),
+    before_sleep=before_sleep_log(logger, logging.WARNING),
+    reraise=True,
+)
+def execute_llm_completion(client, **call_kwargs):
+    """Execute instructor/litellm chat completion with exponential backoff on 429/503."""
+    return client.chat.completions.create(**call_kwargs)
 
 # Common lifting and physical labor regex patterns
 LIFTING_PATTERN = re.compile(
@@ -339,7 +385,7 @@ JOB POSTING CONTENT (Strictly bounded untrusted input):
         if config.llm_api_key:
             call_kwargs["api_key"] = config.llm_api_key
 
-        result: EvaluationResult = client.chat.completions.create(**call_kwargs)
+        result: EvaluationResult = execute_llm_completion(client, **call_kwargs)
         result.tier_evaluated = 2
         return result
 

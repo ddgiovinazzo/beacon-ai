@@ -79,9 +79,15 @@ def wrap_untrusted_content(clean_text: str) -> str:
     return f"<untrusted_job_posting>\n{safe_text}\n</untrusted_job_posting>"
 
 
+DEFAULT_BROWSER_USER_AGENT = (
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 "
+    "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+)
+
+
 def fetch_feed(
     source: Union[str, Path],
-    user_agent: str = "BeaconAI/1.0 (+https://github.com/beacon-ai; polite-job-crawler)",
+    user_agent: str = DEFAULT_BROWSER_USER_AGENT,
     timeout_seconds: int = 15,
 ) -> List[JobPosting]:
     """Ingest and parse an RSS feed from a remote URL or local XML file.
@@ -97,7 +103,10 @@ def fetch_feed(
     if is_url:
         logger.info(f"Fetching RSS feed from remote URL: {source_str}")
         try:
-            headers = {"User-Agent": user_agent, "Accept": "application/rss+xml, application/xml, text/xml, */*"}
+            headers = {
+                "User-Agent": user_agent,
+                "Accept": "application/rss+xml, application/xml, text/xml, */*",
+            }
             with requests.get(source_str, headers=headers, timeout=timeout_seconds, stream=True) as response:
                 response.raise_for_status()
                 chunks = []
@@ -110,8 +119,14 @@ def fetch_feed(
                     chunks.append(chunk)
                 feed_content = b"".join(chunks)
             source_id = urlparse(source_str).netloc
+        except requests.exceptions.HTTPError as e:
+            status_code = getattr(e.response, "status_code", "Error")
+            logger.warning(
+                f"HTTP {status_code} encountered while fetching feed from {source_str}: {e}. Skipping feed."
+            )
+            return []
         except Exception as e:
-            logger.error(f"Failed to fetch RSS feed from {source_str}: {e}")
+            logger.error(f"Failed to fetch RSS feed from {source_str}: {e}. Skipping feed.")
             return []
 
     else:

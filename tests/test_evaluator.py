@@ -455,3 +455,38 @@ def test_tier2_heuristic_scores_dynamic_tags(test_profile):
     assert any("Domain alignment tags" in h for h in result.match_highlights)
 
 
+def test_llm_completion_retries_on_rate_limit():
+    """Verify execute_llm_completion retries with backoff on RateLimitError (429)."""
+    from unittest.mock import MagicMock
+    import litellm
+    from src.evaluator import execute_llm_completion
+
+    mock_client = MagicMock()
+    mock_client.chat.completions.create.side_effect = [
+        litellm.RateLimitError("429 ResourceExhausted: rate limit exceeded", model="gemini", llm_provider="gemini"),
+        "success",
+    ]
+
+    res = execute_llm_completion(mock_client, model="gemini")
+    assert res == "success"
+    assert mock_client.chat.completions.create.call_count == 2
+
+
+def test_llm_completion_retries_on_service_unavailable():
+    """Verify execute_llm_completion retries on ServiceUnavailableError (503)."""
+    from unittest.mock import MagicMock
+    import litellm
+    from src.evaluator import execute_llm_completion
+
+    mock_client = MagicMock()
+    mock_client.chat.completions.create.side_effect = [
+        litellm.ServiceUnavailableError("503 Service Unavailable", model="gemini", llm_provider="gemini"),
+        "success",
+    ]
+
+    res = execute_llm_completion(mock_client, model="gemini")
+    assert res == "success"
+    assert mock_client.chat.completions.create.call_count == 2
+
+
+

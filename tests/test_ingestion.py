@@ -147,3 +147,62 @@ def test_fetch_feed_enforces_byte_limit(monkeypatch):
     postings = fetch_feed("https://example.com/oversized.xml")
     assert postings == []
 
+
+def test_fetch_feed_sends_browser_user_agent_and_accept_headers(monkeypatch):
+    """Verify HTTP requests include browser User-Agent and RSS Accept headers."""
+    import requests
+
+    captured_headers = {}
+
+    class MockResponse:
+        def __init__(self):
+            self.status_code = 200
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            pass
+
+        def raise_for_status(self):
+            pass
+
+        def iter_content(self, chunk_size=65536):
+            yield b"<rss><channel><title>Test</title></channel></rss>"
+
+    def mock_get(url, headers=None, **kwargs):
+        captured_headers.update(headers or {})
+        return MockResponse()
+
+    monkeypatch.setattr(requests, "get", mock_get)
+
+    fetch_feed("https://example.com/feed.xml")
+    assert "Mozilla/5.0" in captured_headers.get("User-Agent", "")
+    assert "application/rss+xml" in captured_headers.get("Accept", "")
+
+
+def test_fetch_feed_handles_403_and_404_gracefully(monkeypatch):
+    """Verify HTTP 403 Forbidden and 404 Not Found errors are handled gracefully without exceptions."""
+    import requests
+
+    class MockHttpErrorResponse:
+        def __init__(self, code):
+            self.status_code = code
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            pass
+
+        def raise_for_status(self):
+            err = requests.exceptions.HTTPError(f"{self.status_code} Error")
+            err.response = self
+            raise err
+
+    for code in [403, 404, 500]:
+        monkeypatch.setattr(requests, "get", lambda *args, c=code, **kwargs: MockHttpErrorResponse(c))
+        postings = fetch_feed(f"https://example.com/status-{code}.xml")
+        assert postings == []
+
+
