@@ -294,29 +294,22 @@ def test_circuit_breaker_sets_deferred_and_eligible_for_rescan(tmp_path, test_pr
 
 def test_has_llm_credentials_multi_provider():
     """Verify credential detection across different foundation model providers."""
-    # Gemini
-    s_gemini = Settings(llm_model="gemini/gemini-2.5-flash", gemini_api_key="key123")
-    assert s_gemini.has_llm_credentials() is True
-
-    # Anthropic
-    s_claude = Settings(llm_model="claude-3-5-sonnet-20241022", anthropic_api_key="sk-ant-123")
-    assert s_claude.has_llm_credentials() is True
-
-    # OpenAI
-    s_openai = Settings(llm_model="gpt-4o-mini", openai_api_key="sk-proj-123")
-    assert s_openai.has_llm_credentials() is True
+    s_key = Settings(llm_api_key="unified-key-123")
+    assert s_key.has_llm_credentials() is True
 
     # Ollama (local runtime, needs no API key)
-    s_ollama = Settings(llm_model="ollama/llama3.2")
-    assert s_ollama.has_llm_credentials() is True
+    s_ollama = Settings(llm_api_key=None)
+    assert s_ollama.has_llm_credentials("ollama/llama3.2") is True
+    assert s_ollama.has_llm_credentials("local/mistral") is True
 
-    # Unset credentials
-    s_empty = Settings(llm_model="claude-3-5-sonnet-20241022", anthropic_api_key=None)
+    # Unset credentials without local model
+    s_empty = Settings(llm_api_key=None)
+    assert s_empty.has_llm_credentials("some-cloud-model") is False
     assert s_empty.has_llm_credentials() is False
 
 
 def test_evaluate_tier2_llm_model_agnostic_routing(monkeypatch, test_profile):
-    """Verify LiteLLM completion receives the configured model name and returns structured output."""
+    """Verify LiteLLM completion receives the configured model name from UserProfile and unified API key."""
     from unittest.mock import MagicMock
     import instructor
     from src.evaluator import evaluate_tier2_llm
@@ -334,9 +327,9 @@ def test_evaluate_tier2_llm_model_agnostic_routing(monkeypatch, test_profile):
     mock_client.chat.completions.create.return_value = mock_result
     monkeypatch.setattr(instructor, "from_litellm", lambda *args, **kwargs: mock_client)
 
+    test_profile.llm_model = "anthropic/claude-3-5-sonnet-20241022"
     settings = Settings(
-        llm_model="anthropic/claude-3-5-sonnet-20241022",
-        anthropic_api_key="sk-ant-test",
+        llm_api_key="sk-ant-test",
     )
 
     job = JobPosting(
@@ -352,14 +345,15 @@ def test_evaluate_tier2_llm_model_agnostic_routing(monkeypatch, test_profile):
     assert res.fit_score == 95
     assert res.tier_evaluated == 2
 
-    # Verify that litellm was called with the exact Anthropic model string
+    # Verify that litellm was called with the model from UserProfile and unified API key
     mock_client.chat.completions.create.assert_called_once()
-    called_model = mock_client.chat.completions.create.call_args[1]["model"]
-    assert called_model == "anthropic/claude-3-5-sonnet-20241022"
+    kwargs = mock_client.chat.completions.create.call_args[1]
+    assert kwargs["model"] == "anthropic/claude-3-5-sonnet-20241022"
+    assert kwargs["api_key"] == "sk-ant-test"
 
 
 def test_generate_tailored_resume_data_model_agnostic(monkeypatch, test_profile):
-    """Verify resume tailoring routes to configured LiteLLM model."""
+    """Verify resume tailoring routes to configured LiteLLM model from UserProfile."""
     from unittest.mock import MagicMock
     import instructor
     from src.generator import generate_tailored_resume_data
@@ -385,9 +379,9 @@ def test_generate_tailored_resume_data_model_agnostic(monkeypatch, test_profile)
     mock_client.chat.completions.create.return_value = mock_resume
     monkeypatch.setattr(instructor, "from_litellm", lambda *args, **kwargs: mock_client)
 
+    test_profile.llm_model = "gpt-4o-mini"
     settings = Settings(
-        llm_model="gpt-4o-mini",
-        openai_api_key="sk-openai-test",
+        llm_api_key="sk-openai-test",
     )
 
     job = JobPosting(
@@ -399,8 +393,9 @@ def test_generate_tailored_resume_data_model_agnostic(monkeypatch, test_profile)
 
     resume_out = generate_tailored_resume_data(job, test_profile, settings, dry_run=False)
     assert resume_out.target_headline == "Targeted Senior Bookkeeper"
-    called_model = mock_client.chat.completions.create.call_args[1]["model"]
-    assert called_model == "gpt-4o-mini"
+    kwargs = mock_client.chat.completions.create.call_args[1]
+    assert kwargs["model"] == "gpt-4o-mini"
+    assert kwargs["api_key"] == "sk-openai-test"
 
 
 def test_tier1_rejects_dynamic_physical_restriction(test_profile):

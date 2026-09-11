@@ -142,7 +142,8 @@ def scan(
         console.print("[bold red]Error:[/bold red] No target feeds provided via --feed or TARGET_FEED_URLS.")
         raise typer.Exit(code=1)
 
-    mode_label = "[bold yellow]DRY-RUN (Deterministic Scoring)[/bold yellow]" if dry_run else f"[bold cyan]LIVE (Tier 1 + {settings.llm_model})[/bold cyan]"
+    active_llm = user_profile.llm_model or settings.llm_model or "Not Set"
+    mode_label = "[bold yellow]DRY-RUN (Deterministic Scoring)[/bold yellow]" if dry_run else f"[bold cyan]LIVE (Tier 1 + {active_llm})[/bold cyan]"
     notify_label = "[bold green]ENABLED (Resend)[/bold green]" if notify else "[dim]DISABLED[/dim]"
     min_h = f"${user_profile.constraints.min_hourly_rate:.2f}/hr" if user_profile.constraints.min_hourly_rate is not None else "Not Set"
     min_a = f"${user_profile.constraints.min_annual_salary:,.0f}/yr" if user_profile.constraints.min_annual_salary is not None else "Not Set"
@@ -153,7 +154,7 @@ def scan(
             f"Target Feeds: [blue]{len(target_feeds)} configured[/blue]\n"
             f"Evaluation Mode: {mode_label}\n"
             f"Notifications: {notify_label}\n"
-            f"Active LLM: [magenta]{settings.llm_model}[/magenta]\n"
+            f"Active LLM: [magenta]{active_llm}[/magenta]\n"
             f"Min Pay Floor: [green]{min_h}[/green] | [green]{min_a}[/green]\n"
             f"Circuit Breaker Cap: [magenta]{settings.max_llm_evals_per_run} LLM evals/run[/magenta]",
             title="BeaconAI Scan Initiated",

@@ -6,6 +6,7 @@
   "linkedin_url": "https://linkedin.com/in/alexchen-dev",
   "portfolio_url": "https://alexchen.dev",
   "github_url": "https://github.com/alexchen-dev",
+  "llm_model": "gemini/gemini-3.8-flash",
   "constraints": {
     "min_hourly_rate": 55.0,
     "min_weekly_earnings": null,

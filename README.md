@@ -30,7 +30,7 @@
 
 ## 📌 Executive Overview
 
-**BeaconAI v2.0** is an autonomous, model-agnostic CLI pipeline engineered to invert the commercial hiring board paradigm. Instead of trapping applicants in 20-hour weekly manual sifting loops across algorithmic aggregators and ghost postings, BeaconAI ingests unstructured RSS/XML feeds across multiple target endpoints, applies **zero-cost deterministic constraint gates** (Tier 1), scores cleared candidates with **strictly typed Pydantic LLM schemas across any foundation provider** (Tier 2 via LiteLLM), and compiles bespoke, ATS-compliant PDF resumes alongside transactional email alerts and local digests.
+**BeaconAI v2.3** is an autonomous, model-agnostic CLI pipeline engineered to invert the commercial hiring board paradigm. Instead of trapping applicants in 20-hour weekly manual sifting loops across algorithmic aggregators and ghost postings, BeaconAI ingests unstructured RSS/XML feeds across multiple target endpoints, applies **zero-cost deterministic constraint gates** (Tier 1), scores cleared candidates with **strictly typed Pydantic LLM schemas across any foundation provider** (Tier 2 via LiteLLM), and compiles bespoke, ATS-compliant PDF resumes alongside transactional email alerts and local digests.
 
 ```
        UNSTRUCTURED FEEDS               DETERMINISTIC GATES               GENERATED ARTIFACTS
@@ -121,12 +121,12 @@ Every external input is treated as untrusted. BeaconAI enforces multi-layered de
 
 ## 🔌 Zero Vendor Lock-In: Model Matrix
 
-BeaconAI leverages **LiteLLM** and **Instructor** to normalize structured outputs into strict Pydantic V2 models. Switch between foundation model providers or private local engines via a single `.env` setting with zero code refactoring:
+BeaconAI leverages **LiteLLM** and **Instructor** to normalize structured outputs into strict Pydantic V2 models. Switch between foundation model providers or private local engines dynamically in your candidate profile (`UserProfile.llm_model`) with a single unified `LLM_API_KEY` setting and zero code refactoring:
 
 | Provider | Engine Identifier Example | Ideal Use Case | Operational Profile |
 | :--- | :--- | :--- | :--- |
 | **Anthropic** | `claude-3-5-sonnet-20241022` | Complex technical roles & deep resume tailoring | State-of-the-art qualitative synthesis |
-| **Google** | `gemini/gemini-2.5-flash` | High-speed batch scoring & rapid extraction | Low latency, cost-effective high-throughput |
+| **Google** | `gemini/gemini-3.8-flash` | High-speed batch scoring & rapid extraction | Low latency, cost-effective high-throughput |
 | **OpenAI** | `gpt-4o`, `gpt-4o-mini` | Industry standard structured JSON extraction | High availability & standard enterprise SLA |
 | **Local / Offline** | `ollama/llama3.2`, `ollama/mistral` | Air-gapped, zero-cost, 100% private local execution | Complete data privacy with zero token cost |
 
@@ -153,6 +153,7 @@ cp profiles/software_engineer.json.example profiles/my_profile.json
   "linkedin_url": "https://linkedin.com/in/janedoe-pro",
   "portfolio_url": "https://janedoe.example.com",
   "github_url": "https://github.com/janedoe-dev",
+  "llm_model": "gemini/gemini-3.8-flash",
   "constraints": {
     "min_hourly_rate": 28.0,
     "min_weekly_earnings": null,
@@ -264,14 +265,8 @@ cp .env.example .env
 ```
 
 ```ini
-# Multi-Provider Model Selection (LiteLLM format)
-LLM_MODEL=gemini/gemini-2.5-flash
-
-# API Credentials (Set corresponding to your chosen LLM_MODEL)
-GEMINI_API_KEY=your_gemini_api_key_here
-# ANTHROPIC_API_KEY=your_claude_api_key_here
-# OPENAI_API_KEY=your_openai_api_key_here
-# OLLAMA_API_BASE=http://localhost:11434
+# Unified LLM API Key (works across all LiteLLM foundation models)
+LLM_API_KEY=your_llm_api_key_here
 
 # Transactional Email Alerts (Resend)
 # RESEND_API_KEY=re_123456789
@@ -333,13 +328,13 @@ BeaconAI operates as an autonomous background agent via a scheduled, headless Gi
 * **Cron Schedule:** Executes daily at `0 12 * * *` (8:00 AM EST) with support for on-demand `workflow_dispatch` manual triggers.
 * **Concurrency Lock:** Enforces `concurrency: daily-scan-execution` to prevent overlapping runs and eliminate race conditions on binary SQLite databases.
 * **Automated State Persistence:** Automatically stages, commits, and pushes updated `matches.db` tracking and daily Markdown digests back to GitHub with `[skip ci]`.
-* **Zero Binary Bloat:** Binary PDF resumes are compiled in a local sandbox and excluded from git history via `.gitignore` rules (`artifacts/matches/*.pdf`), keeping the repository lightweight.
+* **Zero Binary Bloat:** Resumes and drafts are maintained under ephemeral zero-storage policies (`artifacts/matches/` in `.gitignore`), keeping candidate PII completely off GitHub.
 
 ---
 
 ## 🧪 Automated QA Test Suite
 
-BeaconAI includes **47 automated test fixtures** validating deterministic regex parsers, prompt injection defenses, circuit-breaker states, model-agnostic routing, sandboxed PDF rendering, dynamic role selection, and transactional email security:
+BeaconAI includes **51 automated test fixtures** validating deterministic regex parsers, prompt injection defenses, circuit-breaker states, model-agnostic routing, sandboxed PDF rendering, dynamic role selection, and transactional email security:
 
 ```bash
 # Run full automated test suite
@@ -353,11 +348,11 @@ rootdir: /path/to/beacon-ai
 configfile: pyproject.toml
 testpaths: tests
 plugins: anyio-4.15.1
-collected 47 items
+collected 51 items
 
-tests/test_evaluator.py::test_extract_compensation_hourly PASSED         [  2%]
-tests/test_evaluator.py::test_extract_compensation_annual PASSED         [  4%]
-tests/test_evaluator.py::test_tier1_rejects_lifting_violation PASSED     [  6%]
+tests/test_evaluator.py::test_extract_compensation_hourly PASSED         [  1%]
+tests/test_evaluator.py::test_extract_compensation_annual PASSED         [  3%]
+tests/test_evaluator.py::test_tier1_rejects_lifting_violation PASSED     [  5%]
 tests/test_evaluator.py::test_tier1_rejects_keyword_physical_restriction PASSED [  8%]
 tests/test_evaluator.py::test_tier1_rejects_hourly_pay_floor_violation PASSED [ 10%]
 tests/test_evaluator.py::test_tier1_rejects_schedule_conflict PASSED     [ 12%]

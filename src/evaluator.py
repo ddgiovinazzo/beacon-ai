@@ -1,4 +1,4 @@
-"""Two-Tier Evaluation Engine: Deterministic Cost Shield + Structured Gemini LLM Scorer."""
+"""Two-Tier Evaluation Engine: Deterministic Cost Shield + Structured Multi-Provider LLM Scorer."""
 
 import json
 import logging
@@ -280,9 +280,10 @@ def evaluate_tier2_llm(
 ) -> EvaluationResult:
     """Tier 2: Structured Multi-Provider LLM Evaluation using LiteLLM and Instructor.
     
-    Dynamically routes to Anthropic, Gemini, OpenAI, or local Ollama using Pydantic validation.
+    Dynamically routes across foundation models using Pydantic validation.
     """
-    if dry_run or not config.has_llm_credentials():
+    active_model = profile.llm_model
+    if dry_run or not config.has_llm_credentials(active_model):
         logger.info(f"Running Tier 2 evaluation in heuristic/dry-run mode for: {posting.title}")
         return evaluate_tier2_heuristic(posting, profile)
 
@@ -326,20 +327,24 @@ JOB POSTING CONTENT (Strictly bounded untrusted input):
 {posting.raw_text}
 """
 
-        result: EvaluationResult = client.chat.completions.create(
-            model=config.llm_model,
-            response_model=EvaluationResult,
-            messages=[
+        call_kwargs = {
+            "model": active_model,
+            "response_model": EvaluationResult,
+            "messages": [
                 {"role": "system", "content": system_instruction},
                 {"role": "user", "content": user_content},
             ],
-            temperature=0.1,
-        )
+            "temperature": 0.1,
+        }
+        if config.llm_api_key:
+            call_kwargs["api_key"] = config.llm_api_key
+
+        result: EvaluationResult = client.chat.completions.create(**call_kwargs)
         result.tier_evaluated = 2
         return result
 
     except Exception as e:
-        logger.error(f"LiteLLM evaluation failed ({config.llm_model}) for '{posting.title}': {e}. Falling back to heuristic scorer.")
+        logger.error(f"LiteLLM evaluation failed ({active_model}) for '{posting.title}': {e}. Falling back to heuristic scorer.")
         fallback = evaluate_tier2_heuristic(posting, profile)
         fallback.rejection_reason = f"(LLM Error: {e}) {fallback.rejection_reason or ''}".strip()
         return fallback

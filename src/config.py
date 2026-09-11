@@ -17,14 +17,9 @@ class Settings(BaseSettings):
         extra="ignore",
     )
 
-    # Multi-Provider Model String (e.g. gemini/gemini-2.5-flash, claude-3-5-sonnet-20241022, gpt-4o-mini, ollama/llama3.2)
-    llm_model: str = "gemini/gemini-2.5-flash"
-
-    # Provider API Credentials
-    gemini_api_key: Optional[str] = None
-    anthropic_api_key: Optional[str] = None
-    openai_api_key: Optional[str] = None
-    ollama_api_base: Optional[str] = "http://localhost:11434"
+    # Unified LLM API Credentials & Fallback Model
+    llm_api_key: Optional[str] = None
+    llm_model: Optional[str] = None
 
     # Circuit Breaker Cap
     max_llm_evals_per_run: int = 20
@@ -64,35 +59,15 @@ class Settings(BaseSettings):
         self.matches_dir.mkdir(parents=True, exist_ok=True)
 
     def sync_litellm_env(self) -> None:
-        """Export configured API keys to standard environment variables for LiteLLM."""
-        if self.gemini_api_key and not os.environ.get("GEMINI_API_KEY"):
-            os.environ["GEMINI_API_KEY"] = self.gemini_api_key
-        if self.anthropic_api_key and not os.environ.get("ANTHROPIC_API_KEY"):
-            os.environ["ANTHROPIC_API_KEY"] = self.anthropic_api_key
-        if self.openai_api_key and not os.environ.get("OPENAI_API_KEY"):
-            os.environ["OPENAI_API_KEY"] = self.openai_api_key
-        if self.ollama_api_base and not os.environ.get("OLLAMA_API_BASE"):
-            os.environ["OLLAMA_API_BASE"] = self.ollama_api_base
+        """Export configured unified API key to environment for LiteLLM."""
+        if self.llm_api_key and not os.environ.get("LLM_API_KEY"):
+            os.environ["LLM_API_KEY"] = self.llm_api_key
 
-    def has_llm_credentials(self) -> bool:
-        """Check whether credentials exist for the selected LLM provider."""
-        model = self.llm_model.lower()
-        if "ollama" in model or "local" in model:
+    def has_llm_credentials(self, model: Optional[str] = None) -> bool:
+        """Check whether LLM API credentials or local execution base exists."""
+        if model and (model.startswith("ollama/") or model.startswith("local/")):
             return True
-        if "gemini" in model or "google" in model:
-            return bool(self.gemini_api_key or os.environ.get("GEMINI_API_KEY"))
-        if "claude" in model or "anthropic" in model:
-            return bool(self.anthropic_api_key or os.environ.get("ANTHROPIC_API_KEY"))
-        if "gpt" in model or "openai" in model:
-            return bool(self.openai_api_key or os.environ.get("OPENAI_API_KEY"))
-        return bool(
-            self.gemini_api_key
-            or self.anthropic_api_key
-            or self.openai_api_key
-            or os.environ.get("GEMINI_API_KEY")
-            or os.environ.get("ANTHROPIC_API_KEY")
-            or os.environ.get("OPENAI_API_KEY")
-        )
+        return bool(self.llm_api_key or os.environ.get("LLM_API_KEY"))
 
 
 @lru_cache()

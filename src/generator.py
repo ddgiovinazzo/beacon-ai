@@ -236,19 +236,24 @@ INSTRUCTIONS:
 6. Return tailored_education following geographic heuristics.
 """
 
-        resume_data: TailoredResumeData = client.chat.completions.create(
-            model=config.llm_model,
-            response_model=TailoredResumeData,
-            messages=[
+        active_model = profile.llm_model
+        call_kwargs = {
+            "model": active_model,
+            "response_model": TailoredResumeData,
+            "messages": [
                 {"role": "system", "content": system_instruction},
                 {"role": "user", "content": user_content},
             ],
-            temperature=0.2,
-        )
+            "temperature": 0.2,
+        }
+        if config.llm_api_key:
+            call_kwargs["api_key"] = config.llm_api_key
+
+        resume_data: TailoredResumeData = client.chat.completions.create(**call_kwargs)
         return resume_data
 
     except Exception as e:
-        logger.warning(f"Failed to generate LLM resume data via {config.llm_model} ({e}). Using deterministic fallback.")
+        logger.warning(f"Failed to generate LLM resume data via {active_model} ({e}). Using deterministic fallback.")
         return create_deterministic_tailored_data(posting, profile)
 
 
