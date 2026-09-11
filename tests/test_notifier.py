@@ -112,7 +112,7 @@ def test_button_routing_no_email_portal(
         sample_result,
         email_draft=draft_text,
     )
-    assert "Open Application Portal &nearr;" in html_out
+    assert "Open Application Portal ↗" in html_out
     assert f'href="{sample_job.link}"' in html_out
     assert "Pre-Generated Pitch Draft" in html_out
     assert "Dear Hiring Team," in html_out
