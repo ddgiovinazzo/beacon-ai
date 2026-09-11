@@ -73,7 +73,7 @@ def test_parse_craigslist_alert_email_html():
     p1 = postings[0]
     assert p1.title == "Administrative Assistant"
     assert p1.link == "https://hudsonvalley.craigslist.org/ofc/d/white-plains-administrative-assistant/7812345678.html"
-    assert p1.source == "email:craigslist"
+    assert p1.source == "email:craigslist.org"
     assert p1.published == "Fri, 11 Sep 2026 08:00:00 -0400"
     assert "<untrusted_job_posting>" in p1.raw_text
     assert "White Plains" in p1.raw_text
@@ -103,7 +103,7 @@ def test_parse_craigslist_alert_email_plain_text_fallback():
     assert len(postings) == 2
     assert "7812345680.html" in postings[0].link
     assert "7812345681.html" in postings[1].link
-    assert postings[0].source == "email:craigslist"
+    assert postings[0].source == "email:craigslist.org"
 
 
 def test_parse_generic_job_alert_email():
@@ -156,7 +156,7 @@ def test_parse_email_message_multipart_routing():
     postings = parse_email_message(msg)
     assert len(postings) == 1
     assert postings[0].title == "Office Clerk"
-    assert postings[0].source == "email:craigslist"
+    assert postings[0].source == "email:craigslist.org"
 
 
 def test_fetch_imap_emails_unconfigured():

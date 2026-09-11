@@ -220,77 +220,93 @@ def decode_email_header(header_val: Optional[str]) -> str:
     return " ".join(decoded_fragments).strip()
 
 
-def parse_craigslist_alert_email(
+def parse_job_alert_email(
     html_body: str,
     plain_body: str,
+    subject: str = "",
+    sender: str = "",
     date_str: Optional[str] = None,
 ) -> List[JobPosting]:
-    """Extract individual job listings from a Craigslist saved search alert email."""
+    """Parse job alert emails from any provider (e.g. job boards, municipal listservs, classifieds)."""
     postings: List[JobPosting] = []
     seen_links = set()
 
-    # 1. Parse HTML structure if available
+    sender_domain = "email"
+    email_match = re.search(r"@([\w.-]+)", sender)
+    if email_match:
+        domain = email_match.group(1).lower()
+        sender_domain = f"email:{domain}"
+
+    # Administrative and non-job URL patterns to ignore across all providers
+    ignored_keywords = [
+        "unsubscribe", "preferences", "privacy", "feedback", "/help", "/terms",
+        "/settings", "/manage", "/about/", "/account/", "/accounts/", "myaccount.",
+        "accounts.", "login", "signin", "optout", "/sub/", "legal"
+    ]
+
+    job_indicators = [
+        "/job/", "/jobs/", "/viewjob", "/posting/", "/apply", "/careers/",
+        "/d/", "/o/", "/rc/clk", "/clk", ".html"
+    ]
+
     if html_body:
         soup = BeautifulSoup(html_body, "html.parser")
         for a_tag in soup.find_all("a", href=True):
             href = a_tag["href"].strip()
-            # Discard non-craigslist or management/help/terms links
             if not href.startswith(("http://", "https://")):
                 continue
-            parsed_url = urlparse(href)
-            netloc = parsed_url.netloc.lower()
-            if not (netloc == "craigslist.org" or netloc.endswith(".craigslist.org")):
+            href_lower = href.lower()
+            if any(ign in href_lower for ign in ignored_keywords):
                 continue
-            path = parsed_url.path.lower()
-            if any(ign in path for ign in ["/about/", "/help/", "/terms", "/sub/", "accounts.", "/feedback", "unsubscribe"]):
-                continue
-            # Ensure it targets an actual posting (usually ends in .html or contains /d/)
-            if not (".html" in path or "/d/" in path or "/o/" in path):
+
+            # Check if URL matches job indicators or is inside a structured list/table row
+            is_job_link = any(k in href_lower for k in job_indicators)
+            container = a_tag.find_parent(["tr", "li", "div", "p"])
+            if not is_job_link and not (container and container.name in ["tr", "li"]):
                 continue
 
             if href in seen_links:
                 continue
 
             title = a_tag.get_text(separator=" ", strip=True)
-            if not title or len(title) < 2 or title.lower() in ["view", "details", "click here", "link"]:
-                parent_text = a_tag.parent.get_text(separator=" ", strip=True) if a_tag.parent else ""
-                if len(parent_text) > len(title):
-                    title = parent_text
+            if not title or len(title) < 2 or title.lower() in [
+                "apply", "view", "apply now", "view job", "learn more", "details", "click here", "link"
+            ]:
+                if container:
+                    parent_title = container.get_text(separator=" ", strip=True)
+                    if len(parent_title) > len(title):
+                        title = parent_title[:100]
 
             if not title or len(title) < 2:
                 continue
 
-            # Extract descriptive context from parent container
-            container = a_tag.find_parent(["tr", "li", "p", "div"])
             snippet = container.get_text(separator=" ", strip=True) if container else title
-
-            clean_snippet = sanitize_html(snippet)
-            guarded_snippet = wrap_untrusted_content(clean_snippet)
-
             seen_links.add(href)
             postings.append(
                 JobPosting(
                     title=title,
                     link=href,
                     published=date_str,
-                    raw_text=guarded_snippet,
-                    source="email:craigslist",
+                    raw_text=wrap_untrusted_content(sanitize_html(snippet)),
+                    source=sender_domain,
                 )
             )
 
-    # 2. Fallback to plain text URLs if HTML produced nothing
+    # 2. Plain text fallback if HTML produced no links
     if not postings and plain_body:
-        for match in re.finditer(r"(https?://[a-zA-Z0-9.-]*craigslist\.org/[^\s<>'\"]+\.html)", plain_body):
-            url = match.group(1).strip()
+        for match in re.finditer(r"https?://[^\s<>'\"]+", plain_body):
+            url = match.group(0).strip().rstrip(".,;)")
             if url in seen_links:
                 continue
-            parsed_url = urlparse(url)
-            if any(ign in parsed_url.path.lower() for ign in ["/about/", "/help/", "/terms", "accounts."]):
+            url_lower = url.lower()
+            if any(ign in url_lower for ign in ignored_keywords):
+                continue
+            if not any(k in url_lower for k in job_indicators):
                 continue
 
             lines = [l.strip() for l in plain_body.splitlines() if url in l]
             context_line = lines[0] if lines else url
-            clean_title = context_line.replace(url, "").strip(" -:|\t") or "Craigslist Job Posting"
+            clean_title = context_line.replace(url, "").strip(" -:|\t") or (subject.strip() if subject else "Job Posting")
 
             seen_links.add(url)
             clean_snippet = sanitize_html(context_line)
@@ -300,72 +316,16 @@ def parse_craigslist_alert_email(
                     link=url,
                     published=date_str,
                     raw_text=wrap_untrusted_content(clean_snippet),
-                    source="email:craigslist",
+                    source=sender_domain,
                 )
             )
 
-    logger.info(f"Extracted {len(postings)} job postings from Craigslist alert email")
-    return postings
-
-
-def parse_generic_job_alert_email(
-    html_body: str,
-    plain_body: str,
-    subject: str,
-    sender: str,
-    date_str: Optional[str] = None,
-) -> List[JobPosting]:
-    """Parse generic job alert emails (e.g., LinkedIn, Indeed, ZipRecruiter, Google Alerts)."""
-    postings: List[JobPosting] = []
-    seen_links = set()
-
-    sender_domain = "email"
-    email_match = re.search(r"@([\w.-]+)", sender)
-    if email_match:
-        sender_domain = f"email:{email_match.group(1).lower()}"
-
-    if html_body:
-        soup = BeautifulSoup(html_body, "html.parser")
-        for a_tag in soup.find_all("a", href=True):
-            href = a_tag["href"].strip()
-            if not href.startswith(("http://", "https://")):
-                continue
-            href_lower = href.lower()
-            if any(k in href_lower for k in ["/job/", "/jobs/", "/viewjob", "/posting/", "/apply", "/careers/"]):
-                if any(ign in href_lower for ign in ["unsubscribe", "preferences", "privacy", "help", "terms", "settings"]):
-                    continue
-                if href in seen_links:
-                    continue
-
-                title = a_tag.get_text(separator=" ", strip=True)
-                if not title or len(title) < 3 or title.lower() in ["apply", "view", "apply now", "view job", "learn more"]:
-                    container = a_tag.find_parent(["tr", "li", "div", "p"])
-                    if container:
-                        title = container.get_text(separator=" ", strip=True)[:100]
-
-                if not title or len(title) < 3:
-                    continue
-
-                container = a_tag.find_parent(["tr", "li", "div", "p"])
-                snippet = container.get_text(separator=" ", strip=True) if container else title
-
-                seen_links.add(href)
-                postings.append(
-                    JobPosting(
-                        title=title,
-                        link=href,
-                        published=date_str,
-                        raw_text=wrap_untrusted_content(sanitize_html(snippet)),
-                        source=sender_domain,
-                    )
-                )
-
-    # If no discrete multiple job links were extracted, treat the whole email as a single job if descriptive
+    # 3. If no discrete URLs were extracted, treat the whole email as a single posting if descriptive
     if not postings:
         body_text = plain_body if plain_body else (sanitize_html(html_body) if html_body else "")
         if body_text and len(body_text.strip()) > 30 and len(subject.strip()) > 3:
             link_match = re.search(r"https?://[^\s<>'\"]+", body_text)
-            direct_link = link_match.group(0).strip() if link_match else f"email:{hash(subject + (date_str or ''))}"
+            direct_link = link_match.group(0).strip() if link_match else f"{sender_domain}:{hash(subject + (date_str or ''))}"
             clean_subject = re.sub(r"^(?:fwd?|re):\s*", "", subject, flags=re.IGNORECASE).strip()
 
             postings.append(
@@ -378,12 +338,44 @@ def parse_generic_job_alert_email(
                 )
             )
 
-    logger.info(f"Extracted {len(postings)} job postings from generic alert email ({sender_domain})")
+    logger.info(f"Extracted {len(postings)} job postings from email alert ({sender_domain})")
     return postings
 
 
+def parse_craigslist_alert_email(
+    html_body: str,
+    plain_body: str,
+    date_str: Optional[str] = None,
+) -> List[JobPosting]:
+    """Backward-compatible wrapper for job alert parsing."""
+    return parse_job_alert_email(
+        html_body=html_body,
+        plain_body=plain_body,
+        subject="Job Alert",
+        sender="robot@craigslist.org",
+        date_str=date_str,
+    )
+
+
+def parse_generic_job_alert_email(
+    html_body: str,
+    plain_body: str,
+    subject: str,
+    sender: str,
+    date_str: Optional[str] = None,
+) -> List[JobPosting]:
+    """Backward-compatible wrapper for job alert parsing."""
+    return parse_job_alert_email(
+        html_body=html_body,
+        plain_body=plain_body,
+        subject=subject,
+        sender=sender,
+        date_str=date_str,
+    )
+
+
 def parse_email_message(msg: email.message.Message) -> List[JobPosting]:
-    """Decode and extract job postings from an RFC 822 email message."""
+    """Decode and extract job postings from an RFC 822 email message using provider-agnostic parsing."""
     subject = decode_email_header(msg.get("Subject", ""))
     sender = decode_email_header(msg.get("From", ""))
     date_str = decode_email_header(msg.get("Date", ""))
@@ -426,19 +418,13 @@ def parse_email_message(msg: email.message.Message) -> List[JobPosting]:
     combined_html = "\n".join(html_parts)
     combined_plain = "\n".join(plain_parts)
 
-    sender_lower = sender.lower()
-    subject_lower = subject.lower()
-
-    if "craigslist" in sender_lower or "craigslist" in subject_lower or "craigslist.org" in combined_html:
-        return parse_craigslist_alert_email(combined_html, combined_plain, date_str=date_str)
-    else:
-        return parse_generic_job_alert_email(
-            combined_html,
-            combined_plain,
-            subject=subject,
-            sender=sender,
-            date_str=date_str,
-        )
+    return parse_job_alert_email(
+        html_body=combined_html,
+        plain_body=combined_plain,
+        subject=subject,
+        sender=sender,
+        date_str=date_str,
+    )
 
 
 def fetch_imap_emails(settings: "Settings") -> List[JobPosting]:
