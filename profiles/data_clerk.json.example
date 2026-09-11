@@ -2,10 +2,13 @@
   "name": "Marcus Vance",
   "email": "marcus.vance@example.com",
   "phone": "(555) 345-6789",
-  "location": "San Jose, CA",
+  "location": "Metropolis, CA",
   "linkedin_url": "https://linkedin.com/in/marcusvance-records",
+  "portfolio_url": null,
+  "github_url": null,
   "constraints": {
     "min_hourly_rate": 24.0,
+    "min_weekly_earnings": null,
     "min_annual_salary": 50000.0,
     "max_commute_miles": 25,
     "physical_restrictions": [
@@ -29,13 +32,17 @@
       "Administrative Data Assistant",
       "Document Control Specialist"
     ],
+    "narrative_context": "Meticulous data clerk and administrative operations specialist with high-accuracy digitizing, indexing, and records verification skills.",
+    "engineering_projects": [],
     "roles": [
       {
+        "id": "role-1",
         "title": "Lead Records & Data Clerk",
         "organization": "Silicon Valley Health Consortium",
-        "location": "San Jose, CA",
+        "location": "Metropolis, CA",
         "start_date": "Jan 2022",
         "end_date": "Present",
+        "tags": ["data_entry", "clerical", "records", "verification", "indexing"],
         "bullets": [
           "Digitized and validated 45,000+ confidential patient and billing records in compliance with HIPAA guidelines at 99.9% keystroke accuracy.",
           "Automated batch validation checks using Excel macros and Python scripts, reducing record entry error rates by 34%.",
@@ -43,11 +50,13 @@
         ]
       },
       {
+        "id": "role-2",
         "title": "Data Entry Associate",
-        "organization": "Bay Logistic Logistics Corp",
-        "location": "Fremont, CA",
+        "organization": "Bay Logistics Corp",
+        "location": "Metropolis, CA",
         "start_date": "Aug 2019",
         "end_date": "Dec 2021",
+        "tags": ["data_entry", "clerical", "audit", "manifests"],
         "bullets": [
           "Keyed bills of lading, customs declarations, and dispatch manifests at 78 WPM / 11,500 KPH with zero compliance infractions.",
           "Audited cross-dock inventory records across 3 warehouse hubs, rectifying tracking mismatches within 2 hours of report receipt."
@@ -64,8 +73,20 @@
       "Adobe Acrobat Pro"
     ],
     "education": [
-      "B.A. in Information Systems, San Jose State University",
-      "Microsoft Office Specialist: Excel Expert Certification"
+      {
+        "id": "edu-1",
+        "institution": "Metropolis State University",
+        "degree": "B.A. in Information Systems",
+        "start_date": "2015",
+        "end_date": "2019",
+        "tags": ["tech", "universal"]
+      }
+    ],
+    "certifications": [
+      {
+        "name": "Microsoft Office Specialist: Excel Expert Certification",
+        "status": "Active"
+      }
     ]
   }
 }

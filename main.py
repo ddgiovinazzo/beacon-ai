@@ -2,6 +2,7 @@
 
 import json
 import logging
+import re
 from pathlib import Path
 from typing import List, Optional
 
@@ -128,8 +129,14 @@ def scan(
         for line in str(raw).splitlines():
             for f in line.split(","):
                 clean = f.strip()
-                if clean and not clean.startswith("#"):
-                    target_feeds.append(clean)
+                if not clean or clean.startswith("#"):
+                    continue
+                # Extract URL if wrapped in markdown link syntax [text](url)
+                md_match = re.search(r"\[.*?\]\((https?://[^\s\)]+)\)", clean)
+                if md_match:
+                    clean = md_match.group(1).strip()
+                target_feeds.append(clean)
+
 
     if not target_feeds:
         console.print("[bold red]Error:[/bold red] No target feeds provided via --feed or TARGET_FEED_URLS.")

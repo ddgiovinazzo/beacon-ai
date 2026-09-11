@@ -40,7 +40,7 @@ class Settings(BaseSettings):
     # Outbound Notifications (Resend)
     resend_api_key: Optional[str] = None
     notification_email_to: Optional[str] = None
-    notification_email_from: str = "BeaconAI <alerts@ddgiovinazzo.com>"
+    notification_email_from: str = "BeaconAI <alerts@example.com>"
 
     @field_validator("notification_email_to")
     @classmethod
