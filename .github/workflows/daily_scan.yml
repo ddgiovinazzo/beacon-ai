@@ -54,10 +54,10 @@ jobs:
           mkdir -p profiles
           echo "$PROFILE_B64" | base64 --decode > profiles/ephemeral_profile.json
 
-      - name: Run Multi-Feed Intelligence Scan
+      - name: Run Multi-Feed & Email Intelligence Scan
         env:
           LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
-          LLM_MODEL: ${{ vars.LLM_MODEL }}
+          LLM_MODEL: ${{ vars.LLM_MODEL || secrets.LLM_MODEL }}
           LLM_RATE_LIMIT_DELAY: ${{ vars.LLM_RATE_LIMIT_DELAY }}
           LLM_MAX_RETRIES: ${{ vars.LLM_MAX_RETRIES }}
           HTTP_USER_AGENT: ${{ vars.HTTP_USER_AGENT }}
@@ -65,14 +65,24 @@ jobs:
           NOTIFICATION_EMAIL_TO: ${{ secrets.NOTIFICATION_EMAIL_TO }}
           NOTIFICATION_EMAIL_FROM: ${{ secrets.NOTIFICATION_EMAIL_FROM }}
           TARGET_FEEDS: ${{ vars.TARGET_FEED_URLS || secrets.TARGET_FEED_URLS }}
+          IMAP_SERVER: ${{ secrets.IMAP_SERVER || vars.IMAP_SERVER || 'imap.gmail.com' }}
+          IMAP_PORT: ${{ vars.IMAP_PORT || '993' }}
+          IMAP_USERNAME: ${{ secrets.IMAP_USERNAME }}
+          IMAP_PASSWORD: ${{ secrets.IMAP_PASSWORD }}
+          IMAP_MAILBOX: ${{ vars.IMAP_MAILBOX || 'INBOX' }}
+          IMAP_SEARCH_CRITERIA: ${{ vars.IMAP_SEARCH_CRITERIA || 'UNSEEN' }}
+          IMAP_MARK_SEEN: ${{ vars.IMAP_MARK_SEEN || 'true' }}
         run: |
-          echo "$TARGET_FEEDS" | while IFS= read -r feed || [ -n "$feed" ]; do
+          FEED_ARGS=()
+          while IFS= read -r feed || [ -n "$feed" ]; do
             trimmed_feed=$(echo "$feed" | xargs)
             if [[ -n "$trimmed_feed" && ! "$trimmed_feed" =~ ^# ]]; then
-              echo "==> Scanning Target Feed: $trimmed_feed"
-              python main.py scan --profile profiles/ephemeral_profile.json --feed "$trimmed_feed" --notify || true
+              FEED_ARGS+=(--feed "$trimmed_feed")
             fi
-          done
+          done <<< "$TARGET_FEEDS"
+
+          echo "==> Initiating scan (Feeds: ${#FEED_ARGS[@]}, Email check: enabled)"
+          python main.py scan --profile profiles/ephemeral_profile.json "${FEED_ARGS[@]}" --check-email --notify
 
       - name: Purge Ephemeral Profile
         if: always()
