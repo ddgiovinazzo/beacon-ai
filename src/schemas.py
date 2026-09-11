@@ -247,6 +247,14 @@ class TailoredResumeData(BaseModel):
         default_factory=list,
         description="Selected education credentials aligned with geographic and technical context.",
     )
+    include_portfolio_link: bool = Field(
+        default=False,
+        description="Set True ONLY if the target role is primarily software, web, cloud/DevOps, or AI/data engineering where a developer portfolio is standard. Set False for administrative, clerical, operational, accounting, or bookkeeping roles.",
+    )
+    include_github_link: bool = Field(
+        default=False,
+        description="Set True ONLY if the target role specifically evaluates code repositories. Set False for non-developer or general analytical roles.",
+    )
 
     @property
     def headline(self) -> str:

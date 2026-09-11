@@ -940,6 +940,123 @@ def test_llm_empty_skills_falls_back_to_profile_skills(monkeypatch):
     assert "Microsoft Excel" in all_skills
 
 
+def test_conditional_links_in_resume_template(tmp_path: Path):
+    """Verify resume template conditionally renders portfolio and github links based on tailored_data flags."""
+    from jinja2 import Environment, FileSystemLoader
+    from src.schemas import (
+        ExperienceRole,
+        MasterExperience,
+        TailoredResumeData,
+        UserConstraints,
+        UserProfile,
+    )
+
+    env = Environment(loader=FileSystemLoader("templates"))
+    template = env.get_template("resume_template.md.j2")
+
+    profile = UserProfile(
+        name="Alex Morgan",
+        email="alex@example.com",
+        phone="555-0188",
+        location="New York, NY",
+        portfolio_url="https://alexmorgan.dev",
+        linkedin_url="https://linkedin.com/in/alexmorgan",
+        github_url="https://github.com/alexmorgan",
+        constraints=UserConstraints(),
+        master_experience=MasterExperience(
+            roles=[],
+            tools_and_technologies=["Python", "React", "AWS", "Excel"],
+        ),
+    )
+
+    # Case 1: Tech role -> both portfolio and github enabled
+    tech_data = TailoredResumeData(
+        target_headline="Senior Software Engineer",
+        tailored_summary="Experienced backend systems engineer.",
+        categorized_skills={"Core": ["Python", "AWS"]},
+        tailored_experience=[
+            ExperienceRole(
+                title="Software Engineer",
+                organization="TechCorp",
+                location="New York, NY",
+                start_date="2021",
+                end_date="Present",
+                bullets=["**Cloud Architecture:** Built APIs."],
+            )
+        ],
+        include_portfolio_link=True,
+        include_github_link=True,
+    )
+    rendered_tech = template.render(profile=profile, tailored_data=tech_data)
+    assert "alexmorgan.dev" in rendered_tech
+    assert "linkedin.com/in/alexmorgan" in rendered_tech
+    assert "github.com/alexmorgan" in rendered_tech
+
+    # Case 2: Non-tech role (bookkeeper/administrative) -> portfolio and github disabled
+    admin_data = TailoredResumeData(
+        target_headline="Accounts Payable Clerk",
+        tailored_summary="Experienced data and invoicing specialist.",
+        categorized_skills={"Core": ["Excel", "QuickBooks"]},
+        tailored_experience=[
+            ExperienceRole(
+                title="Billing Specialist",
+                organization="FinanceCo",
+                location="New York, NY",
+                start_date="2022",
+                end_date="2024",
+                bullets=["**Invoice Processing:** Reconciled statements."],
+            )
+        ],
+        include_portfolio_link=False,
+        include_github_link=False,
+    )
+    rendered_admin = template.render(profile=profile, tailored_data=admin_data)
+    assert "alexmorgan.dev" not in rendered_admin
+    assert "github.com/alexmorgan" not in rendered_admin
+    assert "linkedin.com/in/alexmorgan" in rendered_admin
+    assert "alex@example.com" in rendered_admin
+
+
+def test_deterministic_tailored_data_link_flags():
+    """Verify create_deterministic_tailored_data sets link flags appropriately based on job domain."""
+    from src.generator import create_deterministic_tailored_data
+    from src.schemas import JobPosting, MasterExperience, UserConstraints, UserProfile
+
+    profile = UserProfile(
+        name="Alex Morgan",
+        email="alex@example.com",
+        phone="555-0188",
+        location="New York, NY",
+        portfolio_url="https://alexmorgan.dev",
+        constraints=UserConstraints(),
+        master_experience=MasterExperience(
+            roles=[],
+            tools_and_technologies=["Python", "React", "Excel"],
+        ),
+    )
+
+    tech_job = JobPosting(
+        title="Full Stack Software Engineer",
+        link="https://example.com/eng",
+        raw_text="Looking for a Python and React developer.",
+        source="example.com",
+    )
+    tech_result = create_deterministic_tailored_data(tech_job, profile)
+    assert tech_result.include_portfolio_link is True
+    assert tech_result.include_github_link is True
+
+    admin_job = JobPosting(
+        title="Data Entry Clerk",
+        link="https://example.com/admin",
+        raw_text="Seeking an office assistant for Excel record keeping and filing.",
+        source="example.com",
+    )
+    admin_result = create_deterministic_tailored_data(admin_job, profile)
+    assert admin_result.include_portfolio_link is False
+    assert admin_result.include_github_link is False
+
+
+
 
 
 

@@ -275,6 +275,9 @@ def create_deterministic_tailored_data(
         "Workflows, Tools & Methodologies": ordered_skills[half:],
     }
 
+    tech_keywords = {"software", "engineer", "developer", "backend", "frontend", "fullstack", "python", "devops", "cloud", "data engineer", "systems"}
+    is_tech = any(kw in job_text for kw in tech_keywords)
+
     return TailoredResumeData(
         target_headline=headline,
         tailored_summary=summary,
@@ -282,6 +285,8 @@ def create_deterministic_tailored_data(
         tailored_experience=selected_roles,
         tailored_projects=tailored_projects,
         tailored_education=tailored_education,
+        include_portfolio_link=is_tech,
+        include_github_link=is_tech,
     )
 
 
@@ -361,7 +366,10 @@ def generate_tailored_resume_data(
             "- target_headline: Set to clean role title matching the JD (without employer name).\n"
             "- categorized_skills: MANDATORY REQUIREMENT. You must ALWAYS organize the candidate's skills from the Context Prompt into 2-4 logical, domain-appropriate categories (with 3-6 skills per category) that best align with the JD requirements. NEVER return an empty dictionary or leave this blank.\n"
             "- tailored_experience: Select 2-3 most relevant roles with 3-4 bullets each following the bold dynamic heading and hard quantification rules.\n"
-            "- tailored_projects: If candidate has relevant portfolio or engineering projects, select up to 2 with bullets ending in quantifiable/concrete results; otherwise leave empty."
+            "- tailored_projects: If candidate has relevant portfolio or engineering projects, select up to 2 with bullets ending in quantifiable/concrete results; otherwise leave empty.\n"
+            "- include_portfolio_link & include_github_link: BINARY LINK RULES.\n"
+            "  * include_portfolio_link: Set to TRUE IF AND ONLY IF the target JD is primarily software engineering, web development, cloud/DevOps, or AI/data engineering where reviewing a software portfolio website is standard. Set to FALSE for all administrative, clerical, operational, accounting, bookkeeping, data entry, or office/spreadsheet roles (to avoid flight-risk or overqualification concerns).\n"
+            "  * include_github_link: Set to TRUE IF AND ONLY IF the target role specifically evaluates public code repositories or open-source commits. Set to FALSE for all non-developer or general analytical/administrative roles."
         )
 
         user_content = f"""JOB DESCRIPTION (JD):
@@ -396,6 +404,8 @@ INSTRUCTIONS:
 4. tailored_experience: 2-3 most relevant roles. Format every bullet with bold heading '**[Competency Heading]:** [Grounded verb] ... [Quantifiable result / concrete outcome]'.
 5. tailored_projects: Select relevant projects with quantifiable outcomes if applicable, else empty list.
 6. tailored_education: Education credentials aligned with context.
+7. include_portfolio_link: Set to true ONLY if the role is primarily software, web, or AI engineering where an engineering portfolio is expected. Set to false for administrative, clerical, accounting, bookkeeping, or data entry roles.
+8. include_github_link: Set to true ONLY if the role explicitly evaluates code repositories; otherwise false.
 """
 
         active_model = config.llm_model or LLM_MODEL
