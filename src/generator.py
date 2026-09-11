@@ -43,7 +43,7 @@ def generate_clean_resume_filename(candidate_name: str, company_name: Optional[s
     Fallback: FirstName_LastName_JobTitle_Resume.pdf
     Allows up to 40 characters for the company/title, ensuring words are not sliced mid-syllable.
     """
-    # Clean candidate name: "Daniel Giovinazzo" -> "Daniel_Giovinazzo"
+    # Clean candidate name: "Jane Doe" -> "Jane_Doe"
     clean_candidate = "_".join(re.sub(r'[^a-zA-Z0-9\s]', '', candidate_name).split())
     
     # Clean target entity
@@ -592,78 +592,17 @@ def export_markdown_to_pdf(
         tag.decompose()
     html_body = str(soup)
 
-    # Load ATS resume styles
-    css_path = Path("templates/resume_styles.css")
-    if not css_path.exists():
-        css_path = Path(__file__).resolve().parent.parent / "templates" / "resume_styles.css"
-
-    if css_path.exists():
+    # Load ATS resume styles from single source of truth
+    css_candidates = [
+        Path("templates/resume_styles.css"),
+        Path(__file__).resolve().parent.parent / "templates" / "resume_styles.css",
+    ]
+    css_path = next((p for p in css_candidates if p.exists()), None)
+    if css_path:
         css_content = css_path.read_text(encoding="utf-8")
     else:
-        css_content = """@page {
-    size: letter portrait;
-    margin: 0.5in 0.55in 0.5in 0.55in;
-}
-body {
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-    font-size: 9.5pt;
-    line-height: 1.35;
-    color: #111827;
-    margin: 0;
-    padding: 0;
-}
-h1 {
-    font-size: 16pt;
-    font-weight: 800;
-    margin: 0 0 2pt 0;
-    text-align: left;
-    letter-spacing: 0.5px;
-    color: #111827;
-}
-h2 {
-    font-size: 10.5pt;
-    font-weight: 700;
-    text-transform: uppercase;
-    border-bottom: 1px solid #111827;
-    padding-bottom: 1.5pt;
-    margin: 10pt 0 4pt 0;
-    letter-spacing: 0.8px;
-    color: #111827;
-}
-h3 {
-    font-size: 9.8pt;
-    font-weight: 700;
-    margin: 5pt 0 1pt 0;
-    color: #111827;
-}
-h4 {
-    font-size: 9pt;
-    font-weight: 600;
-    color: #374151;
-    margin: 1pt 0 3pt 0;
-}
-p {
-    margin: 0 0 4pt 0;
-}
-ul {
-    margin: 2pt 0 5pt 0;
-    padding-left: 15pt;
-}
-li {
-    margin-bottom: 2pt;
-    line-height: 1.3;
-}
-hr {
-    display: none;
-}
-a {
-    color: #111827;
-    text-decoration: none;
-}
-strong {
-    color: #111827;
-    font-weight: 700;
-}"""
+        logger.warning("templates/resume_styles.css not found; using minimal baseline styles.")
+        css_content = "@page { size: letter portrait; margin: 0.5in; } body { font-family: sans-serif; font-size: 10pt; line-height: 1.4; color: #111; }"
 
     full_html = f"""<!DOCTYPE html>
 <html lang="en">

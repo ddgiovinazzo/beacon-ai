@@ -158,7 +158,11 @@ def fetch_feed(
             # Skip invalid entries lacking unique identifier/URL
             continue
 
-        published = entry.get("published", entry.get("updated", None))
+        published = None
+        if "published" in entry:
+            published = entry["published"]
+        elif "updated" in entry:
+            published = entry["updated"]
 
         # Extract raw description or content
         raw_body = ""
