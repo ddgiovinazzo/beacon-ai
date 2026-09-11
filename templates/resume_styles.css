@@ -6,8 +6,8 @@
 body {
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
     font-size: 9.5pt;
-    line-height: 1.35;
-    color: #111827;
+    line-height: 1.38;
+    color: #1e293b; /* Slate 800: 14.63:1 contrast (WCAG AAA) */
     margin: 0;
     padding: 0;
 }
@@ -18,20 +18,33 @@ h1 {
     margin: 0 0 2pt 0;
     text-align: left;
     letter-spacing: 0.5px;
-    color: #111827;
+    color: #0f172a; /* Slate 900: 17.85:1 contrast (WCAG AAA) */
     page-break-after: avoid;
     break-after: avoid;
 }
 
+/* Sub-headline below Candidate Name */
+h1 + h2 {
+    font-size: 10pt;
+    font-weight: 600;
+    text-transform: none;
+    color: #064e3b; /* Deep Forest Green: 9.72:1 contrast (WCAG AAA) */
+    border-bottom: none;
+    padding-bottom: 0;
+    margin: 0 0 4pt 0;
+    letter-spacing: 0.2px;
+}
+
+/* Major Section Headers (SUMMARY, EXPERIENCE, SKILLS, EDUCATION) */
 h2 {
     font-size: 10.5pt;
     font-weight: 700;
     text-transform: uppercase;
-    border-bottom: 1px solid #111827;
-    padding-bottom: 1.5pt;
-    margin: 10pt 0 4pt 0;
+    color: #065f46; /* Emerald/Forest: 7.68:1 contrast (WCAG AAA) */
+    border-bottom: 1.5pt solid #065f46;
+    padding-bottom: 2pt;
+    margin: 11pt 0 4pt 0;
     letter-spacing: 0.8px;
-    color: #111827;
     page-break-after: avoid;
     break-after: avoid;
 }
@@ -39,8 +52,8 @@ h2 {
 h3 {
     font-size: 9.8pt;
     font-weight: 700;
-    margin: 5pt 0 1pt 0;
-    color: #111827;
+    margin: 6pt 0 1pt 0;
+    color: #0f172a; /* Slate 900: 17.85:1 contrast (WCAG AAA) */
     page-break-after: avoid;
     break-after: avoid;
 }
@@ -48,7 +61,7 @@ h3 {
 h4 {
     font-size: 9pt;
     font-weight: 600;
-    color: #374151;
+    color: #334155; /* Slate 700: 10.35:1 contrast (WCAG AAA) */
     margin: 1pt 0 3pt 0;
     page-break-after: avoid;
     break-after: avoid;
@@ -66,8 +79,8 @@ ul {
 }
 
 li {
-    margin-bottom: 2pt;
-    line-height: 1.3;
+    margin-bottom: 2.5pt;
+    line-height: 1.34;
     page-break-inside: avoid;
     break-inside: avoid;
 }
@@ -81,11 +94,12 @@ hr {
 }
 
 a {
-    color: #111827;
+    color: #065f46; /* Forest Green: 7.68:1 contrast (WCAG AAA) */
     text-decoration: none;
+    font-weight: 500;
 }
 
 strong {
-    color: #111827;
+    color: #0f172a; /* Slate 900: 17.85:1 contrast (WCAG AAA) */
     font-weight: 700;
 }
