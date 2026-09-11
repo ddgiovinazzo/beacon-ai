@@ -1,17 +1,24 @@
-"""Ingestion, feed parsing, and sanitization module."""
-
+import email
+from email.header import decode_header
+import imaplib
 import logging
 import re
 from pathlib import Path
-from typing import List, Union
+from typing import TYPE_CHECKING, List, Optional, Union
 from urllib.parse import urlparse
 
 import feedparser
 import requests
-from bs4 import BeautifulSoup
+import warnings
+from bs4 import BeautifulSoup, MarkupResemblesLocatorWarning
+
+warnings.filterwarnings("ignore", category=MarkupResemblesLocatorWarning)
 
 from src.config import HTTP_USER_AGENT
 from src.schemas import JobPosting
+
+if TYPE_CHECKING:
+    from src.config import Settings
 
 logger = logging.getLogger("beacon.ingestion")
 
@@ -27,6 +34,11 @@ def sanitize_html(raw_html: str) -> str:
     """
     if not raw_html:
         return ""
+
+    if "<" not in raw_html:
+        text = ZERO_WIDTH_PATTERN.sub(" ", raw_html)
+        text = re.sub(r"[ \t]+", " ", text)
+        return re.sub(r"\n\s*\n+", "\n\n", text).strip()
 
     soup = BeautifulSoup(raw_html, "html.parser")
 
@@ -188,4 +200,306 @@ def fetch_feed(
         )
 
     logger.info(f"Parsed {len(postings)} postings from {source_id}")
+    return postings
+
+
+def decode_email_header(header_val: Optional[str]) -> str:
+    """Safely decode RFC 2047 MIME encoded-word email headers."""
+    if not header_val:
+        return ""
+    decoded_fragments = []
+    for fragment, charset in decode_header(header_val):
+        if isinstance(fragment, bytes):
+            charset_name = charset or "utf-8"
+            try:
+                decoded_fragments.append(fragment.decode(charset_name, errors="replace"))
+            except (LookupError, UnicodeDecodeError):
+                decoded_fragments.append(fragment.decode("utf-8", errors="replace"))
+        else:
+            decoded_fragments.append(str(fragment))
+    return " ".join(decoded_fragments).strip()
+
+
+def parse_craigslist_alert_email(
+    html_body: str,
+    plain_body: str,
+    date_str: Optional[str] = None,
+) -> List[JobPosting]:
+    """Extract individual job listings from a Craigslist saved search alert email."""
+    postings: List[JobPosting] = []
+    seen_links = set()
+
+    # 1. Parse HTML structure if available
+    if html_body:
+        soup = BeautifulSoup(html_body, "html.parser")
+        for a_tag in soup.find_all("a", href=True):
+            href = a_tag["href"].strip()
+            # Discard non-craigslist or management/help/terms links
+            if not href.startswith(("http://", "https://")):
+                continue
+            parsed_url = urlparse(href)
+            netloc = parsed_url.netloc.lower()
+            if not (netloc == "craigslist.org" or netloc.endswith(".craigslist.org")):
+                continue
+            path = parsed_url.path.lower()
+            if any(ign in path for ign in ["/about/", "/help/", "/terms", "/sub/", "accounts.", "/feedback", "unsubscribe"]):
+                continue
+            # Ensure it targets an actual posting (usually ends in .html or contains /d/)
+            if not (".html" in path or "/d/" in path or "/o/" in path):
+                continue
+
+            if href in seen_links:
+                continue
+
+            title = a_tag.get_text(separator=" ", strip=True)
+            if not title or len(title) < 2 or title.lower() in ["view", "details", "click here", "link"]:
+                parent_text = a_tag.parent.get_text(separator=" ", strip=True) if a_tag.parent else ""
+                if len(parent_text) > len(title):
+                    title = parent_text
+
+            if not title or len(title) < 2:
+                continue
+
+            # Extract descriptive context from parent container
+            container = a_tag.find_parent(["tr", "li", "p", "div"])
+            snippet = container.get_text(separator=" ", strip=True) if container else title
+
+            clean_snippet = sanitize_html(snippet)
+            guarded_snippet = wrap_untrusted_content(clean_snippet)
+
+            seen_links.add(href)
+            postings.append(
+                JobPosting(
+                    title=title,
+                    link=href,
+                    published=date_str,
+                    raw_text=guarded_snippet,
+                    source="email:craigslist",
+                )
+            )
+
+    # 2. Fallback to plain text URLs if HTML produced nothing
+    if not postings and plain_body:
+        for match in re.finditer(r"(https?://[a-zA-Z0-9.-]*craigslist\.org/[^\s<>'\"]+\.html)", plain_body):
+            url = match.group(1).strip()
+            if url in seen_links:
+                continue
+            parsed_url = urlparse(url)
+            if any(ign in parsed_url.path.lower() for ign in ["/about/", "/help/", "/terms", "accounts."]):
+                continue
+
+            lines = [l.strip() for l in plain_body.splitlines() if url in l]
+            context_line = lines[0] if lines else url
+            clean_title = context_line.replace(url, "").strip(" -:|\t") or "Craigslist Job Posting"
+
+            seen_links.add(url)
+            clean_snippet = sanitize_html(context_line)
+            postings.append(
+                JobPosting(
+                    title=clean_title,
+                    link=url,
+                    published=date_str,
+                    raw_text=wrap_untrusted_content(clean_snippet),
+                    source="email:craigslist",
+                )
+            )
+
+    logger.info(f"Extracted {len(postings)} job postings from Craigslist alert email")
+    return postings
+
+
+def parse_generic_job_alert_email(
+    html_body: str,
+    plain_body: str,
+    subject: str,
+    sender: str,
+    date_str: Optional[str] = None,
+) -> List[JobPosting]:
+    """Parse generic job alert emails (e.g., LinkedIn, Indeed, ZipRecruiter, Google Alerts)."""
+    postings: List[JobPosting] = []
+    seen_links = set()
+
+    sender_domain = "email"
+    email_match = re.search(r"@([\w.-]+)", sender)
+    if email_match:
+        sender_domain = f"email:{email_match.group(1).lower()}"
+
+    if html_body:
+        soup = BeautifulSoup(html_body, "html.parser")
+        for a_tag in soup.find_all("a", href=True):
+            href = a_tag["href"].strip()
+            if not href.startswith(("http://", "https://")):
+                continue
+            href_lower = href.lower()
+            if any(k in href_lower for k in ["/job/", "/jobs/", "/viewjob", "/posting/", "/apply", "/careers/"]):
+                if any(ign in href_lower for ign in ["unsubscribe", "preferences", "privacy", "help", "terms", "settings"]):
+                    continue
+                if href in seen_links:
+                    continue
+
+                title = a_tag.get_text(separator=" ", strip=True)
+                if not title or len(title) < 3 or title.lower() in ["apply", "view", "apply now", "view job", "learn more"]:
+                    container = a_tag.find_parent(["tr", "li", "div", "p"])
+                    if container:
+                        title = container.get_text(separator=" ", strip=True)[:100]
+
+                if not title or len(title) < 3:
+                    continue
+
+                container = a_tag.find_parent(["tr", "li", "div", "p"])
+                snippet = container.get_text(separator=" ", strip=True) if container else title
+
+                seen_links.add(href)
+                postings.append(
+                    JobPosting(
+                        title=title,
+                        link=href,
+                        published=date_str,
+                        raw_text=wrap_untrusted_content(sanitize_html(snippet)),
+                        source=sender_domain,
+                    )
+                )
+
+    # If no discrete multiple job links were extracted, treat the whole email as a single job if descriptive
+    if not postings:
+        body_text = plain_body if plain_body else (sanitize_html(html_body) if html_body else "")
+        if body_text and len(body_text.strip()) > 30 and len(subject.strip()) > 3:
+            link_match = re.search(r"https?://[^\s<>'\"]+", body_text)
+            direct_link = link_match.group(0).strip() if link_match else f"email:{hash(subject + (date_str or ''))}"
+            clean_subject = re.sub(r"^(?:fwd?|re):\s*", "", subject, flags=re.IGNORECASE).strip()
+
+            postings.append(
+                JobPosting(
+                    title=clean_subject,
+                    link=direct_link,
+                    published=date_str,
+                    raw_text=wrap_untrusted_content(sanitize_html(body_text)),
+                    source=sender_domain,
+                )
+            )
+
+    logger.info(f"Extracted {len(postings)} job postings from generic alert email ({sender_domain})")
+    return postings
+
+
+def parse_email_message(msg: email.message.Message) -> List[JobPosting]:
+    """Decode and extract job postings from an RFC 822 email message."""
+    subject = decode_email_header(msg.get("Subject", ""))
+    sender = decode_email_header(msg.get("From", ""))
+    date_str = decode_email_header(msg.get("Date", ""))
+
+    html_parts: List[str] = []
+    plain_parts: List[str] = []
+
+    if msg.is_multipart():
+        for part in msg.walk():
+            content_type = part.get_content_type()
+            content_disposition = str(part.get("Content-Disposition", ""))
+            if "attachment" in content_disposition:
+                continue
+            payload = part.get_payload(decode=True)
+            if not payload:
+                continue
+            charset = part.get_content_charset() or "utf-8"
+            try:
+                text = payload.decode(charset, errors="replace")
+            except (LookupError, UnicodeDecodeError):
+                text = payload.decode("utf-8", errors="replace")
+
+            if content_type == "text/html":
+                html_parts.append(text)
+            elif content_type == "text/plain":
+                plain_parts.append(text)
+    else:
+        payload = msg.get_payload(decode=True)
+        if payload:
+            charset = msg.get_content_charset() or "utf-8"
+            try:
+                text = payload.decode(charset, errors="replace")
+            except (LookupError, UnicodeDecodeError):
+                text = payload.decode("utf-8", errors="replace")
+            if msg.get_content_type() == "text/html":
+                html_parts.append(text)
+            else:
+                plain_parts.append(text)
+
+    combined_html = "\n".join(html_parts)
+    combined_plain = "\n".join(plain_parts)
+
+    sender_lower = sender.lower()
+    subject_lower = subject.lower()
+
+    if "craigslist" in sender_lower or "craigslist" in subject_lower:
+        return parse_craigslist_alert_email(combined_html, combined_plain, date_str=date_str)
+    else:
+        return parse_generic_job_alert_email(
+            combined_html,
+            combined_plain,
+            subject=subject,
+            sender=sender,
+            date_str=date_str,
+        )
+
+
+def fetch_imap_emails(settings: "Settings") -> List[JobPosting]:
+    """Connect to an IMAP mailbox, search for unread job alert emails, and parse job postings."""
+    if not settings.is_imap_configured:
+        logger.debug("IMAP credentials not configured; skipping email ingestion.")
+        return []
+
+    logger.info(f"Connecting to IMAP server {settings.imap_server}:{settings.imap_port} (mailbox: {settings.imap_mailbox})...")
+    postings: List[JobPosting] = []
+    client = None
+
+    try:
+        client = imaplib.IMAP4_SSL(
+            settings.imap_server,
+            settings.imap_port,
+        )
+        client.login(settings.imap_username, settings.imap_password)
+        select_status, _ = client.select(settings.imap_mailbox)
+        if select_status != "OK":
+            logger.error(f"Failed to select IMAP mailbox '{settings.imap_mailbox}'")
+            return []
+
+        search_criteria = settings.imap_search_criteria or "UNSEEN"
+        status, message_numbers = client.search(None, search_criteria)
+        if status != "OK" or not message_numbers or not message_numbers[0]:
+            logger.info(f"No matching emails found under criteria '{search_criteria}'")
+            return []
+
+        msg_ids = message_numbers[0].split()
+        logger.info(f"Found {len(msg_ids)} matching email(s) in {settings.imap_mailbox}")
+
+        for msg_id in msg_ids:
+            try:
+                res, data = client.fetch(msg_id, "(RFC822)")
+                if res != "OK" or not data or not data[0] or not isinstance(data[0], tuple):
+                    continue
+                raw_email = data[0][1]
+                msg = email.message_from_bytes(raw_email)
+                extracted = parse_email_message(msg)
+                postings.extend(extracted)
+
+                if settings.imap_mark_seen:
+                    client.store(msg_id, "+FLAGS", "\\Seen")
+            except Exception as e:
+                logger.warning(f"Error parsing email ID {msg_id}: {e}")
+
+    except imaplib.IMAP4.error as e:
+        logger.error(f"IMAP protocol/authentication error: {e}")
+    except Exception as e:
+        logger.error(f"Unexpected error during IMAP email ingestion: {e}")
+    finally:
+        if client:
+            try:
+                client.close()
+            except Exception:
+                pass
+            try:
+                client.logout()
+            except Exception:
+                pass
+
+    logger.info(f"Total postings ingested via IMAP email: {len(postings)}")
     return postings

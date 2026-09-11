@@ -49,24 +49,14 @@ def test_operational_env_overrides():
         "ANTHROPIC_API_KEY": "sk-ant-test-key",
     }
     with patch.dict(os.environ, env_vars):
-        import src.config as cfg
-        importlib.reload(cfg)
-
-        assert cfg.LLM_MODEL == "anthropic/claude-3-5-sonnet-20241022"
-        assert cfg.LLM_RATE_LIMIT_DELAY == 12.5
-        assert cfg.LLM_MAX_RETRIES == 5
-        assert cfg.HTTP_USER_AGENT == "CustomScraper/1.0"
-
-        settings = cfg.Settings()
+        settings = Settings()
         assert settings.llm_model == "anthropic/claude-3-5-sonnet-20241022"
         assert settings.llm_rate_limit_delay == 12.5
         assert settings.llm_rate_limit_delay_seconds == 12.5
         assert settings.llm_max_retries == 5
         assert settings.user_agent == "CustomScraper/1.0"
+        assert settings.http_user_agent == "CustomScraper/1.0"
         assert settings.has_llm_credentials() is True
-
-    # Reload back to clean state
-    importlib.reload(cfg)
 
 
 def test_schemas_free_from_operational_parameters():

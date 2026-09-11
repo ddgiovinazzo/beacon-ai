@@ -29,14 +29,14 @@
 
 ## 📌 Executive Overview
 
-**BeaconAI v2.3** is an autonomous, model-agnostic CLI pipeline engineered to invert the commercial hiring board paradigm. Instead of trapping applicants in 20-hour weekly manual sifting loops across algorithmic aggregators and ghost postings, BeaconAI ingests unstructured RSS/XML feeds across multiple target endpoints, applies **zero-cost deterministic constraint gates** (Tier 1), scores cleared candidates with **strictly typed Pydantic LLM schemas across any foundation provider** (Tier 2 via LiteLLM), and compiles bespoke, ATS-compliant PDF resumes alongside transactional email alerts and local digests.
+**BeaconAI v2.4** is an autonomous, model-agnostic CLI pipeline engineered to invert the commercial hiring board paradigm. Instead of trapping applicants in 20-hour weekly manual sifting loops across algorithmic aggregators and ghost postings, BeaconAI ingests unstructured RSS/XML feeds and **native IMAP email alerts** (e.g., Craigslist saved search alerts, Indeed, LinkedIn), applies **zero-cost deterministic constraint gates** (Tier 1), scores cleared candidates with **strictly typed Pydantic LLM schemas across any foundation provider** (Tier 2 via LiteLLM), and compiles bespoke, ATS-compliant PDF resumes alongside transactional email alerts and local digests.
 
 ```
-       UNSTRUCTURED FEEDS               DETERMINISTIC GATES               GENERATED ARTIFACTS
+       UNSTRUCTURED INGESTION            DETERMINISTIC GATES               GENERATED ARTIFACTS
  ┌─────────────────────────────┐    ┌─────────────────────────┐    ┌───────────────────────────────┐
  │ • Multi-Source RSS/XML Feeds│    │ [Tier 1] Cost Shield    │    │ 📄 Sandboxed ATS PDF Resume   │
- │ • Municipal & County Boards │ ──>│ [Tier 2] Multi-LLM Scorer│ ──>│ ✉️  Resend Email Alert + Mailto│
- │ • Public Sector Portals     │    │ SQLite Deduplication    │    │ 📊 Local Daily Markdown Digest│
+ │ • IMAP Email Alerts         │ ──>│ [Tier 2] Multi-LLM Scorer│ ──>│ ✉️  Resend Email Alert + Mailto│
+ │   (Craigslist, Indeed, etc.)│    │ SQLite Deduplication    │    │ 📊 Local Daily Markdown Digest│
  └─────────────────────────────┘    └─────────────────────────┘    └───────────────────────────────┘
 ```
 
@@ -274,6 +274,15 @@ NOTIFICATION_EMAIL_FROM=BeaconAI <alerts@example.com>
 # Target Feed URLs (Fallback when not specified on CLI)
 # TARGET_FEED_URLS=https://example.com/rss1\nhttps://example.com/rss2
 
+# IMAP Email Ingestion (Craigslist, Indeed, LinkedIn job alerts)
+# IMAP_SERVER=imap.gmail.com
+# IMAP_PORT=993
+# IMAP_USERNAME=your_email@gmail.com
+# IMAP_PASSWORD=your_app_specific_password
+# IMAP_MAILBOX=INBOX
+# IMAP_SEARCH_CRITERIA=UNSEEN
+# IMAP_MARK_SEEN=true
+
 # Database & Circuit Breaker Limits
 DB_PATH=matches.db
 MAX_LLM_EVALS_PER_RUN=20
@@ -287,15 +296,19 @@ REQUEST_TIMEOUT_SECONDS=15
 
 ## 💻 CLI Reference
 
-### 1. Run Live Multi-Feed Scan with Notifications
-Ingests multiple feeds, filters candidates, evaluates matches with your LLM, compiles ATS PDFs, and dispatches transactional emails:
+### 1. Run Live Multi-Feed & Email Alert Scan with Notifications
+Ingests multiple RSS feeds and/or unread IMAP job alert emails (Craigslist saved searches, Indeed, LinkedIn), filters candidates, evaluates matches with your LLM, compiles ATS PDFs, and dispatches transactional emails:
 ```bash
 python main.py scan \
   --profile profiles/my_profile.json \
   --feed "https://example.com/feed1.rss" \
   --feed "https://example.com/feed2.rss" \
+  --check-email \
   --notify
 ```
+
+> [!TIP]
+> **Craigslist & Job Board Saved Search Alerts**: Directly scraping Craigslist in cloud environments often triggers anti-bot blocks. Instead, save your desired search query on Craigslist (or Indeed/LinkedIn) with **Email Alerts enabled**. BeaconAI securely connects to your IMAP mailbox over SSL, parses multi-job HTML alert emails, extracts clean job postings into `<untrusted_job_posting>` boundaries, and marks them `\Seen` without deleting them.
 
 ### 2. Local Dry-Run (Zero Token Cost)
 Tests ingestion, SQLite deduplication, Tier 1 gates, and sandboxed PDF compilation against test fixtures without calling external APIs:
@@ -323,6 +336,7 @@ BeaconAI operates as an autonomous background agent via a scheduled, headless Gi
 
 * **Zero-Storage Privacy:** Ingests the candidate profile dynamically from the `USER_PROFILE_JSON_B64` secret at runtime. Decodes to `profiles/ephemeral_profile.json` and purges it under `if: always()` so no candidate data remains on the runner or in Git history.
 * **Dynamic Multi-Feed Ingestion:** Loops across feeds defined in repository variable `TARGET_FEED_URLS` (or secret `TARGET_FEED_URLS`), allowing feed sources to be managed without committing code.
+* **IMAP Mailbox Integration:** Supports `IMAP_SERVER`, `IMAP_USERNAME`, and `IMAP_PASSWORD` secrets to automatically check for job alerts during scheduled runs.
 * **Cron Schedule:** Executes daily at `0 12 * * *` (8:00 AM EST) with support for on-demand `workflow_dispatch` manual triggers.
 * **Concurrency Lock:** Enforces `concurrency: daily-scan-execution` to prevent overlapping runs and eliminate race conditions on binary SQLite databases.
 * **Automated State Persistence:** Automatically stages, commits, and pushes updated `matches.db` tracking and daily Markdown digests back to GitHub with `[skip ci]`.
@@ -332,7 +346,7 @@ BeaconAI operates as an autonomous background agent via a scheduled, headless Gi
 
 ## 🧪 Automated QA Test Suite
 
-BeaconAI includes **61 automated test fixtures** validating deterministic regex parsers, prompt injection defenses, circuit-breaker states, model-agnostic routing, sandboxed ATS vector PDF rendering, recruiter-friendly filenaming, dynamic role selection, markdown bullet/sane list parsing, and transactional email security:
+BeaconAI includes **80 automated test fixtures** validating deterministic regex parsers, prompt injection defenses, circuit-breaker states, model-agnostic routing, sandboxed ATS vector PDF rendering, recruiter-friendly filenaming, dynamic role selection, markdown bullet/sane list parsing, transactional email security, and RFC 2047 / IMAP email alert parsing:
 
 ```bash
 # Run full automated test suite

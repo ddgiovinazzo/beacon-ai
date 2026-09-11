@@ -21,7 +21,7 @@ from src.generator import (
     generate_outreach_draft,
     generate_tailored_resume,
 )
-from src.ingestion import fetch_feed
+from src.ingestion import fetch_feed, fetch_imap_emails
 from src.notifier import send_match_notification
 from src.schemas import EvaluationStatus, JobPosting, UserProfile
 
@@ -118,6 +118,11 @@ def scan(
         "-m",
         help="Universal LiteLLM model override (defaults to LLM_MODEL env var or settings.llm_model).",
     ),
+    check_email: bool = typer.Option(
+        True,
+        "--check-email/--no-check-email",
+        help="Check IMAP mailbox for job alert emails if credentials are configured.",
+    ),
 ):
     """Ingest, deduplicate, filter, evaluate, and generate tailored application artifacts."""
     settings = get_settings()
@@ -156,9 +161,10 @@ def scan(
                 ):
                     target_feeds.append(clean)
 
+    email_enabled = settings.is_imap_configured and check_email
 
-    if not target_feeds:
-        console.print("[bold red]Error:[/bold red] No target feeds provided via --feed or TARGET_FEED_URLS.")
+    if not target_feeds and not email_enabled:
+        console.print("[bold red]Error:[/bold red] No target feeds provided via --feed/TARGET_FEED_URLS and IMAP email is not configured.")
         raise typer.Exit(code=1)
 
     if not dry_run and not settings.llm_model:
@@ -169,6 +175,11 @@ def scan(
     active_llm = settings.llm_model or "Not Set (Dry Run)"
     mode_label = "[bold yellow]DRY-RUN (Deterministic Scoring)[/bold yellow]" if dry_run else f"[bold cyan]LIVE (Tier 1 + {active_llm})[/bold cyan]"
     notify_label = "[bold green]ENABLED (Resend)[/bold green]" if notify else "[dim]DISABLED[/dim]"
+    email_label = (
+        f"[bold green]ENABLED ({settings.imap_server} / {settings.imap_mailbox})[/bold green]"
+        if email_enabled
+        else "[dim]DISABLED[/dim]"
+    )
     min_h = f"${user_profile.constraints.min_hourly_rate:.2f}/hr" if user_profile.constraints.min_hourly_rate is not None else "Not Set"
     min_a = f"${user_profile.constraints.min_annual_salary:,.0f}/yr" if user_profile.constraints.min_annual_salary is not None else "Not Set"
 
@@ -176,6 +187,7 @@ def scan(
         Panel(
             f"Candidate: [bold]{user_profile.name}[/bold] ({user_profile.location})\n"
             f"Target Feeds: [blue]{len(target_feeds)} configured[/blue]\n"
+            f"Email Ingestion (IMAP): {email_label}\n"
             f"Evaluation Mode: {mode_label}\n"
             f"Notifications: {notify_label}\n"
             f"Active LLM: [magenta]{active_llm}[/magenta]\n"
@@ -193,25 +205,33 @@ def scan(
     total_deferred_count = 0
     all_generated_matches = []
 
-    for current_feed in target_feeds:
-        console.print(f"\n[bold blue]==> Scanning Target Feed: {current_feed}[/bold blue]")
+    # Build sequence of ingestion sources (RSS + IMAP)
+    scan_sources = [("rss", f) for f in target_feeds]
+    if email_enabled:
+        scan_sources.append(("imap", f"{settings.imap_mailbox} ({settings.imap_server})"))
 
-        postings = fetch_feed(
-            current_feed,
-            user_agent=settings.http_user_agent,
-            timeout_seconds=settings.request_timeout_seconds,
-        )
+    for source_type, source_id in scan_sources:
+        if source_type == "rss":
+            console.print(f"\n[bold blue]==> Scanning Target Feed: {source_id}[/bold blue]")
+            postings = fetch_feed(
+                source_id,
+                user_agent=settings.http_user_agent,
+                timeout_seconds=settings.request_timeout_seconds,
+            )
+        else:
+            console.print(f"\n[bold blue]==> Scanning Inbound Email (IMAP): {source_id}[/bold blue]")
+            postings = fetch_imap_emails(settings)
 
         if not postings:
-            console.print(f"[yellow]No postings found or failed to parse feed: {current_feed}[/yellow]")
+            console.print(f"[yellow]No postings found or failed to parse: {source_id}[/yellow]")
             continue
 
         if limit and limit > 0:
             postings = postings[:limit]
 
-        console.print(f"[bold]Fetched {len(postings)} postings from feed.[/bold]")
+        console.print(f"[bold]Fetched {len(postings)} postings from {source_id}.[/bold]")
 
-        results_table = Table(title=f"Scan Results: {current_feed[:40]}", header_style="bold magenta")
+        results_table = Table(title=f"Scan Results: {source_id[:40]}", header_style="bold magenta")
         results_table.add_column("Status", justify="center", width=10)
         results_table.add_column("Tier", justify="center", width=6)
         results_table.add_column("Score", justify="right", width=7)
@@ -319,7 +339,7 @@ def scan(
     # Summary Panel
     console.print(
         Panel(
-            f"• Target Feeds Scanned: [bold]{len(target_feeds)}[/bold]\n"
+            f"• Ingestion Sources Scanned: [bold]{len(scan_sources)}[/bold] ({len(target_feeds)} RSS Feeds, {1 if email_enabled else 0} IMAP Inbox)\n"
             f"• Total Evaluated: [bold]{total_match_count + total_reject_count + total_deferred_count}[/bold]\n"
             f"• Skipped (Deduplicated): [dim]{total_skipped_count}[/dim]\n"
             f"• Qualified Matches: [bold green]{total_match_count}[/bold green]\n"

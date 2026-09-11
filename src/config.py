@@ -61,6 +61,20 @@ class Settings(BaseSettings):
     notification_email_to: Optional[str] = None
     notification_email_from: str = "BeaconAI <alerts@example.com>"
 
+    # Inbound Email Ingestion (IMAP)
+    imap_server: Optional[str] = None
+    imap_port: int = 993
+    imap_username: Optional[str] = None
+    imap_password: Optional[str] = None
+    imap_mailbox: str = "INBOX"
+    imap_search_criteria: str = "UNSEEN"
+    imap_mark_seen: bool = True
+
+    @property
+    def is_imap_configured(self) -> bool:
+        """Check if IMAP email ingestion credentials are fully configured."""
+        return bool(self.imap_server and self.imap_username and self.imap_password)
+
     @field_validator("notification_email_to")
     @classmethod
     def validate_email_to(cls, v: Optional[str]) -> Optional[str]:
