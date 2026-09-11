@@ -359,7 +359,7 @@ def generate_tailored_resume_data(
             "  * DIRECT FACTUAL OPENING: Open directly with the target role or specialization (e.g., 'Software Engineer with experience in...', 'Administrative and operations specialist with background in...'). Ground the summary strictly in concrete systems, tools, workflows, datasets, and operational competencies.\n"
             "  * TACTICAL SENIORITY: Be strategic with stated years of experience: do NOT rigidly state an exact number of years if it might trigger over-qualification or mismatch the JD tier (use phrasing like 'Proven experience' or 'Solid foundation' for lower tiers, and explicitly state years only when directly aligned with the target tier).\n"
             "- target_headline: Set to clean role title matching the JD (without employer name).\n"
-            "- categorized_skills: Group candidate's actual matching skills into logical categories relevant to the role (e.g. 'Core Competencies', 'Tools & Technologies', 'Methodologies', or domain-specific groupings).\n"
+            "- categorized_skills: MANDATORY REQUIREMENT. You must ALWAYS categorize the candidate's skills into 2-4 logical categories with 3-6 skills per category from the provided candidate skills bank. NEVER return an empty dictionary or leave this blank. For non-tech, administrative, accounting, or operations roles, group under relevant categories (e.g. 'Software & Productivity Tools', 'Spreadsheets & Data Verification', 'Systems & Reporting', or 'Core Technical Competencies'). Always include the candidate's transferable technical, software, spreadsheet, and database capabilities.\n"
             "- tailored_experience: Select 2-3 most relevant roles with 3-4 bullets each following the bold dynamic heading and hard quantification rules.\n"
             "- tailored_projects: If candidate has relevant portfolio or engineering projects, select up to 2 with bullets ending in quantifiable/concrete results; otherwise leave empty."
         )
@@ -392,7 +392,7 @@ CANDIDATE EDUCATION BANK:
 INSTRUCTIONS:
 1. target_headline: Set to "{clean_title}". Do NOT include the employer name.
 2. tailored_summary: Write a punchy 2-3 sentence summary mirroring the JD's requested seniority tier and core requirements. STRICT ANTI-FLUFF: Absolutely NO subjective buzzwords ('Methodical', 'detail-oriented', 'adept at', 'proven expertise', 'quiet efficiency') and NO boilerplate endings ('Prepared to make an immediate impact'). Open directly with the target title and concrete systems/workflows.
-3. categorized_skills: Group candidate's actual skills into logical domain categories relevant to this role.
+3. categorized_skills: MANDATORY. You must ALWAYS categorize candidate's skills into 2-4 logical categories (e.g. 'Software & Productivity Tools', 'Data & Spreadsheets', 'Systems & Methodologies'). Include transferable technical/data skills for non-tech roles. NEVER leave empty.
 4. tailored_experience: 2-3 most relevant roles. Format every bullet with bold heading '**[Competency Heading]:** [Grounded verb] ... [Quantifiable result / concrete outcome]'.
 5. tailored_projects: Select relevant projects with quantifiable outcomes if applicable, else empty list.
 6. tailored_education: Education credentials aligned with context.
@@ -423,6 +423,13 @@ INSTRUCTIONS:
                 role.location = role.location.strip(" |")
                 if role.organization.endswith(f" {role.location}"):
                     role.organization = role.organization[:-len(role.location)-1].strip(" |")
+
+        # Fallback guarantee: Never allow categorized_skills to be empty in generated resume
+        if not resume_data.skill_categories:
+            logger.warning("LLM returned empty skill_categories. Populating fallback categorized skills from candidate profile.")
+            fallback_data = create_deterministic_tailored_data(posting, profile)
+            resume_data.categorized_skills = fallback_data.categorized_skills
+
         return resume_data
 
     except Exception as e:

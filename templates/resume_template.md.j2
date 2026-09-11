@@ -20,11 +20,13 @@
 {% endfor %}
 
 {% endfor %}
+{% if tailored_data.skill_categories and tailored_data.skill_categories | length > 0 %}
 ## TECHNICAL SKILLS
 
 {% for category in tailored_data.skill_categories %}
 * **{{ category.name }}:** {{ category.skills | join(", ") }}
 {% endfor %}
+{% endif %}
 
 {% if tailored_data.projects and tailored_data.projects | length > 0 %}
 ## PROJECTS

@@ -880,6 +880,67 @@ def test_generator_logs_error_when_no_llm_model_specified(monkeypatch, caplog):
     assert result is not None
 
 
+def test_llm_empty_skills_falls_back_to_profile_skills(monkeypatch):
+    """Verify that if LLM returns empty categorized_skills, fallback skills from profile are populated."""
+    from unittest.mock import MagicMock
+    import instructor
+    from src.config import Settings
+    from src.generator import generate_tailored_resume_data
+    from src.schemas import (
+        ExperienceRole,
+        JobPosting,
+        MasterExperience,
+        TailoredResumeData,
+        UserConstraints,
+        UserProfile,
+    )
+
+    mock_resume = TailoredResumeData(
+        target_headline="Accounts Payable Clerk",
+        tailored_summary="Accounting professional with invoice processing background.",
+        categorized_skills={},  # Empty skills returned by LLM
+        tailored_experience=[
+            ExperienceRole(
+                title="Clerk",
+                organization="Acme",
+                location="NY",
+                start_date="2022",
+                end_date="2024",
+                bullets=["Processed invoices."],
+            )
+        ],
+    )
+
+    mock_client = MagicMock()
+    mock_client.chat.completions.create.return_value = mock_resume
+    monkeypatch.setattr(instructor, "from_litellm", lambda *args, **kwargs: mock_client)
+
+    settings = Settings(llm_model="gpt-4o-mini", llm_api_key="test-key")
+    profile = UserProfile(
+        name="Daniel Test",
+        email="test@example.com",
+        phone="555-0000",
+        location="New York, NY",
+        constraints=UserConstraints(),
+        master_experience=MasterExperience(
+            roles=[],
+            tools_and_technologies=["Microsoft Excel", "QuickBooks", "Data Entry", "SQL"],
+        ),
+    )
+    job = JobPosting(
+        title="Accounts Payable Clerk",
+        link="https://example.com/ap-job",
+        raw_text="Accounts payable clerk needed with Excel skills.",
+        source="example.com",
+    )
+
+    result = generate_tailored_resume_data(job, profile, settings, dry_run=False)
+    assert result.skill_categories, "skill_categories should not be empty!"
+    all_skills = [s for cat in result.skill_categories for s in cat["skills"]]
+    assert "Microsoft Excel" in all_skills
+
+
+
 
 
 
