@@ -19,10 +19,10 @@
 [![Schema: Pydantic V2](https://img.shields.io/badge/Schema-Pydantic%20V2-E92063?style=for-the-badge&logo=pydantic&logoColor=white)](https://docs.pydantic.dev/)
 [![Model Agnostic: LiteLLM](https://img.shields.io/badge/LLM-Agnostic%20(LiteLLM)-6366F1?style=for-the-badge&logo=openai&logoColor=white)](https://docs.litellm.ai/)
 [![PDF Engine: Sandboxed WeasyPrint](https://img.shields.io/badge/PDF-Sandboxed%20WeasyPrint-0284C7?style=for-the-badge&logo=adobeacrobatreader&logoColor=white)](https://weasyprint.org/)
-[![Tests: Pytest 40/40 Passing](https://img.shields.io/badge/Tests-40%2F40%20Passing-10B981?style=for-the-badge&logo=pytest&logoColor=white)](tests/)
-[![CI/CD: GitHub Actions Scheduled](https://img.shields.io/badge/CI%2FCD-GitHub%20Actions-2088FF?style=for-the-badge&logo=githubactions&logoColor=white)](.github/workflows/daily_scan.yml)
+[![Tests: Pytest 47/47 Passing](https://img.shields.io/badge/Tests-47%2F47%20Passing-10B981?style=for-the-badge&logo=pytest&logoColor=white)](tests/)
+[![CI/CD: Zero-Storage GitHub Actions](https://img.shields.io/badge/CI%2FCD-Zero--Storage%20Actions-2088FF?style=for-the-badge&logo=githubactions&logoColor=white)](.github/workflows/daily_scan.yml)
 
-[Executive Overview](#-executive-overview) • [System Architecture](#-system-architecture) • [Security & Cost Shield](#-security--cost-shield) • [Model Agnostic Layer](#-zero-vendor-lock-in-model-matrix) • [Quick Start](#-quick-start) • [CLI Reference](#-cli-reference) • [CI/CD Runner](#-headless-github-actions-automation)
+[Executive Overview](#-executive-overview) • [System Architecture](#-system-architecture) • [Security & Cost Shield](#-security--cost-shield) • [Model Agnostic Layer](#-zero-vendor-lock-in-model-matrix) • [Declarative Profile Configuration](#-declarative-profile-configuration) • [Quick Start](#-quick-start) • [CLI Reference](#-cli-reference) • [CI/CD Runner](#-zero-storage-github-actions-automation)
 
 ---
 
@@ -30,20 +30,20 @@
 
 ## 📌 Executive Overview
 
-**BeaconAI** is an autonomous, model-agnostic CLI pipeline engineered to invert the commercial hiring board paradigm. Instead of trapping applicants in 20-hour weekly manual sifting loops across algorithmic aggregators and ghost postings, BeaconAI ingests unstructured RSS/XML feeds, applies **zero-cost deterministic constraint gates** (Tier 1), scores cleared candidates with **strictly typed Pydantic LLM schemas across any foundation provider** (Tier 2 via LiteLLM), and compiles bespoke, ATS-compliant PDF resumes alongside transactional email notifications and local digests.
+**BeaconAI v2.0** is an autonomous, model-agnostic CLI pipeline engineered to invert the commercial hiring board paradigm. Instead of trapping applicants in 20-hour weekly manual sifting loops across algorithmic aggregators and ghost postings, BeaconAI ingests unstructured RSS/XML feeds across multiple target endpoints, applies **zero-cost deterministic constraint gates** (Tier 1), scores cleared candidates with **strictly typed Pydantic LLM schemas across any foundation provider** (Tier 2 via LiteLLM), and compiles bespoke, ATS-compliant PDF resumes alongside transactional email alerts and local digests.
 
 ```
        UNSTRUCTURED FEEDS               DETERMINISTIC GATES               GENERATED ARTIFACTS
  ┌─────────────────────────────┐    ┌─────────────────────────┐    ┌───────────────────────────────┐
- │ • Craigslist RSS            │    │ [Tier 1] Cost Shield    │    │ 📄 Sandboxed ATS PDF Resume   │
+ │ • Multi-Source RSS/XML Feeds│    │ [Tier 1] Cost Shield    │    │ 📄 Sandboxed ATS PDF Resume   │
  │ • Municipal & County Boards │ ──>│ [Tier 2] Multi-LLM Scorer│ ──>│ ✉️  Resend Email Alert + Mailto│
- │ • Public Sector Feeds       │    │ SQLite Deduplication    │    │ 📊 Local Daily Markdown Digest│
+ │ • Public Sector Portals     │    │ SQLite Deduplication    │    │ 📊 Local Daily Markdown Digest│
  └─────────────────────────────┘    └─────────────────────────┘    └───────────────────────────────┘
 ```
 
 ### Why This Exists: The Problem Space
 
-Between 2024 and 2026, the tech and administrative job markets reached peak algorithmic friction:
+Between 2024 and 2026, the job market reached peak algorithmic friction:
 * **The Ghost Requisition Flood:** Up to 30%+ of syndicated job board entries are ghost requisitions, inflating vanity candidate pipelines with zero hiring intent.
 * **The "Generalist Trap":** Commercial job boards optimize for platform stickiness and generic keyword indexing while ignoring non-negotiable boundaries like localized commutes, strict compensation floors, predictable shift boundaries, and physical restrictions.
 * **Denial of Wallet & Context Drift:** Interactive chatbots require manual prompting, suffer from context drift across long sessions, and rack up expensive API bills re-evaluating unqualified roles.
@@ -54,12 +54,12 @@ Between 2024 and 2026, the tech and administrative job markets reached peak algo
 
 ## 🏗 System Architecture
 
-BeaconAI operates as an end-to-end deterministic data pipeline with strict boundary hardening and sandboxed artifact compilation:
+BeaconAI operates as an end-to-end deterministic data pipeline with strict boundary hardening, dynamic tag-driven synthesis, and sandboxed artifact compilation:
 
 ```mermaid
 flowchart TD
-    subgraph S1["1. INGESTION & BOUNDARY HARDENING"]
-        A["Unstructured RSS / XML Feeds"] --> B["Stream Ingestion (10MB Cap)"]
+    subgraph S1["1. MULTI-FEED INGESTION & BOUNDARY HARDENING"]
+        A["Multi-Feed RSS / XML Sources"] --> B["Stream Ingestion (10MB Cap)"]
         B --> C["BeautifulSoup HTML Sanitizer"]
         C --> D["Case-Insensitive Boundary Hardening<br/><code>&lt;untrusted_job_posting&gt;</code>"]
     end
@@ -72,16 +72,16 @@ flowchart TD
 
     subgraph S3["3. TWO-TIER FILTERING ENGINE"]
         G --> H{"Tier 1 Deterministic Gates"}
-        H -- "Fails Pay Floor / Lifting / Commute" --> I["❌ Save as REJECT in SQLite"]
+        H -- "Fails Pay Floor / Lifting / Commute / Schedule" --> I["❌ Save as REJECT in SQLite"]
         H -- "Passes Hard Constraints" --> J{"Circuit Breaker Cap<br/><i>MAX_LLM_EVALS_PER_RUN</i>"}
         J -- "Cap Exceeded" --> K["⏳ Save as DEFERRED (Re-eval Next Run)"]
         J -- "Within Cap" --> L["Tier 2 Model-Agnostic Scorer<br/><i>(Claude / Gemini / OpenAI / Ollama)</i>"]
         L --> M["Pydantic V2 Schema Validation<br/><code>EvaluationResult</code>"]
     end
 
-    subgraph S4["4. SANDBOXED ARTIFACT SYNTHESIS & DISPATCH"]
+    subgraph S4["4. DYNAMIC SYNTHESIS & SANDBOXED DISPATCH"]
         M -- "Fit Score < 50" --> N["Save as Low Fit (REJECT)"]
-        M -- "Status: MATCH" --> O["Jinja2 Markdown Resume Synthesis"]
+        M -- "Status: MATCH" --> O["Dynamic Tag-Driven Resume Synthesis"]
         O --> P["📄 artifacts/matches/*_resume.md"]
         O --> Q["✉️ artifacts/matches/*_outreach.txt"]
         P --> R["HTML Tag Decomposition (BeautifulSoup)"]
@@ -107,8 +107,9 @@ Every external input is treated as untrusted. BeaconAI enforces multi-layered de
 
 | Security Vector | Implementation Mechanism | Defensive Guarantee |
 | :--- | :--- | :--- |
-| **Tier 1 Cost Shield** | Deterministic Regex & String Parsing | Automatically rejects unqualified postings ($0 API spend) **before** calling foundation models. |
+| **Tier 1 Cost Shield** | Dynamic Regex & Constraint Verification | Automatically rejects unqualified postings ($0 API spend) **before** calling foundation models. |
 | **Zero-Trust PDF Sandbox** | Custom `blocked_url_fetcher` in WeasyPrint | Unconditionally raises `PermissionError` on all network (`http://`, `https://`, `169.254.169.254`), filesystem (`file://`), and base64 (`data:`) URIs, neutralizing SSRF and LFI attacks. |
+| **Zero-Storage Secrets** | Ephemeral Runner Ingestion | Candidate profile is injected via base64 GitHub Secrets at runtime and purged under `if: always()`, preventing private candidate PII from entering Git history. |
 | **Prompt Injection Isolation** | Regex Delimiter Neutralization | Escapes closing `</untrusted_job_posting>` tags with whitespace/case variants to prevent context breakout in LLM prompts. |
 | **HTML Tag Decomposition** | BeautifulSoup Pre-Processing | Decomposes `<script>`, `<style>`, `<iframe>`, `<object>`, `<embed>`, and `<form>` elements in markdown prior to PDF layout compilation. |
 | **Email Transport Hardening** | CRLF Stripping & URI Protocol Whitelist | Strips `[\r\n\t]+` from email subjects to prevent header splitting; forces `http://`/`https://` on links, replacing dangerous schemes (`javascript:`) with `"#"`. |
@@ -133,65 +134,105 @@ BeaconAI leverages **LiteLLM** and **Instructor** to normalize structured output
 
 ## 📋 Declarative Profile Configuration
 
-BeaconAI decouples user constraints and professional history from execution logic. Candidate preferences are version-controlled in `profiles/your_profile.json`:
+BeaconAI is 100% context-agnostic: candidate constraints, master experience banks, and credentials are completely decoupled from code and configured in a declarative JSON profile.
 
 ```bash
-cp profiles/bookkeeper.json.example profiles/bookkeeper.json
+cp profiles/bookkeeper.json.example profiles/my_profile.json
+# or
+cp profiles/software_engineer.json.example profiles/my_profile.json
 ```
+
+### Generic Profile Schema Example
 
 ```json
 {
-  "name": "Daniel Giovinazzo",
-  "email": "contact@ddgiovinazzo.com",
-  "phone": "555-019-2834",
-  "location": "New York, NY",
-  "linkedin_url": "https://linkedin.com/in/ddgiovinazzo",
+  "name": "Jane Doe",
+  "email": "jane.doe@example.com",
+  "phone": "(555) 234-5678",
+  "location": "Metropolis, NY",
+  "linkedin_url": "https://linkedin.com/in/janedoe-pro",
+  "portfolio_url": "https://janedoe.example.com",
+  "github_url": "https://github.com/janedoe-dev",
   "constraints": {
-    "min_hourly_rate": 20.0,
-    "min_annual_salary": 45000.0,
-    "max_commute_miles": 15,
+    "min_hourly_rate": 28.0,
+    "min_weekly_earnings": null,
+    "min_annual_salary": 58000.0,
+    "max_commute_miles": 20,
     "physical_restrictions": [
-      "heavy lifting > 25 lbs",
-      "warehouse labor",
-      "climb ladder"
+      "heavy lifting",
+      "ladder climbing",
+      "warehouse labor"
     ],
     "schedule_boundaries": [
-      "unannounced overtime",
-      "graveyard shift"
+      "overnight",
+      "graveyard shift",
+      "mandatory weekends",
+      "unannounced overtime"
     ]
   },
   "master_experience": {
     "target_titles": [
       "Software Engineer",
-      "Systems Engineer",
-      "Full Stack Developer"
+      "Systems Analyst",
+      "Backend Developer"
+    ],
+    "narrative_context": "Reliable systems engineer focused on high-throughput backend services and cloud automation.",
+    "engineering_projects": [
+      {
+        "id": "proj-1",
+        "name": "EventBridge Stream Engine",
+        "tags": ["python", "backend", "cloud"],
+        "bullets": [
+          "Engineered high-throughput event processing pipelines ingesting 2.4M daily telemetry messages."
+        ]
+      }
     ],
     "roles": [
       {
-        "title": "Software Engineer (K-12 Systems)",
-        "organization": "PowerSchool",
-        "location": "Remote / Folsom, CA",
+        "id": "role-1",
+        "title": "Software Engineer",
+        "organization": "Acme Cloud Platforms",
+        "location": "Metropolis, NY",
         "start_date": "Jan 2021",
         "end_date": "Present",
+        "tags": ["backend", "python", "cloud", "api"],
         "bullets": [
-          "Maintained modular data ingestion workflows for K-12 systems, protecting database integrity.",
-          "Serialized legacy client web views into modern JSON payloads for 1,000,000 active users."
+          "Developed scalable REST microservices in FastAPI serving 150K monthly active users.",
+          "Maintained CI/CD pipelines on GitHub Actions, cutting release cycles by 65%."
         ]
       }
     ],
     "tools_and_technologies": [
       "Python",
       "FastAPI",
-      "SQLite",
+      "PostgreSQL",
       "Docker",
       "Git"
     ],
     "education": [
-      "B.S. in Computer Science"
+      {
+        "id": "edu-1",
+        "institution": "Metropolis Technical Institute",
+        "degree": "B.S. in Computer Science",
+        "start_date": "2016",
+        "end_date": "2020",
+        "tags": ["tech", "universal"]
+      }
+    ],
+    "certifications": [
+      {
+        "name": "AWS Certified Solutions Architect",
+        "status": "Active"
+      }
     ]
   }
 }
 ```
+
+### Dynamic Heuristics & Selection Rules
+1. **Metadata Tag Matching (`role.tags`, `project.tags`):** Tailored resumes selectively extract roles and projects whose tags match the posting domain, preventing overqualification or domain mismatches.
+2. **Geographic Education Heuristics (`education.tags`):** When applying to local/municipal postings, credentials tagged `"local"` are prioritized to demonstrate regional roots. For remote or distant technical postings, hyper-local institutions are omitted in favor of `"tech"` and `"universal"` credentials.
+3. **Strategic Tone Calibration:** The candidate's `narrative_context` guides the LLM synthesizer to calibrate tone and avoid inflated seniority verbs.
 
 ---
 
@@ -234,8 +275,11 @@ GEMINI_API_KEY=your_gemini_api_key_here
 
 # Transactional Email Alerts (Resend)
 # RESEND_API_KEY=re_123456789
-# NOTIFICATION_EMAIL_TO=contact@ddgiovinazzo.com
-NOTIFICATION_EMAIL_FROM=BeaconAI <alerts@ddgiovinazzo.com>
+# NOTIFICATION_EMAIL_TO=your_email@example.com
+NOTIFICATION_EMAIL_FROM=BeaconAI <alerts@example.com>
+
+# Target Feed URLs (Fallback when not specified on CLI)
+# TARGET_FEED_URLS=https://example.com/rss1\nhttps://example.com/rss2
 
 # Database & Circuit Breaker Limits
 DB_PATH=matches.db
@@ -250,10 +294,14 @@ REQUEST_TIMEOUT_SECONDS=15
 
 ## 💻 CLI Reference
 
-### 1. Run Live Scan with Notifications
-Ingests the target feed, filters candidates, evaluates matches with your LLM, compiles ATS PDFs, and dispatches transactional emails:
+### 1. Run Live Multi-Feed Scan with Notifications
+Ingests multiple feeds, filters candidates, evaluates matches with your LLM, compiles ATS PDFs, and dispatches transactional emails:
 ```bash
-python main.py scan --profile profiles/bookkeeper.json.example --feed "https://hudsonvalley.craigslist.org/search/acc?format=rss" --notify
+python main.py scan \
+  --profile profiles/my_profile.json \
+  --feed "https://example.com/feed1.rss" \
+  --feed "https://example.com/feed2.rss" \
+  --notify
 ```
 
 ### 2. Local Dry-Run (Zero Token Cost)
@@ -263,9 +311,9 @@ python main.py scan --profile profiles/bookkeeper.json.example --feed tests/fixt
 ```
 
 ### 3. Interactive Gate Testing (`test-eval`)
-Instantly tests Tier 1 deterministic rules and compensation extractors against arbitrary text:
+Instantly tests Tier 1 deterministic rules, compensation extractors, and commute checks against arbitrary text:
 ```bash
-python main.py test-eval --text "Bookkeeper needed. \$25 - 30/hr. Full-time seated office role." --profile profiles/bookkeeper.json.example
+python main.py test-eval --text "Bookkeeper needed. $25 - 30/hr. Full-time seated office role." --profile profiles/bookkeeper.json.example
 ```
 
 ### 4. Database Metrics & Rejection Analytics (`stats`)
@@ -276,10 +324,12 @@ python main.py stats
 
 ---
 
-## ⚙️ Headless GitHub Actions Automation
+## ⚙️ Zero-Storage GitHub Actions Automation
 
-BeaconAI operates as an autonomous background agent via a scheduled GitHub Actions workflow ([`.github/workflows/daily_scan.yml`](.github/workflows/daily_scan.yml)):
+BeaconAI operates as an autonomous background agent via a scheduled, headless GitHub Actions workflow ([`.github/workflows/daily_scan.yml`](.github/workflows/daily_scan.yml)):
 
+* **Zero-Storage Privacy:** Ingests the candidate profile dynamically from the `USER_PROFILE_JSON_B64` secret at runtime. Decodes to `profiles/ephemeral_profile.json` and purges it under `if: always()` so no candidate data remains on the runner or in Git history.
+* **Dynamic Multi-Feed Ingestion:** Loops across feeds defined in repository variable `TARGET_FEED_URLS` (or secret `TARGET_FEED_URLS`), allowing feed sources to be managed without committing code.
 * **Cron Schedule:** Executes daily at `0 12 * * *` (8:00 AM EST) with support for on-demand `workflow_dispatch` manual triggers.
 * **Concurrency Lock:** Enforces `concurrency: daily-scan-execution` to prevent overlapping runs and eliminate race conditions on binary SQLite databases.
 * **Automated State Persistence:** Automatically stages, commits, and pushes updated `matches.db` tracking and daily Markdown digests back to GitHub with `[skip ci]`.
@@ -289,7 +339,7 @@ BeaconAI operates as an autonomous background agent via a scheduled GitHub Actio
 
 ## 🧪 Automated QA Test Suite
 
-BeaconAI includes **40 automated test fixtures** validating deterministic regex parsers, prompt injection defenses, circuit-breaker states, model-agnostic routing, sandboxed PDF rendering, and transactional email security:
+BeaconAI includes **47 automated test fixtures** validating deterministic regex parsers, prompt injection defenses, circuit-breaker states, model-agnostic routing, sandboxed PDF rendering, dynamic role selection, and transactional email security:
 
 ```bash
 # Run full automated test suite
@@ -299,54 +349,61 @@ pytest -v
 ```text
 ============================= test session starts ==============================
 platform darwin -- Python 3.14.7, pytest-9.1.1, pluggy-1.6.0
-rootdir: /Users/daniel/code/beacon-ai
+rootdir: /path/to/beacon-ai
 configfile: pyproject.toml
 testpaths: tests
 plugins: anyio-4.15.1
-collected 40 items
+collected 47 items
 
 tests/test_evaluator.py::test_extract_compensation_hourly PASSED         [  2%]
-tests/test_evaluator.py::test_extract_compensation_annual PASSED         [  5%]
-tests/test_evaluator.py::test_tier1_rejects_lifting_violation PASSED     [  7%]
-tests/test_evaluator.py::test_tier1_rejects_keyword_physical_restriction PASSED [ 10%]
-tests/test_evaluator.py::test_tier1_rejects_hourly_pay_floor_violation PASSED [ 12%]
-tests/test_evaluator.py::test_tier1_rejects_schedule_conflict PASSED     [ 15%]
-tests/test_evaluator.py::test_tier1_passes_qualified_job PASSED          [ 17%]
-tests/test_evaluator.py::test_tier2_heuristic_matches_aligned_role PASSED [ 20%]
-tests/test_evaluator.py::test_circuit_breaker_caps_evaluations PASSED    [ 22%]
-tests/test_evaluator.py::test_extract_compensation_single_dollar_range PASSED [ 25%]
-tests/test_evaluator.py::test_extract_compensation_salary_shorthand_and_ranges PASSED [ 27%]
-tests/test_evaluator.py::test_idiomatic_ladder_not_rejected PASSED       [ 30%]
-tests/test_evaluator.py::test_physical_ladder_rejected PASSED            [ 32%]
-tests/test_evaluator.py::test_circuit_breaker_sets_deferred_and_eligible_for_rescan PASSED [ 35%]
-tests/test_evaluator.py::test_has_llm_credentials_multi_provider PASSED  [ 37%]
-tests/test_evaluator.py::test_evaluate_tier2_llm_model_agnostic_routing PASSED [ 40%]
-tests/test_evaluator.py::test_generate_tailored_resume_data_model_agnostic PASSED [ 42%]
-tests/test_generator.py::test_blocked_url_fetcher_prevents_ssrf_and_lfi PASSED [ 45%]
-tests/test_generator.py::test_export_markdown_to_pdf_generates_valid_pdf PASSED [ 47%]
-tests/test_generator.py::test_export_markdown_to_pdf_blocks_remote_image_ssrf PASSED [ 50%]
-tests/test_generator.py::test_export_markdown_to_pdf_blocks_local_file_lfi PASSED [ 52%]
+tests/test_evaluator.py::test_extract_compensation_annual PASSED         [  4%]
+tests/test_evaluator.py::test_tier1_rejects_lifting_violation PASSED     [  6%]
+tests/test_evaluator.py::test_tier1_rejects_keyword_physical_restriction PASSED [  8%]
+tests/test_evaluator.py::test_tier1_rejects_hourly_pay_floor_violation PASSED [ 10%]
+tests/test_evaluator.py::test_tier1_rejects_schedule_conflict PASSED     [ 12%]
+tests/test_evaluator.py::test_tier1_passes_qualified_job PASSED          [ 14%]
+tests/test_evaluator.py::test_tier2_heuristic_matches_aligned_role PASSED [ 17%]
+tests/test_evaluator.py::test_circuit_breaker_caps_evaluations PASSED    [ 19%]
+tests/test_evaluator.py::test_extract_compensation_single_dollar_range PASSED [ 21%]
+tests/test_evaluator.py::test_extract_compensation_salary_shorthand_and_ranges PASSED [ 23%]
+tests/test_evaluator.py::test_idiomatic_ladder_not_rejected PASSED       [ 25%]
+tests/test_evaluator.py::test_physical_ladder_rejected PASSED            [ 27%]
+tests/test_evaluator.py::test_circuit_breaker_sets_deferred_and_eligible_for_rescan PASSED [ 29%]
+tests/test_evaluator.py::test_has_llm_credentials_multi_provider PASSED  [ 31%]
+tests/test_evaluator.py::test_evaluate_tier2_llm_model_agnostic_routing PASSED [ 34%]
+tests/test_evaluator.py::test_generate_tailored_resume_data_model_agnostic PASSED [ 36%]
+tests/test_evaluator.py::test_tier1_rejects_dynamic_physical_restriction PASSED [ 38%]
+tests/test_evaluator.py::test_tier1_rejects_commute_distance_exceeding_max PASSED [ 40%]
+tests/test_evaluator.py::test_tier1_allows_remote_job_regardless_of_distance PASSED [ 42%]
+tests/test_evaluator.py::test_tier2_heuristic_scores_dynamic_tags PASSED [ 44%]
+tests/test_generator.py::test_blocked_url_fetcher_prevents_ssrf_and_lfi PASSED [ 46%]
+tests/test_generator.py::test_export_markdown_to_pdf_generates_valid_pdf PASSED [ 48%]
+tests/test_generator.py::test_export_markdown_to_pdf_blocks_remote_image_ssrf PASSED [ 51%]
+tests/test_generator.py::test_export_markdown_to_pdf_blocks_local_file_lfi PASSED [ 53%]
 tests/test_generator.py::test_export_markdown_to_pdf_decomposes_inline_dangerous_tags PASSED [ 55%]
 tests/test_generator.py::test_scan_fault_tolerance_on_artifact_error PASSED [ 57%]
-tests/test_ingestion.py::test_sanitize_html_strips_scripts_and_styles PASSED [ 60%]
-tests/test_ingestion.py::test_sanitize_html_strips_hidden_elements PASSED [ 62%]
-tests/test_ingestion.py::test_sanitize_html_removes_zero_width_chars PASSED [ 65%]
-tests/test_ingestion.py::test_wrap_untrusted_content_boundaries PASSED   [ 67%]
-tests/test_ingestion.py::test_fetch_feed_parses_sample_xml PASSED        [ 70%]
-tests/test_ingestion.py::test_wrap_untrusted_content_case_and_whitespace_variants PASSED [ 72%]
-tests/test_ingestion.py::test_slug_uniqueness_for_identical_titles PASSED [ 75%]
-tests/test_ingestion.py::test_fetch_feed_enforces_byte_limit PASSED      [ 77%]
-tests/test_notifier.py::test_extract_mailto_from_outreach PASSED         [ 80%]
-tests/test_notifier.py::test_extract_mailto_nonexistent_file PASSED      [ 82%]
-tests/test_notifier.py::test_build_notification_html PASSED              [ 85%]
-tests/test_notifier.py::test_send_match_notification_missing_credentials PASSED [ 87%]
-tests/test_notifier.py::test_send_match_notification_success PASSED      [ 90%]
-tests/test_notifier.py::test_send_match_notification_api_error_handling PASSED [ 92%]
+tests/test_generator.py::test_dynamic_role_and_project_selection_by_tags PASSED [ 59%]
+tests/test_generator.py::test_dynamic_geographic_education_heuristics PASSED [ 61%]
+tests/test_generator.py::test_scan_multi_feed_cli_and_target_feed_urls PASSED [ 63%]
+tests/test_ingestion.py::test_sanitize_html_strips_scripts_and_styles PASSED [ 65%]
+tests/test_ingestion.py::test_sanitize_html_strips_hidden_elements PASSED [ 68%]
+tests/test_ingestion.py::test_sanitize_html_removes_zero_width_chars PASSED [ 70%]
+tests/test_ingestion.py::test_wrap_untrusted_content_boundaries PASSED   [ 72%]
+tests/test_ingestion.py::test_fetch_feed_parses_sample_xml PASSED        [ 74%]
+tests/test_ingestion.py::test_wrap_untrusted_content_case_and_whitespace_variants PASSED [ 76%]
+tests/test_ingestion.py::test_slug_uniqueness_for_identical_titles PASSED [ 78%]
+tests/test_ingestion.py::test_fetch_feed_enforces_byte_limit PASSED      [ 80%]
+tests/test_notifier.py::test_extract_mailto_from_outreach PASSED         [ 82%]
+tests/test_notifier.py::test_extract_mailto_nonexistent_file PASSED      [ 85%]
+tests/test_notifier.py::test_build_notification_html PASSED              [ 87%]
+tests/test_notifier.py::test_send_match_notification_missing_credentials PASSED [ 89%]
+tests/test_notifier.py::test_send_match_notification_success PASSED      [ 91%]
+tests/test_notifier.py::test_send_match_notification_api_error_handling PASSED [ 93%]
 tests/test_notifier.py::test_send_match_notification_sanitizes_crlf_subject PASSED [ 95%]
 tests/test_notifier.py::test_build_notification_html_sanitizes_dangerous_schemes PASSED [ 97%]
 tests/test_notifier.py::test_settings_validates_email_format PASSED      [100%]
 
-======================= 40 passed, 10 warnings in 1.99s ========================
+======================= 47 passed, 30 warnings in 2.69s ========================
 ```
 
 ---
