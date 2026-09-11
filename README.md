@@ -19,7 +19,6 @@
 [![Schema: Pydantic V2](https://img.shields.io/badge/Schema-Pydantic%20V2-E92063?style=for-the-badge&logo=pydantic&logoColor=white)](https://docs.pydantic.dev/)
 [![Model Agnostic: LiteLLM](https://img.shields.io/badge/LLM-Agnostic%20(LiteLLM)-6366F1?style=for-the-badge&logo=openai&logoColor=white)](https://docs.litellm.ai/)
 [![PDF Engine: Sandboxed WeasyPrint](https://img.shields.io/badge/PDF-Sandboxed%20WeasyPrint-0284C7?style=for-the-badge&logo=adobeacrobatreader&logoColor=white)](https://weasyprint.org/)
-[![Tests: Pytest 51/51 Passing](https://img.shields.io/badge/Tests-51%2F51%20Passing-10B981?style=for-the-badge&logo=pytest&logoColor=white)](tests/)
 [![CI/CD: Zero-Storage GitHub Actions](https://img.shields.io/badge/CI%2FCD-Zero--Storage%20Actions-2088FF?style=for-the-badge&logo=githubactions&logoColor=white)](.github/workflows/daily_scan.yml)
 
 [Executive Overview](#-executive-overview) • [System Architecture](#-system-architecture) • [Security & Cost Shield](#-security--cost-shield) • [Model Agnostic Layer](#-zero-vendor-lock-in-model-matrix) • [Declarative Profile Configuration](#-declarative-profile-configuration) • [Quick Start](#-quick-start) • [CLI Reference](#-cli-reference) • [CI/CD Runner](#-zero-storage-github-actions-automation) • [Author & Contact](#-author--contact)
