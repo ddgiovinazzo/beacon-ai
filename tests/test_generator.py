@@ -826,8 +826,8 @@ def test_experience_headers_render_pipe_delimiter_with_location(tmp_path: Path):
     assert "### Solo Practice |" not in content
 
 
-def test_export_markdown_to_pdf_uses_nl2br_and_sane_lists(tmp_path: Path, monkeypatch):
-    """Verify that export_markdown_to_pdf parses markdown using extra, sane_lists, and nl2br extensions."""
+def test_export_markdown_to_pdf_uses_extra_and_sane_lists(tmp_path: Path, monkeypatch):
+    """Verify that export_markdown_to_pdf parses markdown using only extra and sane_lists extensions."""
     import markdown
     from src.generator import export_markdown_to_pdf
 
@@ -841,13 +841,12 @@ def test_export_markdown_to_pdf_uses_nl2br_and_sane_lists(tmp_path: Path, monkey
 
     monkeypatch.setattr("markdown.markdown", spy_markdown)
 
-    md_file = tmp_path / "test_nl2br.md"
+    md_file = tmp_path / "test_extensions.md"
     md_file.write_text("# Test Resume\n\n## Section\nLine 1\nLine 2\n", encoding="utf-8")
     export_markdown_to_pdf(md_file)
 
-    assert "extra" in captured_extensions
-    assert "sane_lists" in captured_extensions
-    assert "nl2br" in captured_extensions
+    assert captured_extensions == ["extra", "sane_lists"]
+    assert "nl2br" not in captured_extensions
 
 
 

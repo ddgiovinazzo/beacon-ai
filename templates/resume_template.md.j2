@@ -11,19 +11,14 @@
 
 ## TECHNICAL SKILLS
 
-{% if tailored_data.skill_categories %}
 {% for category in tailored_data.skill_categories %}
 * **{{ category.name }}:** {{ category.skills | join(", ") }}
 {% endfor %}
-{% elif tailored_data.skills %}
-* **Core Competencies:** {{ tailored_data.skills | join(", ") }}
-{% endif %}
 
 ## PROFESSIONAL EXPERIENCE
 
 {% for role in tailored_data.experience %}
-### {{ role.organization }}{% if role.location %} | {{ role.location }}{% endif %}
-
+### {{ role.organization }}{% if role.location %} | {{ role.location }}{% endif +%}
 #### **{{ role.title }}{% if role.start_date and role.end_date %} | {{ role.start_date }} – {{ role.end_date }}{% elif role.start_date %} | {{ role.start_date }}{% endif %}**
 
 {% for bullet in role.bullets %}
