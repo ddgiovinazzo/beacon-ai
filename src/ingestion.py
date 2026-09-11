@@ -1,3 +1,4 @@
+from collections import defaultdict
 import email
 from email.header import decode_header
 import imaplib
@@ -428,12 +429,13 @@ def parse_email_message(msg: email.message.Message) -> List[JobPosting]:
 
 
 def fetch_imap_emails(settings: "Settings", mark_seen: Optional[bool] = None) -> List[JobPosting]:
-    """Connect to an IMAP mailbox, search for unread job alert emails, and parse job postings."""
+    """Connect to IMAP, search for unread job alert emails across configured mailboxes, and parse postings."""
     if not settings.is_imap_configured:
         logger.debug("IMAP credentials not configured; skipping email ingestion.")
         return []
 
-    logger.info(f"Connecting to IMAP server {settings.imap_server}:{settings.imap_port} (mailbox: {settings.imap_mailbox})...")
+    mailboxes = settings.mailbox_list
+    logger.info(f"Connecting to IMAP server {settings.imap_server}:{settings.imap_port} (mailboxes: {', '.join(mailboxes)})...")
     postings: List[JobPosting] = []
     client = None
 
@@ -443,19 +445,6 @@ def fetch_imap_emails(settings: "Settings", mark_seen: Optional[bool] = None) ->
             settings.imap_port,
         )
         client.login(settings.imap_username, settings.imap_password)
-        select_status, _ = client.select(settings.imap_mailbox)
-        if select_status != "OK":
-            logger.error(f"Failed to select IMAP mailbox '{settings.imap_mailbox}'")
-            return []
-
-        search_criteria = settings.imap_search_criteria or "UNSEEN"
-        status, message_numbers = client.search(None, search_criteria)
-        if status != "OK" or not message_numbers or not message_numbers[0]:
-            logger.info(f"No matching emails found under criteria '{search_criteria}'")
-            return []
-
-        msg_ids = message_numbers[0].split()
-        logger.info(f"Found {len(msg_ids)} matching email(s) in {settings.imap_mailbox}")
 
         allowed = settings.allowed_senders_list
         if allowed:
@@ -463,31 +452,47 @@ def fetch_imap_emails(settings: "Settings", mark_seen: Optional[bool] = None) ->
 
         should_mark_seen = settings.imap_mark_seen if mark_seen is None else mark_seen
 
-        for msg_id in msg_ids:
-            try:
-                res, data = client.fetch(msg_id, "(RFC822)")
-                if res != "OK" or not data or not data[0] or not isinstance(data[0], tuple):
-                    continue
-                raw_email = data[0][1]
-                msg = email.message_from_bytes(raw_email)
+        for mailbox in mailboxes:
+            select_status, _ = client.select(mailbox)
+            if select_status != "OK":
+                logger.warning(f"Failed to select IMAP mailbox '{mailbox}', skipping.")
+                continue
 
-                # Sender whitelist filtering
-                sender_val = decode_email_header(msg.get("From", "")).lower()
-                if allowed and not any(a in sender_val for a in allowed):
-                    logger.debug(f"Skipping email {msg_id.decode() if isinstance(msg_id, bytes) else msg_id} from '{sender_val}': sender not in allowed list.")
-                    continue
+            search_criteria = settings.imap_search_criteria or "UNSEEN"
+            status, message_numbers = client.search(None, search_criteria)
+            if status != "OK" or not message_numbers or not message_numbers[0]:
+                logger.info(f"No matching emails found in '{mailbox}' under criteria '{search_criteria}'")
+                continue
 
-                extracted = parse_email_message(msg)
-                msg_id_str = msg_id.decode("utf-8", errors="replace") if isinstance(msg_id, bytes) else str(msg_id)
-                for p in extracted:
-                    p.email_msg_id = msg_id_str
+            msg_ids = message_numbers[0].split()
+            logger.info(f"Found {len(msg_ids)} matching email(s) in {mailbox}")
 
-                postings.extend(extracted)
+            for msg_id in msg_ids:
+                try:
+                    res, data = client.fetch(msg_id, "(RFC822)")
+                    if res != "OK" or not data or not data[0] or not isinstance(data[0], tuple):
+                        continue
+                    raw_email = data[0][1]
+                    msg = email.message_from_bytes(raw_email)
 
-                if should_mark_seen:
-                    client.store(msg_id, "+FLAGS", "\\Seen")
-            except Exception as e:
-                logger.warning(f"Error parsing email ID {msg_id}: {e}")
+                    # Sender whitelist filtering
+                    sender_val = decode_email_header(msg.get("From", "")).lower()
+                    if allowed and not any(a in sender_val for a in allowed):
+                        logger.debug(f"Skipping email {msg_id.decode() if isinstance(msg_id, bytes) else msg_id} from '{sender_val}': sender not in allowed list.")
+                        continue
+
+                    extracted = parse_email_message(msg)
+                    raw_id_str = msg_id.decode("utf-8", errors="replace") if isinstance(msg_id, bytes) else str(msg_id)
+                    composite_id = f"{mailbox}:{raw_id_str}"
+                    for p in extracted:
+                        p.email_msg_id = composite_id
+
+                    postings.extend(extracted)
+
+                    if should_mark_seen:
+                        client.store(msg_id, "+FLAGS", "\\Seen")
+                except Exception as e:
+                    logger.warning(f"Error parsing email ID {msg_id} in mailbox '{mailbox}': {e}")
 
     except imaplib.IMAP4.error as e:
         logger.error(f"IMAP protocol/authentication error: {e}")
@@ -509,21 +514,40 @@ def fetch_imap_emails(settings: "Settings", mark_seen: Optional[bool] = None) ->
 
 
 def mark_imap_messages_seen(settings: "Settings", message_ids: List[str]) -> None:
-    """Connect to IMAP and explicitly mark specific message IDs as \\Seen."""
+    """Connect to IMAP and explicitly mark specific message IDs as \\Seen across their respective mailboxes."""
     if not settings.is_imap_configured or not message_ids:
         return
+
+    # Group message IDs by mailbox (defaulting to first configured mailbox if no prefix)
+    fallback_mb = settings.mailbox_list[0] if settings.mailbox_list else "INBOX"
+    mailbox_msgs = defaultdict(list)
+    for item in message_ids:
+        if ":" in item:
+            mb, mid = item.split(":", 1)
+            mailbox_msgs[mb].append(mid)
+        else:
+            mailbox_msgs[fallback_mb].append(item)
 
     client = None
     try:
         client = imaplib.IMAP4_SSL(settings.imap_server, settings.imap_port)
         client.login(settings.imap_username, settings.imap_password)
-        client.select(settings.imap_mailbox)
-        for msg_id in message_ids:
+        total_marked = 0
+        for mb, mids in mailbox_msgs.items():
             try:
-                client.store(msg_id, "+FLAGS", "\\Seen")
+                select_status, _ = client.select(mb)
+                if select_status != "OK":
+                    logger.warning(f"Failed to select IMAP mailbox '{mb}' to mark messages seen.")
+                    continue
+                for mid in mids:
+                    try:
+                        client.store(mid, "+FLAGS", "\\Seen")
+                        total_marked += 1
+                    except Exception as e:
+                        logger.warning(f"Failed marking message {mid} in '{mb}' as \\Seen: {e}")
             except Exception as e:
-                logger.warning(f"Failed marking message {msg_id} as \\Seen: {e}")
-        logger.info(f"Marked {len(message_ids)} IMAP message(s) as \\Seen")
+                logger.warning(f"Error processing mailbox '{mb}' for seen marking: {e}")
+        logger.info(f"Marked {total_marked} IMAP message(s) as \\Seen")
     except Exception as e:
         logger.error(f"Error connecting to IMAP to mark messages seen: {e}")
     finally:

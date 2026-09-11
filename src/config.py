@@ -73,6 +73,15 @@ class Settings(BaseSettings):
     imap_allowed_senders: Optional[str] = None
 
     @property
+    def mailbox_list(self) -> List[str]:
+        """Return parsed list of IMAP mailboxes/labels to scan."""
+        if not self.imap_mailbox:
+            return ["INBOX"]
+        tokens = re.split(r"[,\n]", self.imap_mailbox)
+        mailboxes = [t.strip() for t in tokens if t.strip()]
+        return mailboxes or ["INBOX"]
+
+    @property
     def is_imap_configured(self) -> bool:
         """Check if IMAP email ingestion credentials are fully configured."""
         return bool(self.imap_server and self.imap_username and self.imap_password)

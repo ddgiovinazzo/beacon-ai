@@ -15,6 +15,7 @@ from src.config import Settings, get_settings
 from src.ingestion import (
     decode_email_header,
     fetch_imap_emails,
+    mark_imap_messages_seen,
     parse_craigslist_alert_email,
     parse_email_message,
     parse_generic_job_alert_email,
@@ -328,3 +329,81 @@ def test_fetch_imap_emails_filters_by_allowed_senders():
     assert len(postings) == 1
     assert postings[0].title == "File Clerk"
     assert postings[0].link == "https://hudsonvalley.craigslist.org/ofc/d/file-clerk/7999.html"
+
+
+def test_fetch_imap_emails_multiple_sublabels():
+    """Verify that multiple comma-separated mailboxes/sublabels are scanned sequentially."""
+    settings = Settings(
+        imap_server="imap.example.com",
+        imap_username="user@example.com",
+        imap_password="secret_password",
+        imap_mailbox="Job-Alerts/Craigslist, Job-Alerts/LinkedIn",
+    )
+
+    craigslist_raw = (
+        b"From: alerts@alerts.craigslist.org\r\n"
+        b"Subject: (1 new result) office\r\n"
+        b"Content-Type: text/html\r\n\r\n"
+        b"<html><body><a href=\"https://hudsonvalley.craigslist.org/ofc/d/clerk/1.html\">Clerk</a></body></html>"
+    )
+    linkedin_raw = (
+        b"From: jobalerts-noreply@linkedin.com\r\n"
+        b"Subject: 1 new job for Assistant\r\n"
+        b"Content-Type: text/html\r\n\r\n"
+        b"<html><body><a href=\"https://www.linkedin.com/jobs/view/assistant-1002\">Assistant</a></body></html>"
+    )
+
+    mock_imap = MagicMock()
+    mock_imap.select.return_value = ("OK", [b"1"])
+    # First search for Craigslist mailbox returns msg 10, second search for LinkedIn mailbox returns msg 20
+    mock_imap.search.side_effect = [
+        ("OK", [b"10"]),
+        ("OK", [b"20"]),
+    ]
+    mock_imap.fetch.side_effect = [
+        ("OK", [(b"10 (RFC822 {100}", craigslist_raw), b")"]),
+        ("OK", [(b"20 (RFC822 {100}", linkedin_raw), b")"]),
+    ]
+
+    with patch("imaplib.IMAP4_SSL", return_value=mock_imap):
+        postings = fetch_imap_emails(settings)
+
+    assert len(postings) == 2
+    assert postings[0].title == "Clerk"
+    assert postings[0].email_msg_id == "Job-Alerts/Craigslist:10"
+    assert postings[1].title == "Assistant"
+    assert postings[1].email_msg_id == "Job-Alerts/LinkedIn:20"
+
+    # Verify both mailboxes were selected
+    assert mock_imap.select.call_count == 2
+    mock_imap.select.assert_any_call("Job-Alerts/Craigslist")
+    mock_imap.select.assert_any_call("Job-Alerts/LinkedIn")
+
+
+def test_mark_imap_messages_seen_groups_by_mailbox():
+    """Verify that marking messages seen switches to each respective mailbox."""
+    settings = Settings(
+        imap_server="imap.example.com",
+        imap_username="user@example.com",
+        imap_password="secret_password",
+        imap_mailbox="Job-Alerts/Craigslist, Job-Alerts/LinkedIn",
+    )
+
+    mock_imap = MagicMock()
+    mock_imap.select.return_value = ("OK", [b"1"])
+
+    with patch("imaplib.IMAP4_SSL", return_value=mock_imap):
+        mark_imap_messages_seen(
+            settings,
+            ["Job-Alerts/Craigslist:10", "Job-Alerts/LinkedIn:20", "Job-Alerts/Craigslist:11"],
+        )
+
+    # Both mailboxes should be selected
+    mock_imap.select.assert_any_call("Job-Alerts/Craigslist")
+    mock_imap.select.assert_any_call("Job-Alerts/LinkedIn")
+    # All 3 messages should be marked seen
+    assert mock_imap.store.call_count == 3
+    mock_imap.store.assert_any_call("10", "+FLAGS", "\\Seen")
+    mock_imap.store.assert_any_call("11", "+FLAGS", "\\Seen")
+    mock_imap.store.assert_any_call("20", "+FLAGS", "\\Seen")
+
