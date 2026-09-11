@@ -6,7 +6,6 @@
   "linkedin_url": "https://linkedin.com/in/janedoe-accounting",
   "portfolio_url": null,
   "github_url": null,
-  "llm_model": "gemini/gemini-3.8-flash",
   "constraints": {
     "min_hourly_rate": 28.0,
     "min_weekly_earnings": null,

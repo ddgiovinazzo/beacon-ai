@@ -75,6 +75,8 @@ def test_schemas_free_from_operational_parameters():
     constraints_fields = set(UserConstraints.model_fields.keys())
 
     operational_names = {
+        "llm_model",
+        "model",
         "llm_rate_limit_delay",
         "llm_rate_limit_delay_seconds",
         "llm_max_retries",

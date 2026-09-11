@@ -402,6 +402,10 @@ def test_llm_model_pulled_from_variable_not_profile(monkeypatch, test_profile):
     import instructor
     from src.evaluator import evaluate_tier2_llm
 
+    # Confirm candidate UserProfile schema has no llm_model field
+    assert "llm_model" not in UserProfile.model_fields
+    assert not hasattr(test_profile, "llm_model")
+
     mock_result = EvaluationResult(
         status=EvaluationStatus.MATCH,
         fit_score=90,
@@ -411,10 +415,7 @@ def test_llm_model_pulled_from_variable_not_profile(monkeypatch, test_profile):
     mock_client.chat.completions.create.return_value = mock_result
     monkeypatch.setattr(instructor, "from_litellm", lambda *args, **kwargs: mock_client)
 
-    # Even if profile explicitly defines an old/different model
-    test_profile.llm_model = "model-from-profile"
-
-    # 1. Config variable overrides profile
+    # 1. Config variable sets model
     settings = Settings(llm_model="model-from-settings-variable", llm_api_key="test-key")
     job = JobPosting(
         title="Accountant",
@@ -425,15 +426,13 @@ def test_llm_model_pulled_from_variable_not_profile(monkeypatch, test_profile):
     evaluate_tier2_llm(job, test_profile, settings, dry_run=False)
     kwargs = mock_client.chat.completions.create.call_args[1]
     assert kwargs["model"] == "model-from-settings-variable"
-    assert kwargs["model"] != "model-from-profile"
 
-    # 2. Environment variable overrides profile
+    # 2. Environment variable sets model
     monkeypatch.setenv("LLM_MODEL", "model-from-env-var")
     env_settings = Settings(llm_api_key="test-key")
     evaluate_tier2_llm(job, test_profile, env_settings, dry_run=False)
     kwargs2 = mock_client.chat.completions.create.call_args[1]
     assert kwargs2["model"] == "model-from-env-var"
-    assert kwargs2["model"] != "model-from-profile"
 
 
 def test_evaluator_logs_error_when_no_llm_model_specified(monkeypatch, test_profile, caplog):

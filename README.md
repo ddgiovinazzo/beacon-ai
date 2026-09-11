@@ -120,12 +120,12 @@ Every external input is treated as untrusted. BeaconAI enforces multi-layered de
 
 ## 🔌 Zero Vendor Lock-In: Model Matrix
 
-BeaconAI leverages **LiteLLM** and **Instructor** to normalize structured outputs into strict Pydantic V2 models. Switch between foundation model providers or private local engines dynamically in your candidate profile (`UserProfile.llm_model`) with a single unified `LLM_API_KEY` setting and zero code refactoring:
+BeaconAI leverages **LiteLLM** and **Instructor** to normalize structured outputs into strict Pydantic V2 models. Switch between foundation model providers or private local engines dynamically via the `LLM_MODEL` environment variable (or `--model` CLI option) with a single unified `LLM_API_KEY` setting and zero code refactoring:
 
 | Provider | Engine Identifier Example | Ideal Use Case | Operational Profile |
 | :--- | :--- | :--- | :--- |
+| **Google** | `gemini/gemini-2.5-flash-lite` | High-speed batch scoring & rapid extraction | Low latency, high RPM/throughput |
 | **Anthropic** | `claude-3-5-sonnet-20241022` | Complex technical roles & deep resume tailoring | State-of-the-art qualitative synthesis |
-| **Google** | `gemini/gemini-3.8-flash` | High-speed batch scoring & rapid extraction | Low latency, cost-effective high-throughput |
 | **OpenAI** | `gpt-4o`, `gpt-4o-mini` | Industry standard structured JSON extraction | High availability & standard enterprise SLA |
 | **Local / Offline** | `ollama/llama3.2`, `ollama/mistral` | Air-gapped, zero-cost, 100% private local execution | Complete data privacy with zero token cost |
 
@@ -133,7 +133,7 @@ BeaconAI leverages **LiteLLM** and **Instructor** to normalize structured output
 
 ## 📋 Declarative Profile Configuration
 
-BeaconAI is 100% context-agnostic: candidate constraints, master experience banks, and credentials are completely decoupled from code and configured in a declarative JSON profile.
+BeaconAI is 100% context-agnostic: candidate constraints, master experience banks, and credentials are completely decoupled from operational infrastructure and configured in a declarative JSON profile.
 
 ```bash
 cp profiles/bookkeeper.json.example profiles/my_profile.json
@@ -152,7 +152,6 @@ cp profiles/software_engineer.json.example profiles/my_profile.json
   "linkedin_url": "https://linkedin.com/in/janedoe-pro",
   "portfolio_url": "https://janedoe.example.com",
   "github_url": "https://github.com/janedoe-dev",
-  "llm_model": "gemini/gemini-3.8-flash",
   "constraints": {
     "min_hourly_rate": 28.0,
     "min_weekly_earnings": null,
