@@ -100,35 +100,88 @@ class UserConstraints(BaseModel):
     )
 
 
-class MasterExperience(BaseModel):
-    """Comprehensive portfolio of past experience, tools, projects, and education."""
-    target_titles: List[str] = Field(
+class ProfileTrack(BaseModel):
+    """Discrete, isolated resource track for targeted resume compilation (The Selector Pattern)."""
+    track_id: str = Field(..., description="Unique track identifier (e.g. 'clerical_data_entry', 'software_engineering').")
+    display_name: str = Field(..., description="Human-readable track name.")
+    skills_header: str = Field(default="TECHNICAL SKILLS", description="Custom markdown header for skills section.")
+    target_titles: List[str] = Field(default_factory=list, description="Target job titles that trigger this track.")
+    trigger_keywords: List[str] = Field(default_factory=list, description="Keywords in posting title/body that align with this track.")
+    approved_summary_traits: List[str] = Field(
         default_factory=list,
-        description="Desired job titles to match against.",
+        description="Curated bank of approved professional traits for Sentence 1 of the summary.",
     )
-    narrative_context: Optional[str] = Field(
-        default=None,
-        description="Strategic positioning directive and narrative framing guidance.",
-    )
-    engineering_projects: List[EngineeringProject] = Field(
+    approved_summary_outcomes: List[str] = Field(
         default_factory=list,
-        description="Independent engineering and software projects.",
+        description="Curated bank of approved outcome/impact traits for Sentence 2 of the summary.",
+    )
+    categorized_skills: Dict[str, List[str]] = Field(
+        default_factory=dict,
+        description="Deterministic, human-curated skills matrix isolated for this track.",
     )
     roles: List[ExperienceRole] = Field(
         default_factory=list,
-        description="Chronological work history.",
+        description="Pre-tailored roles and verified bullet pools specifically framed for this track.",
     )
-    tools_and_technologies: List[str] = Field(
+    projects: List[EngineeringProject] = Field(
         default_factory=list,
-        description="Known software, tools, and technical competencies.",
+        description="Relevant engineering or operational projects for this track (empty list hides Projects section).",
     )
     education: List[EducationEntry] = Field(
         default_factory=list,
-        description="Degrees, academic credentials, and educational programs.",
+        description="Relevant education credentials for this track.",
+    )
+    certifications: List[CertificationEntry] = Field(
+        default_factory=list,
+        description="Relevant certifications for this track.",
+    )
+    include_portfolio: bool = Field(
+        default=False,
+        description="Whether to include portfolio website in contact line.",
+    )
+    include_github: bool = Field(
+        default=False,
+        description="Whether to include raw GitHub link in contact line.",
+    )
+    narrative_context: Optional[str] = Field(
+        default=None,
+        description="Optional positioning guidance for this track.",
+    )
+
+
+class MasterExperience(BaseModel):
+    """The ground-truth master repository of candidate history, roles, tools, and credentials."""
+    target_titles: List[str] = Field(
+        default_factory=list,
+        description="Comprehensive list of job titles the candidate is targeting.",
+    )
+    narrative_context: Optional[str] = Field(
+        default=None,
+        description="Synthesized career narrative and framing guidelines for LLM tailoring.",
+    )
+    roles: List[ExperienceRole] = Field(
+        default_factory=list,
+        description="Detailed chronological employment and volunteer history with verified accomplishment bullets.",
+    )
+    tools_and_technologies: List[str] = Field(
+        default_factory=list,
+        description="Full, canonical bank of all skills, frameworks, and domain competencies.",
+    )
+    engineering_projects: List[EngineeringProject] = Field(
+        default_factory=list,
+        description="Independent or professional engineering, system architecture, or open-source projects.",
+    )
+    education: List[EducationEntry] = Field(
+        default_factory=list,
+        description="Formal academic degrees, certifications, or intensive training programs.",
     )
     certifications: List[CertificationEntry] = Field(
         default_factory=list,
         description="Professional and industry certifications.",
+    )
+    tracks: Dict[str, ProfileTrack] = Field(
+        default_factory=dict,
+        description="Optional discrete persona pools for multi-track deterministic routing.",
     )
 
     @field_validator("education", mode="before")
@@ -184,6 +237,10 @@ class UserProfile(BaseModel):
     constraints: UserConstraints = Field(default_factory=UserConstraints, description="Deterministic filtering constraints.")
     master_experience: MasterExperience = Field(..., description="Candidate's comprehensive work background.")
 
+    @property
+    def tracks(self) -> Dict[str, ProfileTrack]:
+        return self.master_experience.tracks
+
 
 class JobPosting(BaseModel):
     """Sanitized and structured job posting from an RSS source."""
@@ -225,6 +282,10 @@ class EvaluationResult(BaseModel):
         default=1,
         description="Tier at which decision was reached: 1 (deterministic) or 2 (LLM).",
     )
+    matched_track_id: Optional[str] = Field(
+        default=None,
+        description="ID of the resolved ProfileTrack if multi-track routing matched.",
+    )
 
 
 class TailoredResumeData(BaseModel):
@@ -254,6 +315,10 @@ class TailoredResumeData(BaseModel):
     include_github_link: bool = Field(
         default=False,
         description="Set True ONLY if the target role specifically evaluates code repositories. Set False for non-developer or general analytical roles.",
+    )
+    skills_header: Optional[str] = Field(
+        default=None,
+        description="Custom header label for the skills section (e.g. 'CORE COMPETENCIES & SKILLS').",
     )
 
     @property

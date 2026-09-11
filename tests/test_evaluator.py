@@ -547,4 +547,86 @@ def test_llm_completion_retries_on_service_unavailable():
     assert mock_client.chat.completions.create.call_count == 2
 
 
+def test_resolve_profile_track_all_six_tracks():
+    """Verify resolve_profile_track accurately routes across all 6 tracks using daniel_giovinazzo.json."""
+    from src.evaluator import resolve_profile_track
+    from src.schemas import JobPosting, UserProfile
+    from pathlib import Path
 
+    profile_path = Path("profiles/daniel_giovinazzo.json")
+    profile = UserProfile.model_validate_json(profile_path.read_text())
+
+    # 1. Clerical & Data Entry
+    job_clerical = JobPosting(
+        title="Data Entry Specialist",
+        link="https://example.com/data-entry",
+        raw_text="Looking for a high-accuracy data entry specialist with 10-key touch and spreadsheet skills.",
+        source="craigslist.org",
+    )
+    track_clerical = resolve_profile_track(job_clerical, profile)
+    assert track_clerical is not None
+    assert track_clerical.track_id == "clerical_data_entry"
+
+    # 2. Office & Administrative
+    job_admin = JobPosting(
+        title="Administrative Assistant",
+        link="https://example.com/admin",
+        raw_text="Seeking an administrative assistant for office coordination, calendar management, and filing.",
+        source="craigslist.org",
+    )
+    track_admin = resolve_profile_track(job_admin, profile)
+    assert track_admin is not None
+    assert track_admin.track_id == "office_administrative"
+
+    # 3. Accounting & Bookkeeping
+    job_acct = JobPosting(
+        title="Accounts Payable Clerk",
+        link="https://example.com/ap-clerk",
+        raw_text="Responsible for invoice processing, accounts payable, ledger reconciliation, and vendor payments.",
+        source="craigslist.org",
+    )
+    track_acct = resolve_profile_track(job_acct, profile)
+    assert track_acct is not None
+    assert track_acct.track_id == "accounting_bookkeeping"
+
+    # 4. Technical Support & QA
+    job_qa = JobPosting(
+        title="Application Support Analyst",
+        link="https://example.com/app-support",
+        raw_text="Provide Tier 1 and Tier 2 technical troubleshooting, incident triage, and software QA regression testing.",
+        source="craigslist.org",
+    )
+    track_qa = resolve_profile_track(job_qa, profile)
+    assert track_qa is not None
+    assert track_qa.track_id == "technical_support_qa"
+
+    # 5. Data Analysis & Reporting
+    job_data = JobPosting(
+        title="Data Analyst",
+        link="https://example.com/data-analyst",
+        raw_text="Extract insights using SQL queries, Python data analysis, and build reporting dashboards in Excel.",
+        source="craigslist.org",
+    )
+    track_data = resolve_profile_track(job_data, profile)
+    assert track_data is not None
+    assert track_data.track_id == "data_analysis_reporting"
+
+    # 6. Software Engineering
+    job_swe = JobPosting(
+        title="Full Stack Software Engineer",
+        link="https://example.com/swe",
+        raw_text="Build scalable web applications using Python, FastAPI, React, and AWS microservices.",
+        source="craigslist.org",
+    )
+    track_swe = resolve_profile_track(job_swe, profile)
+    assert track_swe is not None
+    assert track_swe.track_id == "software_engineering"
+
+    # Out of domain job -> None (Precision over recall)
+    job_unrelated = JobPosting(
+        title="Commercial Truck Driver",
+        link="https://example.com/driver",
+        raw_text="CDL Class A required. Haul freight nationwide.",
+        source="craigslist.org",
+    )
+    assert resolve_profile_track(job_unrelated, profile) is None

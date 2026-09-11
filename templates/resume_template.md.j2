@@ -21,7 +21,7 @@
 
 {% endfor %}
 {% if tailored_data.skill_categories and tailored_data.skill_categories | length > 0 %}
-## TECHNICAL SKILLS
+## {{ tailored_data.skills_header or 'TECHNICAL SKILLS' }}
 
 {% for category in tailored_data.skill_categories %}
 * **{{ category.name }}:** {{ category.skills | join(", ") }}

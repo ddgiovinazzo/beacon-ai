@@ -1114,11 +1114,180 @@ def test_build_grounded_email_pitch_guardrails():
     assert "555-019-2834 | contact@ddgiovinazzo.com" in body
 
 
+def test_clean_role_title_strips_recruitment_prefixes_and_normalizes_slashes():
+    """Verify clean_role_title strips recruitment ad fluff and normalizes slashes."""
+    from src.generator import clean_role_title
+
+    # 1. Company seeking role
+    assert clean_role_title("Construction Company seeking Clerical/ Administrative Assistant") == "Clerical / Administrative Assistant"
+    assert clean_role_title("Law Firm Looking For Legal Assistant") == "Legal Assistant"
+    assert clean_role_title("Local Agency in need of Office Coordinator") == "Office Coordinator"
+    
+    # 2. Hiring prefixes
+    assert clean_role_title("Now Hiring: Accounts Payable Clerk") == "Accounts Payable Clerk"
+    assert clean_role_title("Urgently Hiring - Junior Bookkeeper") == "Junior Bookkeeper"
+    assert clean_role_title("Help Wanted: Data Entry Clerk") == "Data Entry Clerk"
+    assert clean_role_title("Immediate Opening: Receptionist") == "Receptionist"
+    
+    # 3. Trailing needed/wanted
+    assert clean_role_title("Data Entry Clerk Needed") == "Data Entry Clerk"
+    assert clean_role_title("Office Assistant Wanted") == "Office Assistant"
+    
+    # 4. Slash normalization
+    assert clean_role_title("Clerical/Administrative Assistant") == "Clerical / Administrative Assistant"
+    assert clean_role_title("Billing/Invoicing Specialist") == "Billing / Invoicing Specialist"
 
 
+def test_multi_track_deterministic_tailored_data_clerical():
+    """Verify clerical track generates single-page compliant tailored data with zero projects and LinkedIn only."""
+    from src.generator import create_deterministic_tailored_data
+    from src.schemas import JobPosting, UserProfile
+    from pathlib import Path
+
+    profile_path = Path("profiles/daniel_giovinazzo.json")
+    profile = UserProfile.model_validate_json(profile_path.read_text())
+
+    job = JobPosting(
+        title="Construction Company seeking Clerical/ Administrative Assistant",
+        link="https://example.com/clerical-job",
+        raw_text="Looking for a clerical assistant with data entry, records filing, and Excel skills.",
+        source="craigslist.org",
+    )
+
+    data = create_deterministic_tailored_data(job, profile)
+
+    # 1. Title cleaned
+    assert data.target_headline == "Clerical / Administrative Assistant"
+
+    # 2. Section headers and link flags for office_administrative
+    assert data.skills_header == "CORE COMPETENCIES & OFFICE TOOLS"
+    assert data.include_portfolio_link is False
+    assert data.include_github_link is False
+
+    # 3. Single-Page Guarantee: projects must be strictly empty
+    assert len(data.tailored_projects) == 0
+
+    # 4. Strict 2-Sentence summary format
+    sentences = [s.strip() for s in data.tailored_summary.split(".") if s.strip()]
+    assert len(sentences) == 2
+    assert "Clerical / Administrative Assistant with proven experience in" in sentences[0]
+    assert "specializing in" in sentences[0]
+    assert "delivering" in sentences[1]
+
+    # 5. Check pure data entry job resolves to clerical_data_entry
+    data_entry_job = JobPosting(
+        title="Data Entry Clerk",
+        link="https://example.com/data-clerk",
+        raw_text="Data entry clerk needed for records verification and indexing.",
+        source="craigslist.org",
+    )
+    clerk_data = create_deterministic_tailored_data(data_entry_job, profile)
+    assert clerk_data.skills_header == "CORE COMPETENCIES & SKILLS"
+    assert len(clerk_data.tailored_projects) == 0
+    assert "Data Entry & Office Systems" in clerk_data.categorized_skills
+    assert "High-Speed Alphanumeric Data Entry" in clerk_data.categorized_skills["Data Entry & Office Systems"]
 
 
+def test_multi_track_deterministic_tailored_data_swe():
+    """Verify software engineering track generates tech headers, projects, and portfolio link."""
+    from src.generator import create_deterministic_tailored_data
+    from src.schemas import JobPosting, UserProfile
+    from pathlib import Path
+
+    profile_path = Path("profiles/daniel_giovinazzo.json")
+    profile = UserProfile.model_validate_json(profile_path.read_text())
+
+    job = JobPosting(
+        title="Python Software Engineer",
+        link="https://example.com/swe-job",
+        raw_text="Build high-performance web applications and backend microservices with Python and FastAPI.",
+        source="craigslist.org",
+    )
+
+    data = create_deterministic_tailored_data(job, profile)
+
+    assert data.target_headline == "Python Software Engineer"
+    assert data.skills_header == "TECHNICAL SKILLS"
+    assert data.include_portfolio_link is True
+    assert data.include_github_link is False
+
+    # Engineering projects included
+    assert len(data.tailored_projects) == 2
+    project_names = [p.name for p in data.tailored_projects]
+    assert any("BeaconAI" in name for name in project_names)
+    assert any("VigilDesk" in name for name in project_names)
 
 
+def test_multi_track_resume_markdown_rendering_non_tech_guarantee(tmp_path: Path):
+    """Verify rendered markdown for non-tech track completely omits PROJECTS and includes CORE COMPETENCIES & SKILLS."""
+    from src.config import Settings
+    from src.generator import generate_tailored_resume
+    from src.schemas import EvaluationResult, EvaluationStatus, JobPosting, UserProfile
+    from pathlib import Path
+
+    profile_path = Path("profiles/daniel_giovinazzo.json")
+    profile = UserProfile.model_validate_json(profile_path.read_text())
+
+    job = JobPosting(
+        title="Data Entry Specialist",
+        link="https://example.com/data-entry-specialist",
+        raw_text="Data entry, spreadsheet records, typing, 10-key touch.",
+        source="craigslist.org",
+    )
+    result = EvaluationResult(
+        status=EvaluationStatus.MATCH,
+        fit_score=90,
+        matched_track_id="clerical_data_entry",
+    )
+
+    test_settings = Settings(matches_dir=tmp_path / "matches", artifacts_dir=tmp_path)
+    resume_path = generate_tailored_resume(job, profile, result, test_settings, dry_run=True)
+
+    md_content = resume_path.read_text(encoding="utf-8")
+
+    # Critical assertions
+    assert "## CORE COMPETENCIES & SKILLS" in md_content
+    assert "## PROJECTS" not in md_content
+    assert "ddgiovinazzo.com" not in md_content.splitlines()[5]  # Contact line does not have portfolio
+    assert "github.com" not in md_content
+    assert "linkedin.com/in/ddgiovinazzo" in md_content
 
 
+def test_build_grounded_email_pitch_with_tracks():
+    """Verify build_grounded_email_pitch adapts cleanly to clerical vs tech tracks."""
+    from src.generator import build_grounded_email_pitch
+    from src.schemas import EvaluationResult, EvaluationStatus, JobPosting, UserProfile
+    from pathlib import Path
+
+    profile_path = Path("profiles/daniel_giovinazzo.json")
+    profile = UserProfile.model_validate_json(profile_path.read_text())
+
+    # Clerical job
+    clerical_job = JobPosting(
+        title="Records Clerk",
+        link="https://example.com/records-clerk",
+        raw_text="Looking for a records clerk experienced in digital records archival and spreadsheet management.",
+        source="craigslist.org",
+    )
+    res = EvaluationResult(status=EvaluationStatus.MATCH, fit_score=85, matched_track_id="clerical_data_entry")
+    subject, body = build_grounded_email_pitch(clerical_job, profile, res)
+
+    assert "Application for Records Clerk - Daniel Giovinazzo" in subject
+    assert "ddgiovinazzo.com |" not in body
+    assert "github.com" not in body
+    assert "linkedin.com/in/ddgiovinazzo" in body
+
+    # Tech job
+    tech_job = JobPosting(
+        title="Python Software Engineer",
+        link="https://example.com/python-eng",
+        raw_text="Looking for a python developer to build cloud backend systems.",
+        source="craigslist.org",
+    )
+    res_tech = EvaluationResult(status=EvaluationStatus.MATCH, fit_score=92, matched_track_id="software_engineering")
+    subject_tech, body_tech = build_grounded_email_pitch(tech_job, profile, res_tech)
+
+    assert "Application for Python Software Engineer - Daniel Giovinazzo" in subject_tech
+    assert "ddgiovinazzo.com | linkedin.com/in/ddgiovinazzo" in body_tech
+    assert "github.com" not in body_tech
+    assert "linkedin.com/in/ddgiovinazzo" in body_tech

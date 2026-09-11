@@ -21,7 +21,7 @@
 [![PDF Engine: Sandboxed WeasyPrint](https://img.shields.io/badge/PDF-Sandboxed%20WeasyPrint-0284C7?style=for-the-badge&logo=adobeacrobatreader&logoColor=white)](https://weasyprint.org/)
 [![CI/CD: Zero-Storage GitHub Actions](https://img.shields.io/badge/CI%2FCD-Zero--Storage%20Actions-2088FF?style=for-the-badge&logo=githubactions&logoColor=white)](.github/workflows/daily_scan.yml)
 
-[Executive Overview](#-executive-overview) • [System Architecture](#-system-architecture) • [Security & Cost Shield](#-security--cost-shield) • [Model Agnostic Layer](#-zero-vendor-lock-in-model-matrix) • [Declarative Profile Configuration](#-declarative-profile-configuration) • [Quick Start](#-quick-start) • [CLI Reference](#-cli-reference) • [CI/CD Runner](#-zero-storage-github-actions-automation) • [Author & Contact](#-author--contact)
+[Executive Overview](#-executive-overview) • [System Architecture](#-system-architecture) • [The Selector Pattern](#-the-multi-track-persona-engine-the-selector-pattern) • [Security & Cost Shield](#-security--cost-shield) • [Model Agnostic Layer](#-zero-vendor-lock-in-model-matrix) • [Declarative Profile Configuration](#-declarative-profile-configuration) • [Quick Start](#-quick-start) • [CLI Reference](#-cli-reference) • [CI/CD Runner](#-zero-storage-github-actions-automation) • [Author & Contact](#-author--contact)
 
 ---
 
@@ -97,6 +97,71 @@ flowchart TD
     style S3 fill:#1e293b,stroke:#f59e0b,stroke-width:2px,color:#fff
     style S4 fill:#1e293b,stroke:#8b5cf6,stroke-width:2px,color:#fff
 ```
+
+---
+
+## 🎯 The Multi-Track Persona Engine (The Selector Pattern)
+
+### The Architectural Flaw in Generative AI Resumes
+
+Most AI career automation tools treat resume tailoring as an unstructured, free-form generative prompt: they dump the applicant's complete life history into a massive prompt and ask the LLM to *"write a tailored resume for this job."* 
+
+In production, this approach collapses due to three critical engineering failures:
+1. **Context Poisoning:** If an applicant has a versatile background spanning software engineering, data systems, and operational back-office roles, a single prompt forces the model to synthesize strange, Frankensteinian hybrids. An Accounts Payable posting receives an applicant boasting about React microservices and Kubernetes deployments, triggering immediate ATS disqualification for overqualification and domain mismatch.
+2. **Hallucinations on Small / Lite Models:** Cost-effective, high-throughput models (e.g. Gemini 2.5 Flash Lite) struggle with negative constraints when given generative freedom. Asked to write bullets and skills from scratch, they hallucinate tools the candidate never used or fabricate metrics that fail background verification.
+3. **Layout Bleed & Page Budget Violations:** When the LLM decides how many sections or bullets to generate, the compiled document invariably spills over by 3 to 5 lines onto a second page—breaking the strict single-page physical layout standard expected by hiring managers.
+
+```text
+       TRADITIONAL TOY AI (Context Poisoning & Hallucination)
+  ┌───────────────────────────────────────────────────────────┐
+  │ Candidate's Entire Life History (Tech + Admin + Finance)  │
+  └─────────────────────────────┬─────────────────────────────┘
+                                │  (Unconstrained Generation)
+                                ▼
+  ┌───────────────────────────────────────────────────────────┐
+  │ ❌ Hallucinated hybrid resume; React on Bookkeeping role;  │
+  │    2-page spillover; Immediate recruiter rejection.       │
+  └───────────────────────────────────────────────────────────┘
+
+           BEACONAI SELECTOR PATTERN (Deterministic Isolation)
+  ┌───────────────────────────────────────────────────────────┐
+  │                   Incoming Job Posting                    │
+  └─────────────────────────────┬─────────────────────────────┘
+                                │
+                                ▼
+            [Deterministic resolve_profile_track Router]
+        ┌───────────────────────┼───────────────────────┐
+        ▼                       ▼                       ▼
+ ┌───────────────┐       ┌───────────────┐       ┌───────────────┐
+ │Track 1: Data  │       │Track 3: AP/AR │       │Track 6: Full  │
+ │Entry/Clerical │       │& Bookkeeping  │       │Stack Software │
+ ├───────────────┤       ├───────────────┤       ├───────────────┤
+ │• Human Skills │       │• Human Skills │       │• Human Skills │
+ │• Projects: [] │       │• Projects: [] │       │• Proj: Beacon │
+ │• LinkedIn Only│       │• LinkedIn Only│       │• Portfolio+LI │
+ └───────┬───────┘       └───────┬───────┘       └───────┬───────┘
+         │                       │                       │
+         └───────────────────────┼───────────────────────┘
+                                 ▼
+       ┌───────────────────────────────────────────────────┐
+       │ 🛡️ STRICT ZERO-GENERATION COMPILER                │
+       │ • 0% LLM-invented skills (Matrix is 100% frozen)  │
+       │ • 1-Page Layout Guarantee (Projects auto-hidden)  │
+       │ • 2-Sentence Anti-Fluff Trait/Outcome Formula     │
+       └───────────────────────────────────────────────────┘
+```
+
+### The Solution: The Selector Pattern
+
+BeaconAI eliminates context poisoning and hallucinations by replacing unconstrained generative prompts with **The Selector Pattern**:
+
+* **Isolated Persona Pools (`ProfileTrack`):** Candidate experience is compartmentalized into discrete, self-contained tracks (`clerical_data_entry`, `office_administrative`, `accounting_bookkeeping`, `technical_support_qa`, `data_analysis_reporting`, `software_engineering`). Each track encapsulates its own target job titles, trigger keywords, tailored bullet pools, pre-categorized skills matrices, and section visibility flags.
+* **Deterministic Track Router (`resolve_profile_track`):** Incoming job titles and descriptions are analyzed using token-overlap heuristics and trigger keyword matching. The router maps the posting to exactly one profile track *before* any prompt is synthesized. Postings outside candidate target domains are rejected immediately with zero token expenditure.
+* **Zero Generative AI for Skills & Matrix:** The LLM is strictly prohibited from writing or inventing skills. Skills sections (`CORE COMPETENCIES & SKILLS`, `FINANCIAL & ACCOUNTING COMPETENCIES`, `TECHNICAL SKILLS`) are rendered directly from the track's human-curated skills matrix.
+* **Single-Page Layout Guarantee:** Operational and non-technical tracks configure `projects: []`. The resume template uses Jinja2 conditional rendering (`{% if tailored_data.projects and tailored_data.projects | length > 0 %}`) to suppress the `PROJECTS` section entirely, allowing the experience and competencies sections to breathe while snapping precisely to a clean 1-page PDF.
+* **Anti-Fluff 2-Sentence Summary Formula:** The LLM or deterministic synthesizer must choose from a curated bank of approved professional traits (Sentence 1) and verifiable outcomes (Sentence 2). Subjective filler adjectives (*"methodical"*, *"hard-working"*, *"quiet efficiency"*) and cliché boilerplate endings (*"Prepared to make an immediate impact"*) are hard-rejected.
+* **Context-Aware Link Scrubbing:** Raw GitHub repository URLs are dropped across all tracks. Technical portfolio links (`ddgiovinazzo.com`) appear exclusively on engineering and data tracks, while non-technical applications present a clean, credible header with LinkedIn and direct phone/email contact.
+* **Intelligent Recruitment Ad Title Cleaner:** Automated regex cleans verbose advertising phrasing common in job boards (e.g., `"Construction Company seeking Clerical/ Administrative Assistant"` -> `"Clerical / Administrative Assistant"`), ensuring generated resumes and outreach emails address the legitimate position title with professional polish.
 
 ---
 

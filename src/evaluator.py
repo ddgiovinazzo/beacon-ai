@@ -238,7 +238,79 @@ def evaluate_tier1_deterministic(
             except ValueError:
                 pass
 
+    # 5. Multi-Track persona alignment: If profile tracks are defined, ensure posting matches at least one track
+    if profile.tracks:
+        matched_track = resolve_profile_track(posting, profile)
+        if not matched_track:
+            return EvaluationResult(
+                status=EvaluationStatus.REJECT,
+                rejection_reason="No matching candidate persona track for target role (Precision > Recall)",
+                fit_score=0,
+                tier_evaluated=1,
+            )
+
     # Cleared Tier 1 without violations
+    return None
+
+
+def resolve_profile_track(
+    posting: JobPosting,
+    profile: UserProfile,
+) -> Optional[ProfileTrack]:
+    """
+    Deterministically resolve which ProfileTrack best aligns with the job posting.
+    Returns the matching ProfileTrack, or None if no track cleanly matches.
+    If the candidate profile does not use tracks, returns None.
+    """
+    tracks = profile.tracks
+    if not tracks:
+        return None
+
+    title_lower = posting.title.lower()
+    text_lower = f"{posting.title}\n{posting.raw_text}".lower()
+
+    best_track = None
+    best_score = 0
+
+    for track_id, track in tracks.items():
+        score = 0
+
+        # 1. Target titles (strongest signal)
+        best_title_score = 0
+        for target in track.target_titles:
+            t_low = target.lower()
+            if t_low in title_lower:
+                best_title_score = max(best_title_score, 50)
+                break
+            tokens = [tok for tok in t_low.split() if len(tok) > 2]
+            if tokens:
+                overlap = sum(1 for tok in tokens if tok in title_lower)
+                if overlap == len(tokens):
+                    best_title_score = max(best_title_score, 45)
+                elif overlap / len(tokens) >= 0.6:
+                    best_title_score = max(best_title_score, 20)
+        score += best_title_score
+
+        # 2. Trigger keywords in title and body
+        for kw in track.trigger_keywords:
+            kw_low = kw.lower()
+            if kw_low in title_lower:
+                score += 15
+            elif kw_low in text_lower:
+                score += 5
+
+        # 3. Categorized skills presence in text
+        all_track_skills = [s.lower() for cat in track.categorized_skills.values() for s in cat]
+        matched_skills = sum(1 for s in all_track_skills if s in text_lower)
+        score += min(matched_skills * 2, 20)
+
+        if score > best_score:
+            best_score = score
+            best_track = track
+
+    if best_score >= 30:
+        return best_track
+
     return None
 
 
@@ -250,12 +322,18 @@ def evaluate_tier2_heuristic(
     
     Evaluates title alignment, tool competencies, and domain tags dynamically.
     """
+    matched_track = resolve_profile_track(posting, profile) if profile.tracks else None
+    target_titles = matched_track.target_titles if matched_track else profile.master_experience.target_titles
+    tools = [s for cat in matched_track.categorized_skills.values() for s in cat] if matched_track else profile.master_experience.tools_and_technologies
+    roles = matched_track.roles if matched_track else profile.master_experience.roles
+    projects = matched_track.projects if matched_track else profile.master_experience.engineering_projects
+
     text = f"{posting.title}\n{posting.raw_text}".lower()
     title_lower = posting.title.lower()
 
     # 1. Title alignment check
     title_score = 0
-    for target in profile.master_experience.target_titles:
+    for target in target_titles:
         target_lower = target.lower()
         if target_lower in title_lower:
             title_score = 50
@@ -268,7 +346,7 @@ def evaluate_tier2_heuristic(
 
     # 2. Tool and skill keyword matches
     matched_skills: List[str] = []
-    for tool in profile.master_experience.tools_and_technologies:
+    for tool in tools:
         if tool.lower() in text:
             matched_skills.append(tool)
 
@@ -277,9 +355,9 @@ def evaluate_tier2_heuristic(
     # 3. Dynamic role/project tag matches
     matched_tags: List[str] = []
     candidate_tags = set()
-    for role in profile.master_experience.roles:
+    for role in roles:
         candidate_tags.update(t.lower() for t in role.tags)
-    for proj in profile.master_experience.engineering_projects:
+    for proj in projects:
         candidate_tags.update(t.lower() for t in proj.tags)
 
     for tag in candidate_tags:
@@ -301,20 +379,20 @@ def evaluate_tier2_heuristic(
 
         return EvaluationResult(
             status=EvaluationStatus.MATCH,
-            rejection_reason=None,
             fit_score=total_score,
             estimated_compensation=comp_str,
             match_highlights=highlights,
             tier_evaluated=2,
+            matched_track_id=matched_track.track_id if matched_track else None,
         )
     else:
         return EvaluationResult(
             status=EvaluationStatus.REJECT,
-            rejection_reason=f"Insufficient role alignment (Score: {total_score}/100)",
+            rejection_reason=f"Insufficient alignment score ({total_score}/100)",
             fit_score=total_score,
             estimated_compensation=comp_str,
-            match_highlights=[],
             tier_evaluated=2,
+            matched_track_id=matched_track.track_id if matched_track else None,
         )
 
 
@@ -324,19 +402,16 @@ def evaluate_tier2_llm(
     config: Settings,
     dry_run: bool = False,
 ) -> EvaluationResult:
-    """Tier 2: Structured Multi-Provider LLM Evaluation using LiteLLM and Instructor.
-    
-    Dynamically routes across foundation models using Pydantic validation.
-    """
+    """Execute Tier 2 evaluation using LiteLLM/Instructor or heuristic fallback."""
     if dry_run:
-        logger.info(f"Running Tier 2 evaluation in heuristic/dry-run mode for: {posting.title}")
+        logger.info(f"Running Tier 2 evaluation in DRY RUN (heuristic) mode for: {posting.title}")
         return evaluate_tier2_heuristic(posting, profile)
 
     active_model = config.llm_model or LLM_MODEL
     if not active_model:
         logger.error("No LLM model specified! Set LLM_MODEL environment variable or configure Settings.llm_model.")
         fallback = evaluate_tier2_heuristic(posting, profile)
-        fallback.rejection_reason = "No LLM model specified (LLM_MODEL is unset)"
+        fallback.rejection_reason = "(No LLM model specified - LLM_MODEL is unset; fallback scorer used)"
         return fallback
 
     if not config.has_llm_credentials(active_model):
@@ -362,14 +437,19 @@ def evaluate_tier2_llm(
             "5. Set tier_evaluated = 2."
         )
 
+        matched_track = resolve_profile_track(posting, profile) if profile.tracks else None
+        target_titles = matched_track.target_titles if matched_track else profile.master_experience.target_titles
+        directive = matched_track.narrative_context if (matched_track and matched_track.narrative_context) else profile.master_experience.narrative_context
+        skills = [s for cat in matched_track.categorized_skills.values() for s in cat] if matched_track else profile.master_experience.tools_and_technologies
+
         user_content = f"""CANDIDATE TARGET TITLES:
-{json.dumps(profile.master_experience.target_titles)}
+{json.dumps(target_titles)}
 
 CANDIDATE POSITIONING DIRECTIVE:
-{profile.master_experience.narrative_context or 'Standard professional alignment.'}
+{directive or 'Standard professional alignment.'}
 
 CANDIDATE MASTER SKILLS & TOOLS:
-{json.dumps(profile.master_experience.tools_and_technologies)}
+{json.dumps(skills)}
 
 CANDIDATE CONSTRAINTS:
 Min Hourly: ${profile.constraints.min_hourly_rate or 0}/hr
@@ -399,6 +479,8 @@ JOB POSTING CONTENT (Strictly bounded untrusted input):
 
         result: EvaluationResult = execute_llm_completion(client, **call_kwargs)
         result.tier_evaluated = 2
+        if matched_track:
+            result.matched_track_id = matched_track.track_id
         return result
 
     except Exception as e:

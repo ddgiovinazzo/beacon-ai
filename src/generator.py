@@ -125,6 +125,28 @@ def clean_role_title(title: str, company: Optional[str] = None) -> str:
         if len(parts) == 2 and len(parts[0].strip()) <= 30 and any(kw in parts[1].lower() for kw in ["engineer", "developer", "manager", "clerk", "analyst", "specialist", "bookkeeper", "lead", "architect"]):
             cleaned = parts[1].strip()
 
+    # Strip leading recruitment ad prefixes: e.g. "Construction Company seeking Clerical/ Administrative Assistant"
+    cleaned = re.sub(
+        r"^(?:[\w\s&.,-]{1,35}?\s+(?:is\s+)?(?:seeking|looking\s+for|hiring(?:\s+for)?|in\s+need\s+of)\s+)",
+        "",
+        cleaned,
+        flags=re.IGNORECASE,
+    ).strip()
+
+    # Strip announcement tags: e.g. "Now Hiring: ", "Immediate Opening: "
+    cleaned = re.sub(
+        r"^(?:Now\s+Hiring|Urgent(?:ly)?\s+(?:Hiring|Needed)|Immediate\s+Opening|Job\s+Opening)[:\s\-–—]+",
+        "",
+        cleaned,
+        flags=re.IGNORECASE,
+    ).strip()
+
+    # Strip trailing "needed", "wanted"
+    cleaned = re.sub(r"\s+(?:needed|wanted|urgently\s+needed)\s*$", "", cleaned, flags=re.IGNORECASE).strip()
+
+    # Normalize slash spacing: e.g. "Clerical/ Administrative" -> "Clerical / Administrative"
+    cleaned = re.sub(r"([a-zA-Z])\s*\/\s*([a-zA-Z])", r"\1 / \2", cleaned)
+
     # Strip trailing requisition tags or employment types: e.g., (Req #1234), [Full Time], (Remote)
     cleaned = re.sub(r"\s*[\(\[\{](?:req(?:uisition)?\s*#?[\w\d]+|full[- ]time|part[- ]time|contract|remote)[\)\]\}]", "", cleaned, flags=re.IGNORECASE).strip()
     return cleaned or title.strip()
@@ -166,55 +188,94 @@ def create_deterministic_tailored_data(
     posting: JobPosting,
     profile: UserProfile,
 ) -> TailoredResumeData:
-    """Generate deterministic tailored resume data when running dry-run or offline.
+    """Synthesize complete, ATS-compliant TailoredResumeData deterministically without an LLM.
     
-    Dynamically filters roles, projects, and education based on metadata tags and geographic context.
+    If the profile defines ProfileTracks, routes to the matching track's isolated resources.
     """
-    job_text = f"{posting.title}\n{posting.raw_text}\n{posting.source}".lower()
+    from src.evaluator import resolve_profile_track
 
-    # 1. Headline & Summary
     company = extract_company_from_title(posting.title) or sanitize_target_company(posting.source)
-    target_role_title = clean_role_title(posting.title, company)
+    headline = clean_role_title(posting.title, company)
+    job_text = f"{posting.title} {posting.raw_text}".lower()
 
+    track = resolve_profile_track(posting, profile) if profile.tracks else None
+
+    if track:
+        # Multi-Track Persona Mode
+        trait = track.approved_summary_traits[0] if track.approved_summary_traits else "verification accuracy"
+        outcome = track.approved_summary_outcomes[0] if track.approved_summary_outcomes else "100% data integrity"
+        for t in track.approved_summary_traits:
+            if any(w in job_text for w in t.lower().split() if len(w) > 4):
+                trait = t
+                break
+        for o in track.approved_summary_outcomes:
+            if any(w in job_text for w in o.lower().split() if len(w) > 4):
+                outcome = o
+                break
+
+        all_skills = [s for cat in track.categorized_skills.values() for s in cat]
+        matched_skills = [s for s in all_skills if s.lower() in job_text]
+        sample_skills = matched_skills[:2] if len(matched_skills) >= 2 else all_skills[:2]
+        systems_phrase = " and ".join(sample_skills) if sample_skills else "operational workflows"
+
+        summary = (
+            f"{headline} with proven experience in {systems_phrase}, specializing in {trait}. "
+            f"Experienced in structured workflow execution and records management, delivering {outcome}."
+        )
+
+        selected_roles = list(track.roles) if track.roles else list(profile.master_experience.roles)
+        tailored_projects = list(track.projects)
+        tailored_education = list(track.education) if track.education else list(profile.master_experience.education)
+        categorized_skills = dict(track.categorized_skills)
+
+        return TailoredResumeData(
+            target_headline=headline,
+            tailored_summary=summary,
+            categorized_skills=categorized_skills,
+            tailored_experience=selected_roles,
+            tailored_projects=tailored_projects,
+            tailored_education=tailored_education,
+            include_portfolio_link=track.include_portfolio,
+            include_github_link=False,
+            skills_header=track.skills_header,
+        )
+
+    # Legacy Fallback (when profile doesn't define tracks)
+    # 1. Dynamic Summary Synthesis
     tech_keywords = {"software", "engineer", "developer", "backend", "frontend", "fullstack", "python", "devops", "cloud", "data engineer"}
     is_tech_job = any(kw in job_text for kw in tech_keywords)
 
-    headline = target_role_title
     impact_target = f"at {company}" if company else "in this role"
     if is_tech_job:
         summary = (
-            f"Accomplished technical professional targeting the {target_role_title} role with hands-on "
+            f"Accomplished technical professional targeting the {headline} role with hands-on "
             f"experience in scalable software systems, technical problem-solving, and operational excellence. "
             f"Prepared to deliver immediate value {impact_target}."
         )
     else:
         summary = (
-            f"Accomplished professional targeting the {target_role_title} role with verified domain experience. "
+            f"Accomplished professional targeting the {headline} role with verified domain experience. "
             f"Proven track record delivering operational rigor, high accuracy, "
-            f"and mission alignment. Prepared to make an immediate impact {impact_target}."
+            f"and dependable performance. Prepared to make an immediate impact {impact_target}."
         )
 
-    # 2. Dynamic Role Selection based on tag matching
+    # 2. Dynamic Role Selection based on keyword and tag scoring
     scored_roles = []
     for role in profile.master_experience.roles:
         score = 0
-        # Tag matches
         for tag in role.tags:
             tag_clean = tag.lower().replace("_", " ")
             if tag_clean in job_text:
                 score += 3
-        # Title token matches
         for token in role.title.lower().split():
             if len(token) > 3 and token in job_text:
                 score += 1
-        # Bullet keyword overlap
         for bullet in role.bullets:
             for word in bullet.lower().split():
                 if len(word) > 4 and word in job_text:
                     score += 0.1
         scored_roles.append((score, role))
 
-    # Sort descending by relevance score
     scored_roles.sort(key=lambda x: x[0], reverse=True)
     if any(s > 0 for s, _ in scored_roles):
         selected_roles = [r for s, r in scored_roles if s > 0][:3]
@@ -240,8 +301,6 @@ def create_deterministic_tailored_data(
 
     # 4. Geographic & Institutional Education Heuristics
     is_remote = bool(re.search(r"\b(?:remote|telecommute|virtual|work\s+from\s+home|100%\s+remote)\b", job_text))
-    
-    # Check if job mentions candidate's local identifiers
     loc_tokens = [tok.strip().lower() for tok in profile.location.replace(",", " ").split() if len(tok.strip()) > 2]
     is_local_posting = any(tok in job_text for tok in loc_tokens) or bool(
         re.search(r"\b(?:local|county|district|municipal|town\s+of|city\s+of|civil\s+service)\b", job_text)
@@ -251,11 +310,9 @@ def create_deterministic_tailored_data(
     for edu in profile.master_experience.education:
         edu_tags = [t.lower() for t in edu.tags]
         if is_local_posting and not is_remote:
-            # Local posting: prioritize local tags and universal
             if "local" in edu_tags or "universal" in edu_tags or not edu_tags:
                 tailored_education.append(edu)
         else:
-            # Remote or non-local tech posting: include tech/universal and omit strictly local
             if "local" in edu_tags and "tech" not in edu_tags and "universal" not in edu_tags:
                 continue
             tailored_education.append(edu)
@@ -263,7 +320,6 @@ def create_deterministic_tailored_data(
     if not tailored_education:
         tailored_education = list(profile.master_experience.education)
 
-    # 5. Dynamic Skills Categorization (Filtered for domain relevance)
     domain_skills = filter_skills_for_target_domain(profile.master_experience.tools_and_technologies, job_text)
     matched_skills = [s for s in domain_skills if s.lower() in job_text]
     unmatched_skills = [s for s in domain_skills if s.lower() not in job_text]
@@ -287,6 +343,7 @@ def create_deterministic_tailored_data(
         tailored_education=tailored_education,
         include_portfolio_link=is_tech,
         include_github_link=is_tech,
+        skills_header="TECHNICAL SKILLS" if is_tech else "CORE COMPETENCIES & SKILLS",
     )
 
 
@@ -300,13 +357,40 @@ def generate_tailored_resume_data(
     if dry_run:
         return create_deterministic_tailored_data(posting, profile)
 
-    active_model = config.llm_model or LLM_MODEL
-    if not active_model:
-        logger.error("No LLM model specified! Set LLM_MODEL environment variable or configure Settings.llm_model.")
-        return create_deterministic_tailored_data(posting, profile)
+    from src.evaluator import resolve_profile_track
+    track = resolve_profile_track(posting, profile) if profile.tracks else None
 
-    if not config.has_llm_credentials(active_model):
-        return create_deterministic_tailored_data(posting, profile)
+    company = extract_company_from_title(posting.title) or sanitize_target_company(posting.source)
+    clean_title = clean_role_title(posting.title, company)
+    target_company = company
+
+    if track:
+        active_roles = track.roles if track.roles else profile.master_experience.roles
+        active_projects = track.projects
+        active_skills = track.categorized_skills
+        active_education = track.education if track.education else profile.master_experience.education
+        active_traits = track.approved_summary_traits
+        active_outcomes = track.approved_summary_outcomes
+        skills_header = track.skills_header
+        include_portfolio = track.include_portfolio
+        narrative = track.narrative_context or profile.master_experience.narrative_context
+    else:
+        active_roles = profile.master_experience.roles
+        active_projects = profile.master_experience.engineering_projects
+        combined_job_text = f"{posting.title} {posting.raw_text}"
+        domain_skills = filter_skills_for_target_domain(profile.master_experience.tools_and_technologies, combined_job_text)
+        half = max(len(domain_skills) // 2, 1)
+        active_skills = {
+            "Core Technical & Domain Systems": domain_skills[:half],
+            "Workflows, Tools & Methodologies": domain_skills[half:],
+        }
+        active_education = profile.master_experience.education
+        active_traits = ["verification accuracy", "system architecture"]
+        active_outcomes = ["100% data integrity", "scalable performance"]
+        skills_header = "TECHNICAL SKILLS"
+        tech_keywords = {"software", "engineer", "developer", "backend", "frontend", "fullstack", "python", "devops", "cloud", "data engineer", "systems"}
+        include_portfolio = any(kw in combined_job_text.lower() for kw in tech_keywords)
+        narrative = profile.master_experience.narrative_context
 
     try:
         import instructor
@@ -315,61 +399,24 @@ def generate_tailored_resume_data(
         config.sync_litellm_env()
         client = instructor.from_litellm(litellm.completion)
 
-        target_company = extract_company_from_title(posting.title) or sanitize_target_company(posting.source)
-        clean_title = clean_role_title(posting.title, target_company)
-        domain_skills = filter_skills_for_target_domain(
-            profile.master_experience.tools_and_technologies,
-            f"{posting.title}\n{posting.raw_text}"
-        )
         system_instruction = (
             "System Prompt: Strategic Resume Tailoring Agent\n\n"
             "Role & Objective:\n"
             "You are an expert technical recruiter and resume writer. Your objective is to analyze a provided Job Description (JD) "
             "and a preceding 'Context Prompt' (which contains the candidate's exact work history, accomplishments, and skills). "
-            "You must first scan the JD for potential culture fit red flags. If it passes, you must adapt the base resume to "
-            "perfectly align with the JD by acting as a top-down matching engine. You must strictly adhere to the candidate "
-            "context, tone guardrails, and hard quantification rules.\n\n"
+            "You must adapt the base resume to perfectly align with the JD by acting as a top-down matching engine. "
+            "You must strictly adhere to the candidate context, tone guardrails, and hard quantification rules.\n\n"
             "Candidate Context & Tone Guardrails:\n"
             "Rely strictly and exclusively on the candidate's verified work history, accomplishments, and narrative positioning provided in the Context Prompt.\n"
-            "*CRITICAL TONE GUARDRAIL:* Your goal is to perfectly MATCH the Job Description's requested seniority level and domain. "
-            "Never oversell the candidate at a tier higher than what the JD is asking for. Do not use high-level or senior-leaning action verbs "
-            "(e.g., 'Architected', 'Spearheaded', 'Directed') UNLESS the JD explicitly uses those terms or specifically "
-            "asks for that level of ownership. Otherwise, default to grounded, practical, domain-appropriate verbs (e.g., 'Built', 'Developed', 'Designed', 'Coordinated', 'Implemented', 'Collaborated').\n"
-            "*CRITICAL FORMATTING GUARDRAIL:* Right before final output, perform a final parse and remove citation markers, source references, "
-            "or brackets (e.g., [cite: 1], [source: 1]) that might be added from AI architecture.\n\n"
-            "Step 1: Context Verification (STOP & CHECK):\n"
-            "Verify that you have received the Context Prompt containing the candidate's work history and accomplishments before generating the tailored resume.\n\n"
-            "Step 2: Culture Fit & Red Flag Scanner (STOP & WARN):\n"
-            "Scan the JD for toxic workplace indicators ('work hard, play hard', 'we are a family', 'wear many hats', 'ninja', high-volume legacy staffing agency contracts). "
-            "If detected, maintain strict professional boundaries and focus on sustainable, grounded, production-grade competencies.\n\n"
-            "Step 3: JD Keyword Extraction (The Top-Down Scan):\n"
-            "Silently parse the JD to extract:\n"
-            "- Target seniority tier and requested years of experience.\n"
-            "- Primary technical stack, domain tools, platforms, or systems requested.\n"
-            "- Core responsibilities and pain points (e.g., cross-functional collaboration, data accuracy, process optimization, workflow execution, domain-specific tooling).\n"
-            "- Specific vocabulary or action verbs the JD favors.\n\n"
-            "Step 4: The Keyword-First Matching Algorithm (STRICT CONTEXT RELIANCE & HARD QUANTIFICATION):\n"
-            "1. Search Context: For every core responsibility or keyword extracted from the JD, search the provided candidate accomplishments for the specific story that best demonstrates that competency.\n"
-            "2. Draft the Bullet: Reframe that specific story using the JD's preferred vocabulary. You MUST rely COMPLETELY and EXCLUSIVELY on the Context Prompt for underlying facts. Do NOT invent, hallucinate, or add any skills or experiences not explicitly stated in the Context Prompt.\n"
-            "3. Bullet Heading Format: You MUST format EVERY bullet in tailored_experience starting with a bold dynamic heading reflecting the JD competency, e.g.:\n"
-            "   '**[Dynamic Competency Heading based on JD]:** [Tailored bullet point ending in a quantifiable result, based EXCLUSIVELY on Context Prompt]'\n"
-            "   (Examples: '**Application Development:** Built...', '**Process Optimization:** Streamlined...', '**Data Accuracy:** Reconciled...', '**Cross-Functional Collaboration:** Collaborated with...')\n"
-            "4. HARD QUANTIFICATION RULE (CRITICAL): You must ruthlessly edit the end of every single bullet point so it concludes with a concrete, measurable impact or definitive operational/technical resolution. NEVER end a bullet with vague filler like 'improving workflows', 'ensuring reliability', or 'optimizing operations'.\n"
-            "   - Use Exact Numbers: Extract exact metrics from Context Prompt wherever possible (e.g., 'eliminating a 10-hour communication blocker', 'scaling across a 10-person team', 'processing 500+ records daily').\n"
-            "   - Use Definitive Concrete Outcomes: If hard numbers are missing, end on the absolute functional, business, or technical result (e.g., 'enabling 100% offline functionality in zero-connectivity environments', 'eliminating manual data reconciliation bottlenecks without disrupting daily operations').\n\n"
-            "Step 5: Tactical Experience Framing (STRICT ANTI-FLUFF GUARDRAIL):\n"
-            "- tailored_summary: Write a concise 2-3 sentence Professional Summary directly mirroring the JD's requested seniority tier and core technical/operational requirements.\n"
-            "  * STRICT ANTI-FLUFF RULE: Absolutely NEVER use subjective filler adjectives or empty resume buzzwords like 'Methodical', 'detail-oriented', 'structured professional', 'results-driven', 'proven expertise', 'adept at', 'quiet efficiency', or 'hard-working'.\n"
-            "  * NO CANNED SIGN-OFFS: Do NOT conclude with generic boilerplate like 'Prepared to make an immediate impact in this role' or 'seeking to leverage skills'.\n"
-            "  * DIRECT FACTUAL OPENING: Open directly with the target role or specialization (e.g., '[Target Title] with experience in...'). Ground the summary strictly in concrete systems, tools, workflows, domain competencies, and operational scope.\n"
-            "  * TACTICAL SENIORITY: Be strategic with stated years of experience: do NOT rigidly state an exact number of years if it might trigger over-qualification or mismatch the JD tier (use phrasing like 'Proven experience' or 'Solid foundation' for lower tiers, and explicitly state years only when directly aligned with the target tier).\n"
-            "- target_headline: Set to clean role title matching the JD (without employer name).\n"
-            "- categorized_skills: MANDATORY REQUIREMENT. You must ALWAYS organize the candidate's skills from the Context Prompt into 2-4 logical, domain-appropriate categories (with 3-6 skills per category) that best align with the JD requirements. NEVER return an empty dictionary or leave this blank.\n"
-            "- tailored_experience: Select 2-3 most relevant roles with 3-4 bullets each following the bold dynamic heading and hard quantification rules.\n"
-            "- tailored_projects: If candidate has relevant portfolio or engineering projects, select up to 2 with bullets ending in quantifiable/concrete results; otherwise leave empty.\n"
-            "- include_portfolio_link & include_github_link: BINARY LINK RULES.\n"
-            "  * include_portfolio_link: Set to TRUE IF AND ONLY IF the target JD is primarily software engineering, web development, cloud/DevOps, or AI/data engineering where reviewing a software portfolio website is standard. Set to FALSE for all administrative, clerical, operational, accounting, bookkeeping, data entry, or office/spreadsheet roles (to avoid flight-risk or overqualification concerns).\n"
-            "  * include_github_link: Set to TRUE IF AND ONLY IF the target role specifically evaluates public code repositories or open-source commits. Set to FALSE for all non-developer or general analytical/administrative roles."
+            "*CRITICAL TONE GUARDRAIL:* Match the JD's requested seniority level and domain. Default to grounded, practical, domain-appropriate verbs.\n"
+            "*CRITICAL FORMATTING GUARDRAIL:* Remove all citation markers, source references, or brackets (e.g., [cite: 1], [source: 1]).\n\n"
+            "Step 1: Bullet Heading Format: Format EVERY bullet in tailored_experience starting with a bold dynamic heading reflecting the JD competency, e.g.:\n"
+            "   '**[Dynamic Competency Heading]:** [Tailored bullet point ending in a quantifiable result, based EXCLUSIVELY on Context Prompt]'\n\n"
+            "Step 2: Summary Rules (STRICT ANTI-FLUFF 2-SENTENCE BLUEPRINT):\n"
+            "Write exactly 2 sentences following this strict template:\n"
+            "- Sentence 1: [Target Title] with proven experience in [1-2 systems from Candidate Skills], specializing in [Exact 1 trait chosen from the approved traits bank].\n"
+            "- Sentence 2: Experienced in [1-2 workflows from Candidate Roles], delivering [Exact 1 outcome chosen from the approved outcomes bank].\n"
+            "- STRICT ANTI-FLUFF: NO subjective filler adjectives ('Methodical', 'detail-oriented', 'adept at', 'proven expertise', 'quiet efficiency') and NO boilerplate endings ('Prepared to make an immediate impact')."
         )
 
         user_content = f"""JOB DESCRIPTION (JD):
@@ -383,36 +430,43 @@ CONTENT:
 CONTEXT PROMPT (CANDIDATE WORK HISTORY & ACCOMPLISHMENTS):
 CANDIDATE NAME: {profile.name}
 HOME LOCATION: {profile.location}
-POSITIONING DIRECTIVE: {profile.master_experience.narrative_context or 'Aligned professional contributor'}
+POSITIONING DIRECTIVE: {narrative or 'Aligned professional contributor'}
 
 CANDIDATE MASTER ROLES & ACCOMPLISHMENTS:
-{json.dumps([r.model_dump() for r in profile.master_experience.roles])}
+{json.dumps([r.model_dump() for r in active_roles])}
 
-CANDIDATE ENGINEERING PROJECTS:
-{json.dumps([p.model_dump() for p in profile.master_experience.engineering_projects])}
+CANDIDATE PROJECTS:
+{json.dumps([p.model_dump() for p in active_projects])}
 
-CANDIDATE MASTER SKILLS (PRE-FILTERED FOR DOMAIN RELEVANCE):
-{json.dumps(domain_skills)}
+CANDIDATE SKILLS MATRIX:
+{json.dumps(active_skills)}
+
+APPROVED SUMMARY TRAITS (Sentence 1 - choose 1):
+{json.dumps(active_traits)}
+
+APPROVED SUMMARY OUTCOMES (Sentence 2 - choose 1):
+{json.dumps(active_outcomes)}
 
 CANDIDATE EDUCATION BANK:
-{json.dumps([e.model_dump() for e in profile.master_experience.education])}
+{json.dumps([e.model_dump() for e in active_education])}
 
 INSTRUCTIONS:
-1. target_headline: Set to "{clean_title}". Do NOT include the employer name.
-2. tailored_summary: Write a punchy 2-3 sentence summary mirroring the JD's requested seniority tier and core requirements. STRICT ANTI-FLUFF: Absolutely NO subjective buzzwords ('Methodical', 'detail-oriented', 'adept at', 'proven expertise', 'quiet efficiency') and NO boilerplate endings ('Prepared to make an immediate impact'). Open directly with the target title and concrete systems/workflows.
-3. categorized_skills: MANDATORY. Organize the candidate's skills from the Context Prompt into 2-4 logical, domain-appropriate categories that align with the JD requirements. NEVER leave empty.
-4. tailored_experience: 2-3 most relevant roles. Format every bullet with bold heading '**[Competency Heading]:** [Grounded verb] ... [Quantifiable result / concrete outcome]'.
-5. tailored_projects: Select relevant projects with quantifiable outcomes if applicable, else empty list.
+1. target_headline: Set to "{clean_title}".
+2. tailored_summary: Write exactly 2 sentences following the strict blueprint with 1 approved trait and 1 approved outcome.
+3. categorized_skills: Output the exact candidate skills matrix provided above.
+4. tailored_experience: Select 2-3 most relevant roles with bold headings '**[Heading]:** ...'.
+5. tailored_projects: Select relevant projects from candidate projects above, or empty list if none provided.
 6. tailored_education: Education credentials aligned with context.
-7. include_portfolio_link: Set to true ONLY if the role is primarily software, web, or AI engineering where an engineering portfolio is expected. Set to false for administrative, clerical, accounting, bookkeeping, or data entry roles.
-8. include_github_link: Set to true ONLY if the role explicitly evaluates code repositories; otherwise false.
+7. include_portfolio_link: Set to {json.dumps(include_portfolio)}.
+8. include_github_link: false.
+9. skills_header: Set to "{skills_header}".
 """
 
         active_model = config.llm_model or LLM_MODEL
         if not active_model:
             logger.error("No LLM model specified! Set LLM_MODEL environment variable or configure Settings.llm_model.")
             return create_deterministic_tailored_data(posting, profile)
-        # Gemini 3+ models mandate temperature >= 1.0 to prevent degraded reasoning and infinite loops
+
         gen_temp = 1.0 if "gemini-3" in active_model else 0.2
         call_kwargs = {
             "model": active_model,
@@ -427,18 +481,18 @@ INSTRUCTIONS:
             call_kwargs["api_key"] = config.llm_api_key
 
         resume_data: TailoredResumeData = execute_llm_completion(client, **call_kwargs)
-        for role in resume_data.tailored_experience:
-            if role.organization and role.location:
-                role.organization = role.organization.strip(" |")
-                role.location = role.location.strip(" |")
-                if role.organization.endswith(f" {role.location}"):
-                    role.organization = role.organization[:-len(role.location)-1].strip(" |")
 
-        # Fallback guarantee: Never allow categorized_skills to be empty in generated resume
-        if not resume_data.skill_categories:
-            logger.warning("LLM returned empty skill_categories. Populating fallback categorized skills from candidate profile.")
-            fallback_data = create_deterministic_tailored_data(posting, profile)
-            resume_data.categorized_skills = fallback_data.categorized_skills
+        # Enforce deterministic track constraints
+        if track:
+            resume_data.categorized_skills = track.categorized_skills
+            resume_data.skills_header = track.skills_header
+            resume_data.tailored_projects = track.projects
+            resume_data.include_portfolio_link = track.include_portfolio
+            resume_data.include_github_link = False
+        else:
+            if not resume_data.skill_categories:
+                fallback_data = create_deterministic_tailored_data(posting, profile)
+                resume_data.categorized_skills = fallback_data.categorized_skills
 
         return resume_data
 
@@ -509,10 +563,23 @@ def build_grounded_email_pitch(
     opening = f"Please accept my application for the {clean_title} position."
 
     combined_text = f"{posting.title} {posting.raw_text}".lower()
-    domain_skills = filter_skills_for_target_domain(profile.master_experience.tools_and_technologies, combined_text)
-    matched = [s for s in domain_skills if s.lower() in combined_text][:3]
-    if not matched:
-        matched = domain_skills[:3]
+
+    from src.evaluator import resolve_profile_track
+    track = resolve_profile_track(posting, profile) if profile.tracks else None
+
+    if track:
+        all_skills = [s for cat in track.categorized_skills.values() for s in cat]
+        matched = [s for s in all_skills if s.lower() in combined_text][:3]
+        if not matched:
+            matched = all_skills[:3]
+        is_tech = track.include_portfolio
+    else:
+        domain_skills = filter_skills_for_target_domain(profile.master_experience.tools_and_technologies, combined_text)
+        matched = [s for s in domain_skills if s.lower() in combined_text][:3]
+        if not matched:
+            matched = domain_skills[:3]
+        tech_keywords = {"software", "engineer", "developer", "backend", "frontend", "fullstack", "python", "devops", "cloud", "data engineer", "systems"}
+        is_tech = any(kw in combined_text for kw in tech_keywords)
 
     if matched:
         if len(matched) == 1:
@@ -535,9 +602,6 @@ def build_grounded_email_pitch(
         "My tailored resume is attached for your review. "
         "I welcome the opportunity to discuss how my skillset and background align with your team's goals."
     )
-
-    tech_keywords = {"software", "engineer", "developer", "backend", "frontend", "fullstack", "python", "devops", "cloud", "data engineer", "systems"}
-    is_tech = any(kw in combined_text for kw in tech_keywords)
 
     contact_parts = [profile.name, f"{profile.phone} | {profile.email}"]
     online_links = []
