@@ -522,7 +522,7 @@ def export_markdown_to_pdf(
     # Parse Markdown into HTML
     raw_html_body = markdown.markdown(
         md_content,
-        extensions=["extra", "sane_lists"],
+        extensions=["extra", "sane_lists", "nl2br"],
     )
 
     # Decompose dangerous or layout-disrupting inline tags
