@@ -681,6 +681,152 @@ def test_resume_template_certifications_bullet_and_separation(tmp_path: Path):
     assert "B.S. Information Systems | 2019\n\n* AWS Certified Solutions Architect" in content
 
 
+def test_technical_skills_all_lines_start_with_bullet(tmp_path: Path):
+    """Verify that every skill category line under Technical Skills starts with a bullet '* **'."""
+    from src.config import Settings
+    from src.generator import generate_tailored_resume
+    from src.schemas import (
+        EvaluationResult,
+        EvaluationStatus,
+        ExperienceRole,
+        JobPosting,
+        MasterExperience,
+        UserConstraints,
+        UserProfile,
+    )
+
+    matches_dir = tmp_path / "matches"
+    test_settings = Settings(matches_dir=matches_dir, artifacts_dir=tmp_path)
+
+    profile = UserProfile(
+        name="Morgan Skills",
+        email="morgan@example.com",
+        phone="555-0188",
+        location="Seattle, WA",
+        constraints=UserConstraints(),
+        master_experience=MasterExperience(
+            target_titles=["Full Stack Engineer"],
+            roles=[
+                ExperienceRole(
+                    id="r1",
+                    title="Full Stack Engineer",
+                    organization="Web Dynamics",
+                    location="Seattle, WA",
+                    start_date="2020",
+                    end_date="Present",
+                    tags=["fullstack"],
+                    bullets=["Built web applications."],
+                )
+            ],
+            tools_and_technologies=[
+                "Python", "TypeScript", "React", "Docker", "PostgreSQL", "GraphQL"
+            ],
+        ),
+    )
+
+    job = JobPosting(
+        title="Full Stack Engineer",
+        link="https://example.com/jobs/fullstack",
+        raw_text="Looking for full stack developer with Python and TypeScript experience.",
+        source="example.com",
+    )
+
+    eval_result = EvaluationResult(
+        status=EvaluationStatus.MATCH,
+        fit_score=95,
+        tier_evaluated=1,
+    )
+
+    resume_path = generate_tailored_resume(job, profile, eval_result, test_settings, dry_run=True)
+    content = resume_path.read_text(encoding="utf-8")
+
+    # Extract TECHNICAL SKILLS section
+    assert "## TECHNICAL SKILLS" in content
+    skills_part = content.split("## TECHNICAL SKILLS")[1].split("## PROFESSIONAL EXPERIENCE")[0]
+    skill_lines = [line.strip() for line in skills_part.splitlines() if line.strip()]
+
+    assert len(skill_lines) >= 2
+    for line in skill_lines:
+        assert line.startswith("* **"), f"Skill line does not start with '* **': {line}"
+
+
+def test_experience_headers_render_pipe_delimiter_with_location(tmp_path: Path):
+    """Verify experience section reliably outputs pipe delimiters when location and dates are present."""
+    from src.config import Settings
+    from src.generator import generate_tailored_resume
+    from src.schemas import (
+        EvaluationResult,
+        EvaluationStatus,
+        ExperienceRole,
+        JobPosting,
+        MasterExperience,
+        UserConstraints,
+        UserProfile,
+    )
+
+    matches_dir = tmp_path / "matches"
+    test_settings = Settings(matches_dir=matches_dir, artifacts_dir=tmp_path)
+
+    profile = UserProfile(
+        name="Casey Jordan",
+        email="casey@example.com",
+        phone="555-0177",
+        location="Chicago, IL",
+        constraints=UserConstraints(),
+        master_experience=MasterExperience(
+            target_titles=["Backend Engineer"],
+            roles=[
+                ExperienceRole(
+                    id="r1",
+                    title="Backend Engineer",
+                    organization="Tech Systems",
+                    location="Chicago, IL",
+                    start_date="2021",
+                    end_date="Present",
+                    tags=["backend"],
+                    bullets=["Developed APIs."],
+                ),
+                ExperienceRole(
+                    id="r2",
+                    title="Software Consultant",
+                    organization="Solo Practice",
+                    location="",
+                    start_date="2019",
+                    end_date="2021",
+                    tags=["backend"],
+                    bullets=["Consulting services."],
+                ),
+            ],
+            tools_and_technologies=["Go", "SQL"],
+        ),
+    )
+
+    job = JobPosting(
+        title="Backend Engineer",
+        link="https://example.com/jobs/backend",
+        raw_text="Seeking a Backend Engineer.",
+        source="example.com",
+    )
+
+    eval_result = EvaluationResult(
+        status=EvaluationStatus.MATCH,
+        fit_score=92,
+        tier_evaluated=1,
+    )
+
+    resume_path = generate_tailored_resume(job, profile, eval_result, test_settings, dry_run=True)
+    content = resume_path.read_text(encoding="utf-8")
+
+    # Header with location has pipe delimiter
+    assert "### Tech Systems | Chicago, IL" in content
+    assert "#### **Backend Engineer | 2021 – Present**" in content
+
+    # Header without location does not have trailing pipe
+    assert "### Solo Practice\n" in content
+    assert "### Solo Practice |" not in content
+
+
+
 
 
 

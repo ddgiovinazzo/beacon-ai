@@ -275,14 +275,26 @@ class TailoredResumeData(BaseModel):
     @property
     def skill_categories(self) -> List[Dict[str, any]]:
         if isinstance(self.categorized_skills, dict):
-            return [{"name": cat, "skills": sk} for cat, sk in self.categorized_skills.items()]
+            categories = []
+            for cat, sk in self.categorized_skills.items():
+                cat_name = str(cat).strip()
+                if not cat_name:
+                    continue
+                if isinstance(sk, list):
+                    clean_skills = [str(item).strip() for item in sk if str(item).strip()]
+                elif isinstance(sk, str):
+                    clean_skills = [s.strip() for s in sk.split(",") if s.strip()]
+                else:
+                    clean_skills = []
+                if clean_skills:
+                    categories.append({"name": cat_name, "skills": clean_skills})
+            return categories
         return []
 
     @property
     def skills(self) -> List[str]:
         all_skills = []
-        if isinstance(self.categorized_skills, dict):
-            for sk_list in self.categorized_skills.values():
-                all_skills.extend(sk_list)
+        for cat in self.skill_categories:
+            all_skills.extend(cat["skills"])
         return all_skills
 

@@ -333,7 +333,7 @@ BeaconAI operates as an autonomous background agent via a scheduled, headless Gi
 
 ## 🧪 Automated QA Test Suite
 
-BeaconAI includes **58 automated test fixtures** validating deterministic regex parsers, prompt injection defenses, circuit-breaker states, model-agnostic routing, sandboxed ATS vector PDF rendering, recruiter-friendly filenaming, dynamic role selection, and transactional email security:
+BeaconAI includes **60 automated test fixtures** validating deterministic regex parsers, prompt injection defenses, circuit-breaker states, model-agnostic routing, sandboxed ATS vector PDF rendering, recruiter-friendly filenaming, dynamic role selection, and transactional email security:
 
 ```bash
 # Run full automated test suite
@@ -347,7 +347,7 @@ rootdir: /path/to/beacon-ai
 configfile: pyproject.toml
 testpaths: tests
 plugins: anyio-4.15.1
-collected 58 items
+collected 60 items
 
 tests/test_evaluator.py::test_extract_compensation_hourly PASSED         [  1%]
 tests/test_evaluator.py::test_extract_compensation_annual PASSED         [  3%]
@@ -405,7 +405,7 @@ tests/test_notifier.py::test_send_match_notification_sanitizes_crlf_subject PASS
 tests/test_notifier.py::test_build_notification_html_sanitizes_dangerous_schemes PASSED [ 98%]
 tests/test_notifier.py::test_settings_validates_email_format PASSED      [100%]
 
-======================= 58 passed, 30 warnings in 2.61s ========================
+======================= 60 passed, 30 warnings in 2.97s ========================
 ```
 
 ---

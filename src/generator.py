@@ -339,6 +339,12 @@ INSTRUCTIONS:
             call_kwargs["api_key"] = config.llm_api_key
 
         resume_data: TailoredResumeData = client.chat.completions.create(**call_kwargs)
+        for role in resume_data.tailored_experience:
+            if role.organization and role.location:
+                role.organization = role.organization.strip(" |")
+                role.location = role.location.strip(" |")
+                if role.organization.endswith(f" {role.location}"):
+                    role.organization = role.organization[:-len(role.location)-1].strip(" |")
         return resume_data
 
     except Exception as e:
