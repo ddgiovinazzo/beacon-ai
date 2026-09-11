@@ -1,9 +1,10 @@
 """Configuration module for BeaconAI using Pydantic Settings supporting multi-provider LLMs."""
 
 import os
+import re
 from functools import lru_cache
 from pathlib import Path
-from typing import Optional
+from typing import List, Optional
 from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -69,11 +70,20 @@ class Settings(BaseSettings):
     imap_mailbox: str = "INBOX"
     imap_search_criteria: str = "UNSEEN"
     imap_mark_seen: bool = True
+    imap_allowed_senders: Optional[str] = None
 
     @property
     def is_imap_configured(self) -> bool:
         """Check if IMAP email ingestion credentials are fully configured."""
         return bool(self.imap_server and self.imap_username and self.imap_password)
+
+    @property
+    def allowed_senders_list(self) -> List[str]:
+        """Return parsed list of lowercased allowed sender email addresses or domains."""
+        if not self.imap_allowed_senders:
+            return []
+        tokens = re.split(r"[,\n]", self.imap_allowed_senders)
+        return [t.strip().lower() for t in tokens if t.strip()]
 
     @field_validator("notification_email_to")
     @classmethod

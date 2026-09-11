@@ -429,7 +429,7 @@ def parse_email_message(msg: email.message.Message) -> List[JobPosting]:
     sender_lower = sender.lower()
     subject_lower = subject.lower()
 
-    if "craigslist" in sender_lower or "craigslist" in subject_lower:
+    if "craigslist" in sender_lower or "craigslist" in subject_lower or "craigslist.org" in combined_html:
         return parse_craigslist_alert_email(combined_html, combined_plain, date_str=date_str)
     else:
         return parse_generic_job_alert_email(
@@ -471,6 +471,10 @@ def fetch_imap_emails(settings: "Settings") -> List[JobPosting]:
         msg_ids = message_numbers[0].split()
         logger.info(f"Found {len(msg_ids)} matching email(s) in {settings.imap_mailbox}")
 
+        allowed = settings.allowed_senders_list
+        if allowed:
+            logger.info(f"Filtering emails by allowed senders/domains: {', '.join(allowed)}")
+
         for msg_id in msg_ids:
             try:
                 res, data = client.fetch(msg_id, "(RFC822)")
@@ -478,6 +482,13 @@ def fetch_imap_emails(settings: "Settings") -> List[JobPosting]:
                     continue
                 raw_email = data[0][1]
                 msg = email.message_from_bytes(raw_email)
+
+                # Sender whitelist filtering
+                sender_val = decode_email_header(msg.get("From", "")).lower()
+                if allowed and not any(a in sender_val for a in allowed):
+                    logger.debug(f"Skipping email {msg_id.decode() if isinstance(msg_id, bytes) else msg_id} from '{sender_val}': sender not in allowed list.")
+                    continue
+
                 extracted = parse_email_message(msg)
                 postings.extend(extracted)
 

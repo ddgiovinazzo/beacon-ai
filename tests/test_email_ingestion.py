@@ -272,3 +272,59 @@ def test_cli_scan_with_email_integration(tmp_path: Path, monkeypatch):
     assert result.exit_code == 0
     assert "Scanning Inbound Email (IMAP)" in result.output
     assert "Office Aide" in result.output
+
+
+def test_settings_allowed_senders_list():
+    """Verify parsing of allowed senders string into clean list."""
+    settings = Settings(imap_allowed_senders="robot@craigslist.org, INDEED.COM \n alerts@linkedin.com")
+    assert settings.allowed_senders_list == [
+        "robot@craigslist.org",
+        "indeed.com",
+        "alerts@linkedin.com",
+    ]
+
+    empty_settings = Settings(imap_allowed_senders=None)
+    assert empty_settings.allowed_senders_list == []
+
+
+def test_fetch_imap_emails_filters_by_allowed_senders():
+    """Verify that unlisted senders are safely ignored and not processed."""
+    settings = Settings(
+        imap_server="imap.example.com",
+        imap_username="user@example.com",
+        imap_password="secret_password",
+        imap_allowed_senders="craigslist.org, indeed.com",
+    )
+
+    bank_email = (
+        b"From: security@chase.com\r\n"
+        b"Subject: Your statement is ready\r\n"
+        b"Date: Fri, 11 Sep 2026 10:00:00 -0400\r\n"
+        b"Content-Type: text/plain\r\n"
+        b"\r\n"
+        b"Check your account details."
+    )
+    craigslist_email = (
+        b"From: robot@craigslist.org\r\n"
+        b"Subject: craigslist alert: clerk\r\n"
+        b"Date: Fri, 11 Sep 2026 10:01:00 -0400\r\n"
+        b"Content-Type: text/html\r\n"
+        b"\r\n"
+        b"<html><body><a href=\"https://hudsonvalley.craigslist.org/ofc/d/file-clerk/7999.html\">File Clerk</a></body></html>"
+    )
+
+    mock_imap = MagicMock()
+    mock_imap.select.return_value = ("OK", [b"2"])
+    mock_imap.search.return_value = ("OK", [b"101 102"])
+    mock_imap.fetch.side_effect = [
+        ("OK", [(b"101 (RFC822 {100}", bank_email), b")"]),
+        ("OK", [(b"102 (RFC822 {100}", craigslist_email), b")"]),
+    ]
+
+    with patch("imaplib.IMAP4_SSL", return_value=mock_imap):
+        postings = fetch_imap_emails(settings)
+
+    # Only the Craigslist posting should be extracted; the bank email is ignored!
+    assert len(postings) == 1
+    assert postings[0].title == "File Clerk"
+    assert postings[0].link == "https://hudsonvalley.craigslist.org/ofc/d/file-clerk/7999.html"

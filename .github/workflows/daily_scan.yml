@@ -72,6 +72,7 @@ jobs:
           IMAP_MAILBOX: ${{ vars.IMAP_MAILBOX || 'INBOX' }}
           IMAP_SEARCH_CRITERIA: ${{ vars.IMAP_SEARCH_CRITERIA || 'UNSEEN' }}
           IMAP_MARK_SEEN: ${{ vars.IMAP_MARK_SEEN || 'true' }}
+          IMAP_ALLOWED_SENDERS: ${{ vars.IMAP_ALLOWED_SENDERS || secrets.IMAP_ALLOWED_SENDERS }}
         run: |
           FEED_ARGS=()
           while IFS= read -r feed || [ -n "$feed" ]; do
