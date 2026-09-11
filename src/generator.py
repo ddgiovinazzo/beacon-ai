@@ -484,6 +484,87 @@ def generate_tailored_resume(
     return output_path
 
 
+def build_grounded_email_pitch(
+    posting: JobPosting,
+    profile: UserProfile,
+    result: EvaluationResult,
+) -> tuple[str, str]:
+    """
+    Build a clean, grounded subject and body for outreach.
+    Enforces strict anti-fluff rules:
+    - No robotic evaluator metadata ('Matches target job title...', 'Leverages candidate's skill set...')
+    - No raw internal source identifiers ('posted via email:alerts.craigslist.org')
+    - First-person active voice highlighting verified skills and systems
+    - Clean contact and link formatting
+    """
+    company = extract_company_from_title(posting.title) or sanitize_target_company(posting.source)
+    clean_title = clean_role_title(posting.title, company)
+    subject = f"Application for {clean_title} - {profile.name}"
+
+    if company:
+        salutation = f"Dear {company} Hiring Team,"
+    else:
+        salutation = "Dear Hiring Team,"
+
+    opening = f"Please accept my application for the {clean_title} position."
+
+    combined_text = f"{posting.title} {posting.raw_text}".lower()
+    domain_skills = filter_skills_for_target_domain(profile.master_experience.tools_and_technologies, combined_text)
+    matched = [s for s in domain_skills if s.lower() in combined_text][:3]
+    if not matched:
+        matched = domain_skills[:3]
+
+    if matched:
+        if len(matched) == 1:
+            skills_phrase = matched[0]
+        elif len(matched) == 2:
+            skills_phrase = f"{matched[0]} and {matched[1]}"
+        else:
+            skills_phrase = f"{', '.join(matched[:-1])}, and {matched[-1]}"
+        middle = (
+            f"My background includes hands-on experience in {skills_phrase}, "
+            "with a strong focus on data accuracy, structured workflows, and dependable execution."
+        )
+    else:
+        middle = (
+            "With a solid background in structured data management and operational workflows, "
+            "I focus on delivering accurate results, clear communication, and dependable execution."
+        )
+
+    closing = (
+        "My tailored resume is attached for your review. "
+        "I welcome the opportunity to discuss how my skillset and background align with your team's goals."
+    )
+
+    tech_keywords = {"software", "engineer", "developer", "backend", "frontend", "fullstack", "python", "devops", "cloud", "data engineer", "systems"}
+    is_tech = any(kw in combined_text for kw in tech_keywords)
+
+    contact_parts = [profile.name, f"{profile.phone} | {profile.email}"]
+    online_links = []
+    if is_tech and profile.portfolio_url:
+        online_links.append(profile.portfolio_url.replace("https://", "").replace("http://", ""))
+    if profile.linkedin_url:
+        online_links.append(profile.linkedin_url.replace("https://", "").replace("http://", ""))
+    if online_links:
+        contact_parts.append(" | ".join(online_links))
+
+    signature = "\n".join(contact_parts)
+
+    email_body = f"""{salutation}
+
+{opening}
+
+{middle}
+
+{closing}
+
+Best regards,
+
+{signature}"""
+
+    return subject, email_body
+
+
 def generate_outreach_draft(
     posting: JobPosting,
     profile: UserProfile,
@@ -496,28 +577,7 @@ def generate_outreach_draft(
     clean_base = generate_clean_resume_filename(profile.name, company, posting.title).replace("_Resume.pdf", "")
     output_path = config.matches_dir / f"{clean_base}_outreach.txt"
 
-    subject = f"Application for {posting.title} - {profile.name}"
-
-    # Extract highlights or summary
-    highlights_text = "\n".join(f"- {h}" for h in result.match_highlights) if result.match_highlights else "- Direct experience matching core requirements\n- Verifiable record of accomplishments"
-
-    email_body = f"""Dear Hiring Team,
-
-I am writing to express my strong interest in the {posting.title} role posted via {posting.source}.
-
-With extensive hands-on experience in this domain, I offer immediate value in driving operational excellence:
-{highlights_text}
-
-My full resume is attached for your review. I welcome the opportunity to discuss how my background directly aligns with your goals.
-
-Best regards,
-
-{profile.name}
-{profile.phone}
-{profile.email}
-{profile.location}
-Job Link: {posting.link}
-"""
+    subject, email_body = build_grounded_email_pitch(posting, profile, result)
 
     # Build mailto URL
     params = {

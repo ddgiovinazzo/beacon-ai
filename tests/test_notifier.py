@@ -296,3 +296,18 @@ def test_settings_validates_email_format():
     cfg = Settings(notification_email_to="candidate@example.com")
     assert cfg.notification_email_to == "candidate@example.com"
 
+
+def test_gmail_compose_link_generation(sample_job: JobPosting, sample_result: EvaluationResult):
+    """Verify Gmail compose web URL is generated with pre-filled subject and body."""
+    sample_job.contact_email = None
+    draft = "Dear Hiring Team,\n\nPlease accept my application."
+    html_out = build_notification_html(
+        sample_job,
+        sample_result,
+        email_draft=draft,
+    )
+    assert "✉ Compose in Gmail ↗" in html_out
+    assert "https://mail.google.com/mail/?view=cm&amp;fs=1" in html_out or "https://mail.google.com/mail/?view=cm&fs=1" in html_out
+    assert "Please%20accept%20my%20application" in html_out
+
+

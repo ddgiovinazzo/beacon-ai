@@ -1056,6 +1056,65 @@ def test_deterministic_tailored_data_link_flags():
     assert admin_result.include_github_link is False
 
 
+def test_build_grounded_email_pitch_guardrails():
+    """Verify generated email pitch adheres to rigid anti-fluff rules and avoids internal eval metadata."""
+    from src.generator import build_grounded_email_pitch
+    from src.schemas import (
+        EvaluationResult,
+        EvaluationStatus,
+        JobPosting,
+        MasterExperience,
+        UserConstraints,
+        UserProfile,
+    )
+
+    profile = UserProfile(
+        name="Daniel Giovinazzo",
+        email="contact@ddgiovinazzo.com",
+        phone="555-019-2834",
+        location="New York, NY 10001",
+        portfolio_url="https://ddgiovinazzo.com",
+        linkedin_url="https://linkedin.com/in/ddgiovinazzo",
+        constraints=UserConstraints(),
+        master_experience=MasterExperience(
+            roles=[],
+            tools_and_technologies=["Python", "Excel", "SQL", "TypeScript"],
+        ),
+    )
+
+    job = JobPosting(
+        title="Junior Software Developer",
+        link="https://newyork.craigslist.org/eng/123.html",
+        raw_text="Seeking a developer with Python skills.",
+        source="email:alerts.craigslist.org",
+    )
+
+    eval_result = EvaluationResult(
+        status=EvaluationStatus.MATCH,
+        fit_score=88,
+        match_highlights=[
+            "Matches target job title 'Software Engineer' domain.",
+            "Leverages candidate's skill set in Python.",
+        ],
+    )
+
+    subject, body = build_grounded_email_pitch(job, profile, eval_result)
+
+    assert "Application for Junior Software Developer - Daniel Giovinazzo" in subject
+    assert "email:alerts.craigslist.org" not in body
+    assert "Matches target job title" not in body
+    assert "Leverages candidate's" not in body
+    assert "driving operational excellence" not in body
+    assert "immediate value" not in body
+    assert "Job Link:" not in body
+    assert "Please accept my application for the Junior Software Developer position." in body
+    assert "Python" in body
+    assert "ddgiovinazzo.com" in body
+    assert "linkedin.com/in/ddgiovinazzo" in body
+    assert "555-019-2834 | contact@ddgiovinazzo.com" in body
+
+
+
 
 
 

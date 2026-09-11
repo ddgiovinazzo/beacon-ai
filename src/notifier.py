@@ -105,7 +105,20 @@ def build_notification_html(
     to the template renderer.
     """
     clean_title = re.sub(r"[\r\n\t]+", " ", job.title).strip()
-    clean_source = re.sub(r"[\r\n\t]+", " ", job.source).strip()
+    raw_source = re.sub(r"[\r\n\t]+", " ", job.source).strip()
+
+    # Human-friendly source formatting
+    if "craigslist" in raw_source.lower():
+        display_source = "Craigslist"
+    elif "linkedin" in raw_source.lower():
+        display_source = "LinkedIn"
+    elif "indeed" in raw_source.lower():
+        display_source = "Indeed"
+    elif raw_source.startswith("email:"):
+        display_source = raw_source.replace("email:", "").split("@")[-1].strip()
+    else:
+        display_source = raw_source
+
     safe_posting_url = sanitize_link(job.link)
     comp_text = result.estimated_compensation or "Not Stated"
     verdict = result.status.value
@@ -126,6 +139,24 @@ def build_notification_html(
         if "body" in parsed and parsed["body"]:
             email_draft = parsed["body"][0].strip()
 
+    # Generate one-click Gmail compose web link
+    gmail_compose_url = None
+    if email_draft:
+        subject = f"Application for {clean_title}"
+        if "Application for " in email_draft:
+            m = re.search(r"Application for ([^\n\r]+)", email_draft)
+            if m:
+                subject = f"Application for {m.group(1).strip()}"
+        gmail_params = {
+            "view": "cm",
+            "fs": "1",
+            "su": subject,
+            "body": email_draft,
+        }
+        if target_email:
+            gmail_params["to"] = target_email
+        gmail_compose_url = f"https://mail.google.com/mail/?{urllib.parse.urlencode(gmail_params, quote_via=urllib.parse.quote)}"
+
     try:
         env = get_email_jinja_env(template_dir)
         template = env.get_template("email_alert.html.j2")
@@ -133,9 +164,11 @@ def build_notification_html(
             target_email=target_email,
             posting_url=safe_posting_url,
             job_title=clean_title,
-            job_source=clean_source,
+            job_source=display_source,
+            display_source=display_source,
             match_score=result.fit_score,
             email_draft=email_draft,
+            gmail_compose_url=gmail_compose_url,
             match_highlights=result.match_highlights,
             comp_text=comp_text,
             verdict=verdict,
