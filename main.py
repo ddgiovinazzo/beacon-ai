@@ -136,7 +136,10 @@ def scan(
     target_feeds = []
     for raw in raw_feed_inputs:
         for line in str(raw).splitlines():
-            for f in line.split(","):
+            stripped_line = line.strip()
+            if not stripped_line or stripped_line.startswith("#"):
+                continue
+            for f in stripped_line.split(","):
                 clean = f.strip()
                 if not clean or clean.startswith("#"):
                     continue
@@ -144,7 +147,14 @@ def scan(
                 md_match = re.search(r"\[.*?\]\((https?://[^\s\)]+)\)", clean)
                 if md_match:
                     clean = md_match.group(1).strip()
-                target_feeds.append(clean)
+                if (
+                    clean.startswith(("http://", "https://"))
+                    or "/" in clean
+                    or "\\" in clean
+                    or clean.endswith((".xml", ".rss", ".atom", ".feed"))
+                    or Path(clean).exists()
+                ):
+                    target_feeds.append(clean)
 
 
     if not target_feeds:
