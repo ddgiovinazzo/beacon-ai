@@ -151,7 +151,12 @@ def scan(
         console.print("[bold red]Error:[/bold red] No target feeds provided via --feed or TARGET_FEED_URLS.")
         raise typer.Exit(code=1)
 
-    active_llm = settings.llm_model or "Not Set"
+    if not dry_run and not settings.llm_model:
+        logging.error("No LLM model specified! Set LLM_MODEL environment variable or pass --model.")
+        console.print("[bold red]Error:[/bold red] No LLM model specified. Please set the LLM_MODEL environment variable or pass --model.")
+        raise typer.Exit(code=1)
+
+    active_llm = settings.llm_model or "Not Set (Dry Run)"
     mode_label = "[bold yellow]DRY-RUN (Deterministic Scoring)[/bold yellow]" if dry_run else f"[bold cyan]LIVE (Tier 1 + {active_llm})[/bold cyan]"
     notify_label = "[bold green]ENABLED (Resend)[/bold green]" if notify else "[dim]DISABLED[/dim]"
     min_h = f"${user_profile.constraints.min_hourly_rate:.2f}/hr" if user_profile.constraints.min_hourly_rate is not None else "Not Set"

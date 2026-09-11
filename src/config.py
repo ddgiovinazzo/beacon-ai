@@ -9,7 +9,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 # Operational runtime defaults backed by environment variables
-LLM_MODEL: str = os.getenv("LLM_MODEL", "gemini/gemini-2.0-flash")
+LLM_MODEL: Optional[str] = os.getenv("LLM_MODEL")
 LLM_RATE_LIMIT_DELAY: float = float(os.getenv("LLM_RATE_LIMIT_DELAY", "7.0"))
 LLM_MAX_RETRIES: int = int(os.getenv("LLM_MAX_RETRIES", "3"))
 HTTP_USER_AGENT: str = os.getenv(
@@ -29,7 +29,7 @@ class Settings(BaseSettings):
 
     # Unified LLM API Credentials & Universal Model Routing
     llm_api_key: Optional[str] = None
-    llm_model: str = LLM_MODEL
+    llm_model: Optional[str] = LLM_MODEL
 
     # Circuit Breaker Cap
     max_llm_evals_per_run: int = 20

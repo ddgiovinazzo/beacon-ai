@@ -328,8 +328,18 @@ def evaluate_tier2_llm(
     
     Dynamically routes across foundation models using Pydantic validation.
     """
+    if dry_run:
+        logger.info(f"Running Tier 2 evaluation in heuristic/dry-run mode for: {posting.title}")
+        return evaluate_tier2_heuristic(posting, profile)
+
     active_model = config.llm_model or LLM_MODEL
-    if dry_run or not config.has_llm_credentials(active_model):
+    if not active_model:
+        logger.error("No LLM model specified! Set LLM_MODEL environment variable or configure Settings.llm_model.")
+        fallback = evaluate_tier2_heuristic(posting, profile)
+        fallback.rejection_reason = "No LLM model specified (LLM_MODEL is unset)"
+        return fallback
+
+    if not config.has_llm_credentials(active_model):
         logger.info(f"Running Tier 2 evaluation in heuristic/dry-run mode for: {posting.title}")
         return evaluate_tier2_heuristic(posting, profile)
 

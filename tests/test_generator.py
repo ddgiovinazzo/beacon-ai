@@ -849,6 +849,37 @@ def test_export_markdown_to_pdf_uses_extra_and_sane_lists(tmp_path: Path, monkey
     assert "nl2br" not in captured_extensions
 
 
+def test_generator_logs_error_when_no_llm_model_specified(monkeypatch, caplog):
+    """Verify that generate_tailored_resume_data logs an error when no LLM model is configured."""
+    import logging
+    from src.config import Settings
+    from src.generator import generate_tailored_resume_data
+    from src.schemas import JobPosting, UserConstraints, UserProfile, MasterExperience
+
+    monkeypatch.delenv("LLM_MODEL", raising=False)
+    settings = Settings(llm_model=None)
+    profile = UserProfile(
+        name="Test Candidate",
+        email="test@example.com",
+        phone="555-0000",
+        location="Chicago, IL",
+        constraints=UserConstraints(),
+        master_experience=MasterExperience(roles=[]),
+    )
+    job = JobPosting(
+        title="Software Engineer",
+        link="https://example.com/job-no-model",
+        raw_text="Job description.",
+        source="example.com",
+    )
+
+    with caplog.at_level(logging.ERROR):
+        result = generate_tailored_resume_data(job, profile, settings, dry_run=False)
+
+    assert "No LLM model specified" in caplog.text
+    assert result is not None
+
+
 
 
 

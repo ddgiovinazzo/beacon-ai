@@ -326,6 +326,9 @@ INSTRUCTIONS:
 """
 
         active_model = config.llm_model or LLM_MODEL
+        if not active_model:
+            logger.error("No LLM model specified! Set LLM_MODEL environment variable or configure Settings.llm_model.")
+            return create_deterministic_tailored_data(posting, profile)
         call_kwargs = {
             "model": active_model,
             "response_model": TailoredResumeData,

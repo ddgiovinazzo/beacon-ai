@@ -436,6 +436,27 @@ def test_llm_model_pulled_from_variable_not_profile(monkeypatch, test_profile):
     assert kwargs2["model"] != "model-from-profile"
 
 
+def test_evaluator_logs_error_when_no_llm_model_specified(monkeypatch, test_profile, caplog):
+    """Verify that evaluate_tier2_llm logs an error when no LLM model variable is provided."""
+    import logging
+    from src.evaluator import evaluate_tier2_llm
+
+    monkeypatch.delenv("LLM_MODEL", raising=False)
+    settings = Settings(llm_model=None, llm_api_key="test-key")
+    job = JobPosting(
+        title="Bookkeeper",
+        link="https://example.com/job-no-model",
+        raw_text="Job details.",
+        source="example.com",
+    )
+
+    with caplog.at_level(logging.ERROR):
+        result = evaluate_tier2_llm(job, test_profile, settings, dry_run=False)
+
+    assert "No LLM model specified" in caplog.text
+    assert "LLM_MODEL is unset" in (result.rejection_reason or "")
+
+
 def test_tier1_rejects_dynamic_physical_restriction(test_profile):
     """Tier 1 must dynamically reject postings matching any arbitrary physical restriction in profile."""
     test_profile.constraints.physical_restrictions = ["prolonged standing", "pallet jack operation"]
