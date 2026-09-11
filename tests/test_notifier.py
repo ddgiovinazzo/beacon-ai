@@ -113,8 +113,8 @@ def test_send_match_notification_success(
 
     config = Settings(
         resend_api_key="re_test_key_abc123",
-        notification_email_to="candidate@ddgiovinazzo.com",
-        notification_email_from="BeaconAI <alerts@ddgiovinazzo.com>",
+        notification_email_to="candidate@example.com",
+        notification_email_from="BeaconAI <alerts@example.com>",
     )
 
     success = send_match_notification(
@@ -129,8 +129,9 @@ def test_send_match_notification_success(
     assert mock_resend_send.called
     params = mock_resend_send.call_args[0][0]
 
-    assert params["from"] == "BeaconAI <alerts@ddgiovinazzo.com>"
-    assert params["to"] == ["candidate@ddgiovinazzo.com"]
+    assert params["from"] == "BeaconAI <alerts@example.com>"
+    assert params["to"] == ["candidate@example.com"]
+
     assert "92/100" in params["subject"]
     assert "Full Charge Bookkeeper" in params["subject"]
     assert len(params["attachments"]) == 1

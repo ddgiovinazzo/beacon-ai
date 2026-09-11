@@ -15,8 +15,10 @@ profiles/*.json
 *.db-wal
 *.db-journal
 
-# Artifacts (ignore compiled binary PDFs, track markdown digests/outreach)
-artifacts/matches/*.pdf
+# Artifacts (ignore candidate-tailored resumes, PDFs, outreach drafts, and daily digests)
+artifacts/matches/
+artifacts/daily_digest_*.md
+!artifacts/.gitkeep
 
 # Virtual Environment
 .venv/

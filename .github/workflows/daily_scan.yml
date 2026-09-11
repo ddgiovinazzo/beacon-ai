@@ -62,14 +62,14 @@ jobs:
         if: always()
         run: rm -f profiles/ephemeral_profile.json
 
-      - name: Commit Updated State & Artifacts
+      - name: Commit Updated State (Zero-Storage Architecture)
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
-          git add matches.db artifacts/ || true
+          git add matches.db || true
           if git diff --staged --quiet; then
             echo "No state changes to commit."
           else
-            git commit -m "chore(automation): update scan state and artifacts [skip ci]"
+            git commit -m "chore(automation): update scan state [skip ci]"
             git push origin main
           fi
