@@ -251,3 +251,38 @@ class TailoredResumeData(BaseModel):
         default_factory=list,
         description="Selected education credentials aligned with geographic and technical context.",
     )
+
+    @property
+    def headline(self) -> str:
+        return self.target_headline
+
+    @property
+    def summary(self) -> str:
+        return self.tailored_summary
+
+    @property
+    def experience(self) -> List[ExperienceRole]:
+        return self.tailored_experience
+
+    @property
+    def projects(self) -> List[EngineeringProject]:
+        return self.tailored_projects
+
+    @property
+    def education(self) -> List[EducationEntry]:
+        return self.tailored_education
+
+    @property
+    def skill_categories(self) -> List[Dict[str, any]]:
+        if isinstance(self.categorized_skills, dict):
+            return [{"name": cat, "skills": sk} for cat, sk in self.categorized_skills.items()]
+        return []
+
+    @property
+    def skills(self) -> List[str]:
+        all_skills = []
+        if isinstance(self.categorized_skills, dict):
+            for sk_list in self.categorized_skills.values():
+                all_skills.extend(sk_list)
+        return all_skills
+

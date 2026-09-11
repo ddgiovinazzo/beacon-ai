@@ -36,6 +36,41 @@ def get_job_slug(posting: JobPosting) -> str:
     return f"{base_slug}_{link_hash}"
 
 
+def generate_clean_resume_filename(candidate_name: str, company_name: Optional[str], job_title: str) -> str:
+    """
+    Generates a clean, recruiter-friendly filename.
+    Format: FirstName_LastName_CompanyName_Resume.pdf
+    Fallback: FirstName_LastName_JobTitle_Resume.pdf
+    """
+    # Clean candidate name: "Daniel Giovinazzo" -> "Daniel_Giovinazzo"
+    clean_candidate = "_".join(re.sub(r'[^a-zA-Z0-9\s]', '', candidate_name).split())
+    
+    # Clean target entity
+    raw_target = company_name if company_name and company_name.strip() else job_title
+    clean_target = "".join(c for c in raw_target.title() if c.isalnum())
+    
+    # Cap target length to avoid oversized file names
+    clean_target = clean_target[:25]
+    
+    return f"{clean_candidate}_{clean_target}_Resume.pdf"
+
+
+def extract_company_from_title(title: str) -> Optional[str]:
+    """Attempt to extract company name from job title if formatted with common delimiters."""
+    if ":" in title:
+        candidate = title.split(":", 1)[0].strip()
+        if 1 < len(candidate) <= 30:
+            return candidate
+    if " at " in title.lower():
+        parts = re.split(r"\s+at\s+", title, flags=re.IGNORECASE)
+        if len(parts) > 1 and 1 < len(parts[-1].strip()) <= 30:
+            return parts[-1].strip()
+    if " - " in title:
+        candidate = title.split(" - ", 1)[0].strip()
+        if 1 < len(candidate) <= 30:
+            return candidate
+    return None
+
 
 def get_jinja_env(template_dir: Path = Path("templates")) -> Environment:
     """Initialize and return Jinja2 environment."""
@@ -58,18 +93,24 @@ def create_deterministic_tailored_data(
     job_text = f"{posting.title}\n{posting.raw_text}\n{posting.source}".lower()
 
     # 1. Headline & Summary
-    headline = f"{posting.title.strip()} | Professional Specialist"
-    if profile.master_experience.narrative_context:
-        headline = f"{posting.title.strip()} | {profile.master_experience.narrative_context.split('.')[0].strip()}"
+    # Prevent raw personal narrative directives (e.g., seated/administrative preferences) from bleeding into technical headers or summaries
+    target_role_title = posting.title.strip()
+    tech_keywords = {"software", "engineer", "developer", "backend", "frontend", "fullstack", "python", "devops", "cloud", "data engineer"}
+    is_tech_job = any(kw in job_text for kw in tech_keywords)
 
-    summary_intro = (
-        profile.master_experience.narrative_context
-        or f"Accomplished professional targeting the {posting.title} role with verified domain experience."
-    )
-    summary = (
-        f"{summary_intro} Proven track record delivering operational rigor, technical proficiency, "
-        f"and mission alignment. Prepared to make an immediate impact at {posting.source}."
-    )
+    headline = target_role_title
+    if is_tech_job:
+        summary = (
+            f"Accomplished technical professional targeting the {target_role_title} role with hands-on "
+            f"experience in scalable software systems, technical problem-solving, and operational excellence. "
+            f"Prepared to deliver immediate value at {posting.source}."
+        )
+    else:
+        summary = (
+            f"Accomplished professional targeting the {target_role_title} role with verified domain experience. "
+            f"Proven track record delivering operational rigor, high accuracy, "
+            f"and mission alignment. Prepared to make an immediate impact at {posting.source}."
+        )
 
     # 2. Dynamic Role Selection based on tag matching
     scored_roles = []
@@ -193,8 +234,10 @@ def generate_tailored_resume_data(
             f"   - Compare the job's location against the candidate's home location ({profile.location}).\n"
             "   - If the job is local, regional, or municipal to the candidate's home location: Prioritize education entries tagged with 'local' or regional indicators to demonstrate community ties and stability.\n"
             "   - If the job is remote or located in a distant major metro area: Include education entries tagged with 'tech' or 'universal', and omit hyper-local institutional entries if they detract from broader technical qualifications.\n"
-            "3. CANDIDATE INTEGRITY & TONE:\n"
+            "3. CANDIDATE INTEGRITY, DOMAIN ALIGNMENT & TONE:\n"
             "   - Synthesize content ONLY from the verified bullets in the candidate profile. Do not invent new history.\n"
+            "   - NEVER bleed raw personal narrative directives (such as administrative or seated role preferences) into the target headline or executive summary when targeting technical or software engineering positions.\n"
+            "   - Produce a crisp target_headline matching the job title and a focused 3-4 sentence summary emphasizing relevant skills.\n"
             f"   - Align tone with the candidate's narrative directive: {profile.master_experience.narrative_context or 'Professional excellence'}."
         )
 
@@ -267,8 +310,10 @@ def generate_tailored_resume(
 ) -> Path:
     """Render and save a tailored Markdown resume for a matched job."""
     config.ensure_directories()
-    slug = get_job_slug(posting)
-    output_path = config.matches_dir / f"{slug}_resume.md"
+    company = extract_company_from_title(posting.title)
+    clean_pdf_name = generate_clean_resume_filename(profile.name, company, posting.title)
+    md_filename = Path(clean_pdf_name).with_suffix(".md").name
+    output_path = config.matches_dir / md_filename
 
     resume_data = generate_tailored_resume_data(posting, profile, config, dry_run=dry_run)
 
@@ -277,6 +322,7 @@ def generate_tailored_resume(
 
     content = template.render(
         profile=profile,
+        tailored_data=resume_data,
         resume_data=resume_data,
         job=posting,
         result=result,
@@ -295,8 +341,9 @@ def generate_outreach_draft(
 ) -> Path:
     """Generate a human-in-the-loop plain-text outreach draft with a mailto: link."""
     config.ensure_directories()
-    slug = get_job_slug(posting)
-    output_path = config.matches_dir / f"{slug}_outreach.txt"
+    company = extract_company_from_title(posting.title)
+    clean_base = generate_clean_resume_filename(profile.name, company, posting.title).replace("_Resume.pdf", "")
+    output_path = config.matches_dir / f"{clean_base}_outreach.txt"
 
     subject = f"Application for {posting.title} - {profile.name}"
 
@@ -432,69 +479,86 @@ def export_markdown_to_pdf(
         tag.decompose()
     html_body = str(soup)
 
+    # Load ATS resume styles
+    css_path = Path("templates/resume_styles.css")
+    if not css_path.exists():
+        css_path = Path(__file__).resolve().parent.parent / "templates" / "resume_styles.css"
+
+    if css_path.exists():
+        css_content = css_path.read_text(encoding="utf-8")
+    else:
+        css_content = """@page {
+    size: letter portrait;
+    margin: 0.5in 0.55in 0.5in 0.55in;
+}
+body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    font-size: 9.5pt;
+    line-height: 1.35;
+    color: #111827;
+    margin: 0;
+    padding: 0;
+}
+h1 {
+    font-size: 16pt;
+    font-weight: 800;
+    margin: 0 0 2pt 0;
+    text-align: left;
+    letter-spacing: 0.5px;
+    color: #111827;
+}
+h2 {
+    font-size: 10.5pt;
+    font-weight: 700;
+    text-transform: uppercase;
+    border-bottom: 1px solid #111827;
+    padding-bottom: 1.5pt;
+    margin: 10pt 0 4pt 0;
+    letter-spacing: 0.8px;
+    color: #111827;
+}
+h3 {
+    font-size: 9.8pt;
+    font-weight: 700;
+    margin: 5pt 0 1pt 0;
+    color: #111827;
+}
+h4 {
+    font-size: 9pt;
+    font-weight: 600;
+    color: #374151;
+    margin: 1pt 0 3pt 0;
+}
+p {
+    margin: 0 0 4pt 0;
+}
+ul {
+    margin: 2pt 0 5pt 0;
+    padding-left: 15pt;
+}
+li {
+    margin-bottom: 2pt;
+    line-height: 1.3;
+}
+hr {
+    display: none;
+}
+a {
+    color: #111827;
+    text-decoration: none;
+}
+strong {
+    color: #111827;
+    font-weight: 700;
+}"""
+
     full_html = f"""<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
 <title>Resume</title>
 <style>
-@page {{
-  size: letter;
-  margin: 0.6in;
-}}
-body {{
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-  font-size: 9.5pt;
-  line-height: 1.35;
-  color: #111111;
-  margin: 0;
-  padding: 0;
-}}
-h1 {{
-  font-size: 16pt;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  margin: 0 0 2px 0;
-  color: #111111;
-  border-bottom: 2px solid #111111;
-  padding-bottom: 4px;
-}}
-h2 {{
-  font-size: 11pt;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  border-bottom: 1px solid #333333;
-  padding-bottom: 2px;
-  margin-top: 10px;
-  margin-bottom: 4px;
-  color: #111111;
-}}
-h3 {{
-  font-size: 10pt;
-  margin-top: 6px;
-  margin-bottom: 2px;
-  color: #222222;
-}}
-p {{
-  margin: 0 0 4px 0;
-}}
-ul {{
-  margin: 2px 0 6px 0;
-  padding-left: 18px;
-}}
-li {{
-  margin-bottom: 2px;
-}}
-hr {{
-  display: none;
-}}
-a {{
-  color: #111111;
-  text-decoration: none;
-}}
-strong {{
-  color: #000000;
-}}
+{css_content}
 </style>
 </head>
 <body>
