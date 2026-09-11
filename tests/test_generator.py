@@ -507,5 +507,180 @@ def test_narrative_context_does_not_bleed_into_tech_job():
     assert "Accomplished technical professional" in data.tailored_summary
 
 
+def test_generate_clean_resume_filename_40_chars_word_boundary():
+    """Verify clean filename allows up to 40 chars and avoids slicing words mid-syllable."""
+    from src.generator import generate_clean_resume_filename
+
+    # Long job title exceeding 40 chars - should cleanly break before 'Engineer'
+    long_title = "Senior Cloud Infrastructure Platform Systems Engineer"
+    fn = generate_clean_resume_filename("Alex Morgan", None, long_title)
+    # Senior(6) + Cloud(5) + Infrastructure(14) + Platform(8) + Systems(7) = 40 chars
+    assert fn == "Alex_Morgan_SeniorCloudInfrastructurePlatformSystems_Resume.pdf"
+    assert "Eng" not in fn  # Did not slice 'Engineer' mid-word
+
+    # Long company name exceeding 40 chars
+    long_company = "Apex Advisory Services International Corporate Organization"
+    fn_co = generate_clean_resume_filename("Jane Doe", long_company, "Developer")
+    # Apex(4) + Advisory(8) + Services(8) + International(13) = 33 chars (< 40, next word 'Corporate' is 9 chars -> 42 > 40)
+    assert fn_co == "Jane_Doe_ApexAdvisoryServicesInternational_Resume.pdf"
+
+
+def test_executive_summary_sanitizes_feed_and_urls():
+    """Verify source URLs, domain TLDs (.com, .org), and XML filenames do not leak into summary."""
+    from src.generator import create_deterministic_tailored_data, sanitize_target_company
+    from src.schemas import (
+        ExperienceRole,
+        JobPosting,
+        MasterExperience,
+        UserConstraints,
+        UserProfile,
+    )
+
+    # Sanitize helper checks
+    assert sanitize_target_company("sample_jobs.xml") is None
+    assert sanitize_target_company("weworkremotely.com") is None
+    assert sanitize_target_company("craigslist.org") is None
+    assert sanitize_target_company("https://remoteok.com/feed") is None
+    assert sanitize_target_company("Stripe") == "Stripe"
+
+    profile = UserProfile(
+        name="Alex Morgan",
+        email="alex@example.com",
+        phone="555-0100",
+        location="Metropolis, NY",
+        constraints=UserConstraints(),
+        master_experience=MasterExperience(
+            target_titles=["Bookkeeper"],
+            roles=[
+                ExperienceRole(
+                    id="r1",
+                    title="Staff Bookkeeper",
+                    organization="Finance Corp",
+                    location="Metropolis, NY",
+                    start_date="2020",
+                    end_date="Present",
+                    tags=["accounting"],
+                    bullets=["Reconciled ledgers."],
+                )
+            ],
+            tools_and_technologies=["QuickBooks"],
+        ),
+    )
+
+    # 1. Job with XML source and no company in title
+    xml_job = JobPosting(
+        title="Full Charge Bookkeeper",
+        link="https://feed.example.com/job/101",
+        raw_text="Seeking a full charge bookkeeper for records.",
+        source="sample_jobs.xml",
+    )
+    data_xml = create_deterministic_tailored_data(xml_job, profile)
+    assert "sample_jobs.xml" not in data_xml.tailored_summary
+    assert data_xml.tailored_summary.endswith("Prepared to make an immediate impact in this role.")
+
+    # 2. Job with .com source
+    web_job = JobPosting(
+        title="Accountant Specialist",
+        link="https://weworkremotely.com/job/202",
+        raw_text="Seeking an accountant.",
+        source="weworkremotely.com",
+    )
+    data_web = create_deterministic_tailored_data(web_job, profile)
+    assert "weworkremotely.com" not in data_web.tailored_summary
+    assert data_web.tailored_summary.endswith("Prepared to make an immediate impact in this role.")
+
+    # 3. Job with clean company name
+    corp_job = JobPosting(
+        title="Apex Advisory: Bookkeeper",
+        link="https://example.com/job/303",
+        raw_text="Seeking an accountant.",
+        source="example.com",
+    )
+    data_corp = create_deterministic_tailored_data(corp_job, profile)
+    assert data_corp.tailored_summary.endswith("Prepared to make an immediate impact at Apex Advisory.")
+
+
+def test_resume_template_certifications_bullet_and_separation(tmp_path: Path):
+    """Verify certifications are formatted as distinct bullets and separated with newlines from education."""
+    from src.config import Settings
+    from src.generator import generate_tailored_resume
+    from src.schemas import (
+        CertificationEntry,
+        EducationEntry,
+        EvaluationResult,
+        EvaluationStatus,
+        ExperienceRole,
+        JobPosting,
+        MasterExperience,
+        UserConstraints,
+        UserProfile,
+    )
+
+    matches_dir = tmp_path / "matches"
+    test_settings = Settings(matches_dir=matches_dir, artifacts_dir=tmp_path)
+
+    profile = UserProfile(
+        name="Sam Rivera",
+        email="sam@example.com",
+        phone="555-0155",
+        location="Boston, MA",
+        constraints=UserConstraints(),
+        master_experience=MasterExperience(
+            target_titles=["DevOps Engineer"],
+            roles=[
+                ExperienceRole(
+                    id="r1",
+                    title="DevOps Engineer",
+                    organization="CloudOps",
+                    location="Boston, MA",
+                    start_date="2021",
+                    end_date="Present",
+                    tags=["devops", "cloud"],
+                    bullets=["Maintained Kubernetes clusters."],
+                )
+            ],
+            education=[
+                EducationEntry(
+                    id="e1",
+                    institution="Boston University",
+                    degree="B.S. Information Systems",
+                    end_date="2019",
+                    tags=["universal"],
+                )
+            ],
+            certifications=[
+                CertificationEntry(name="AWS Certified Solutions Architect", status="Active"),
+                CertificationEntry(name="Certified Kubernetes Administrator", status="Active"),
+            ],
+            tools_and_technologies=["Kubernetes", "AWS"],
+        ),
+    )
+
+    job = JobPosting(
+        title="DevOps Engineer",
+        link="https://example.com/jobs/devops",
+        raw_text="Seeking a DevOps Engineer.",
+        source="example.com",
+    )
+
+    eval_result = EvaluationResult(
+        status=EvaluationStatus.MATCH,
+        fit_score=90,
+        tier_evaluated=1,
+    )
+
+    resume_path = generate_tailored_resume(job, profile, eval_result, test_settings, dry_run=True)
+    content = resume_path.read_text(encoding="utf-8")
+
+    # Verify distinct bullet format without extra markdown bold
+    assert "* AWS Certified Solutions Architect (Active)" in content
+    assert "* Certified Kubernetes Administrator (Active)" in content
+
+    # Verify clean education formatting and separation
+    assert "### Boston University\nB.S. Information Systems | 2019" in content
+    assert "B.S. Information Systems | 2019\n\n* AWS Certified Solutions Architect" in content
+
+
+
 
 

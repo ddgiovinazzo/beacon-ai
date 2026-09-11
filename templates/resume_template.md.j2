@@ -49,8 +49,10 @@
 {{ edu.degree }}{% if edu.end_date %} | {{ edu.end_date }}{% endif %}
 
 {% endfor %}
+
 {% if profile.master_experience.certifications and profile.master_experience.certifications | length > 0 %}
 {% for cert in profile.master_experience.certifications %}
-* **{{ cert.name }}** ({{ cert.status }})
+* {{ cert.name }} ({{ cert.status }})
 {% endfor %}
 {% endif %}
+
