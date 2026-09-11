@@ -57,6 +57,10 @@ jobs:
       - name: Run Multi-Feed Intelligence Scan
         env:
           LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
+          LLM_MODEL: ${{ vars.LLM_MODEL }}
+          LLM_RATE_LIMIT_DELAY: ${{ vars.LLM_RATE_LIMIT_DELAY }}
+          LLM_MAX_RETRIES: ${{ vars.LLM_MAX_RETRIES }}
+          HTTP_USER_AGENT: ${{ vars.HTTP_USER_AGENT }}
           RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
           NOTIFICATION_EMAIL_TO: ${{ secrets.NOTIFICATION_EMAIL_TO }}
           NOTIFICATION_EMAIL_FROM: ${{ secrets.NOTIFICATION_EMAIL_FROM }}

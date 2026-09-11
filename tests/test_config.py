@@ -16,14 +16,14 @@ from src.schemas import UserConstraints, UserProfile
 
 def test_operational_defaults():
     """Verify default values of operational settings."""
-    assert LLM_MODEL == "gemini/gemini-3.8-flash"
+    assert LLM_MODEL == "gemini/gemini-2.0-flash"
     assert LLM_RATE_LIMIT_DELAY == 7.0
     assert LLM_MAX_RETRIES == 3
     assert "Mozilla/5.0" in HTTP_USER_AGENT
     assert "Chrome/120.0.0.0" in HTTP_USER_AGENT
 
     settings = Settings()
-    assert settings.llm_model == "gemini/gemini-3.8-flash"
+    assert settings.llm_model == "gemini/gemini-2.0-flash"
     assert settings.llm_rate_limit_delay == 7.0
     assert settings.llm_rate_limit_delay_seconds == 7.0
     assert settings.llm_max_retries == 3
