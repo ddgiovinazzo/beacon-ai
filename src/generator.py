@@ -11,7 +11,7 @@ from typing import Dict, List, Optional
 
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 
-from src.config import Settings
+from src.config import LLM_MODEL, Settings
 from src.evaluator import execute_llm_completion
 from src.schemas import (
     EvaluationResult,
@@ -325,7 +325,7 @@ INSTRUCTIONS:
 6. Return tailored_education following geographic heuristics.
 """
 
-        active_model = profile.llm_model
+        active_model = config.llm_model or LLM_MODEL
         call_kwargs = {
             "model": active_model,
             "response_model": TailoredResumeData,

@@ -181,9 +181,9 @@ class UserProfile(BaseModel):
     linkedin_url: Optional[str] = Field(default=None, description="LinkedIn profile URL.")
     portfolio_url: Optional[str] = Field(default=None, description="Portfolio website URL.")
     github_url: Optional[str] = Field(default=None, description="GitHub profile URL.")
-    llm_model: str = Field(
-        default="gemini/gemini-3.8-flash",
-        description="The LiteLLM formatted model string",
+    llm_model: Optional[str] = Field(
+        default=None,
+        description="Optional model override; model resolution defaults to LLM_MODEL environment variable.",
     )
     constraints: UserConstraints = Field(default_factory=UserConstraints, description="Deterministic filtering constraints.")
     master_experience: MasterExperience = Field(..., description="Candidate's comprehensive work background.")

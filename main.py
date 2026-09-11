@@ -33,7 +33,7 @@ logging.basicConfig(
 )
 # Silence verbose third-party loggers
 logging.getLogger("httpx").setLevel(logging.WARNING)
-logging.getLogger("google_genai").setLevel(logging.WARNING)
+logging.getLogger("litellm").setLevel(logging.WARNING)
 
 app = typer.Typer(
     name="beacon",
@@ -112,9 +112,17 @@ def scan(
         "--notify/--no-notify",
         help="Compile ATS PDF resume and dispatch email notifications for matched jobs via Resend.",
     ),
+    model: Optional[str] = typer.Option(
+        None,
+        "--model",
+        "-m",
+        help="Universal LiteLLM model override (defaults to LLM_MODEL env var or settings.llm_model).",
+    ),
 ):
     """Ingest, deduplicate, filter, evaluate, and generate tailored application artifacts."""
     settings = get_settings()
+    if model:
+        settings.llm_model = model
     init_db(settings.db_path)
     settings.ensure_directories()
 
@@ -143,7 +151,7 @@ def scan(
         console.print("[bold red]Error:[/bold red] No target feeds provided via --feed or TARGET_FEED_URLS.")
         raise typer.Exit(code=1)
 
-    active_llm = user_profile.llm_model or settings.llm_model or "Not Set"
+    active_llm = settings.llm_model or "Not Set"
     mode_label = "[bold yellow]DRY-RUN (Deterministic Scoring)[/bold yellow]" if dry_run else f"[bold cyan]LIVE (Tier 1 + {active_llm})[/bold cyan]"
     notify_label = "[bold green]ENABLED (Resend)[/bold green]" if notify else "[dim]DISABLED[/dim]"
     min_h = f"${user_profile.constraints.min_hourly_rate:.2f}/hr" if user_profile.constraints.min_hourly_rate is not None else "Not Set"

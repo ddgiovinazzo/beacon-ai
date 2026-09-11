@@ -9,6 +9,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 # Operational runtime defaults backed by environment variables
+LLM_MODEL: str = os.getenv("LLM_MODEL", "gemini/gemini-3.8-flash")
 LLM_RATE_LIMIT_DELAY: float = float(os.getenv("LLM_RATE_LIMIT_DELAY", "7.0"))
 LLM_MAX_RETRIES: int = int(os.getenv("LLM_MAX_RETRIES", "3"))
 HTTP_USER_AGENT: str = os.getenv(
@@ -26,9 +27,9 @@ class Settings(BaseSettings):
         extra="ignore",
     )
 
-    # Unified LLM API Credentials & Fallback Model
+    # Unified LLM API Credentials & Universal Model Routing
     llm_api_key: Optional[str] = None
-    llm_model: Optional[str] = None
+    llm_model: str = LLM_MODEL
 
     # Circuit Breaker Cap
     max_llm_evals_per_run: int = 20
@@ -90,7 +91,19 @@ class Settings(BaseSettings):
         """Check whether LLM API credentials or local execution base exists."""
         if model and (model.startswith("ollama/") or model.startswith("local/")):
             return True
-        return bool(self.llm_api_key or os.environ.get("LLM_API_KEY"))
+        if self.llm_api_key or os.environ.get("LLM_API_KEY"):
+            return True
+        # Check standard provider env keys delegated cleanly by LiteLLM
+        standard_provider_keys = [
+            "GEMINI_API_KEY",
+            "OPENAI_API_KEY",
+            "ANTHROPIC_API_KEY",
+            "GROQ_API_KEY",
+            "MISTRAL_API_KEY",
+            "COHERE_API_KEY",
+            "AZURE_API_KEY",
+        ]
+        return any(bool(os.environ.get(k)) for k in standard_provider_keys)
 
 
 @lru_cache()

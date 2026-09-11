@@ -5,7 +5,7 @@ import logging
 import re
 from typing import List, Optional, Tuple
 
-from src.config import LLM_MAX_RETRIES, Settings
+from src.config import LLM_MAX_RETRIES, LLM_MODEL, Settings
 from src.schemas import (
     EvaluationResult,
     EvaluationStatus,
@@ -328,7 +328,7 @@ def evaluate_tier2_llm(
     
     Dynamically routes across foundation models using Pydantic validation.
     """
-    active_model = profile.llm_model
+    active_model = config.llm_model or LLM_MODEL
     if dry_run or not config.has_llm_credentials(active_model):
         logger.info(f"Running Tier 2 evaluation in heuristic/dry-run mode for: {posting.title}")
         return evaluate_tier2_heuristic(posting, profile)

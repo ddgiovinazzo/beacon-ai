@@ -307,7 +307,7 @@ def test_has_llm_credentials_multi_provider():
 
 
 def test_evaluate_tier2_llm_model_agnostic_routing(monkeypatch, test_profile):
-    """Verify LiteLLM completion receives the configured model name from UserProfile and unified API key."""
+    """Verify LiteLLM completion receives the configured model name from Settings/variable and unified API key."""
     from unittest.mock import MagicMock
     import instructor
     from src.evaluator import evaluate_tier2_llm
@@ -325,8 +325,8 @@ def test_evaluate_tier2_llm_model_agnostic_routing(monkeypatch, test_profile):
     mock_client.chat.completions.create.return_value = mock_result
     monkeypatch.setattr(instructor, "from_litellm", lambda *args, **kwargs: mock_client)
 
-    test_profile.llm_model = "anthropic/claude-3-5-sonnet-20241022"
     settings = Settings(
+        llm_model="anthropic/claude-3-5-sonnet-20241022",
         llm_api_key="sk-ant-test",
     )
 
@@ -343,7 +343,7 @@ def test_evaluate_tier2_llm_model_agnostic_routing(monkeypatch, test_profile):
     assert res.fit_score == 95
     assert res.tier_evaluated == 2
 
-    # Verify that litellm was called with the model from UserProfile and unified API key
+    # Verify that litellm was called with the model from Settings and unified API key
     mock_client.chat.completions.create.assert_called_once()
     kwargs = mock_client.chat.completions.create.call_args[1]
     assert kwargs["model"] == "anthropic/claude-3-5-sonnet-20241022"
@@ -351,7 +351,7 @@ def test_evaluate_tier2_llm_model_agnostic_routing(monkeypatch, test_profile):
 
 
 def test_generate_tailored_resume_data_model_agnostic(monkeypatch, test_profile):
-    """Verify resume tailoring routes to configured LiteLLM model from UserProfile."""
+    """Verify resume tailoring routes to configured LiteLLM model from Settings/variable."""
     from unittest.mock import MagicMock
     import instructor
     from src.generator import generate_tailored_resume_data
@@ -377,8 +377,8 @@ def test_generate_tailored_resume_data_model_agnostic(monkeypatch, test_profile)
     mock_client.chat.completions.create.return_value = mock_resume
     monkeypatch.setattr(instructor, "from_litellm", lambda *args, **kwargs: mock_client)
 
-    test_profile.llm_model = "gpt-4o-mini"
     settings = Settings(
+        llm_model="gpt-4o-mini",
         llm_api_key="sk-openai-test",
     )
 
@@ -394,6 +394,46 @@ def test_generate_tailored_resume_data_model_agnostic(monkeypatch, test_profile)
     kwargs = mock_client.chat.completions.create.call_args[1]
     assert kwargs["model"] == "gpt-4o-mini"
     assert kwargs["api_key"] == "sk-openai-test"
+
+
+def test_llm_model_pulled_from_variable_not_profile(monkeypatch, test_profile):
+    """Verify that model resolution pulls from configuration/environment and NOT from the profile schema."""
+    from unittest.mock import MagicMock
+    import instructor
+    from src.evaluator import evaluate_tier2_llm
+
+    mock_result = EvaluationResult(
+        status=EvaluationStatus.MATCH,
+        fit_score=90,
+        tier_evaluated=2,
+    )
+    mock_client = MagicMock()
+    mock_client.chat.completions.create.return_value = mock_result
+    monkeypatch.setattr(instructor, "from_litellm", lambda *args, **kwargs: mock_client)
+
+    # Even if profile explicitly defines an old/different model
+    test_profile.llm_model = "model-from-profile"
+
+    # 1. Config variable overrides profile
+    settings = Settings(llm_model="model-from-settings-variable", llm_api_key="test-key")
+    job = JobPosting(
+        title="Accountant",
+        link="https://example.com/job1",
+        raw_text="Job details.",
+        source="example.com",
+    )
+    evaluate_tier2_llm(job, test_profile, settings, dry_run=False)
+    kwargs = mock_client.chat.completions.create.call_args[1]
+    assert kwargs["model"] == "model-from-settings-variable"
+    assert kwargs["model"] != "model-from-profile"
+
+    # 2. Environment variable overrides profile
+    monkeypatch.setenv("LLM_MODEL", "model-from-env-var")
+    env_settings = Settings(llm_api_key="test-key")
+    evaluate_tier2_llm(job, test_profile, env_settings, dry_run=False)
+    kwargs2 = mock_client.chat.completions.create.call_args[1]
+    assert kwargs2["model"] == "model-from-env-var"
+    assert kwargs2["model"] != "model-from-profile"
 
 
 def test_tier1_rejects_dynamic_physical_restriction(test_profile):
