@@ -1,28 +1,30 @@
 {
-  "name": "Sarah Jenkins",
-  "email": "sarah.jenkins@example.com",
+  "name": "Jane Doe",
+  "email": "jane.doe@example.com",
   "phone": "(555) 234-5678",
-  "location": "Oakland, CA",
-  "linkedin_url": "https://linkedin.com/in/sarahjenkins-books",
+  "location": "Metropolis, NY",
+  "linkedin_url": "https://linkedin.com/in/janedoe-accounting",
+  "portfolio_url": null,
+  "github_url": null,
   "constraints": {
     "min_hourly_rate": 28.0,
+    "min_weekly_earnings": null,
     "min_annual_salary": 58000.0,
     "max_commute_miles": 20,
     "physical_restrictions": [
       "lift 50 lbs",
       "lift 40 lbs",
       "carry 50 lbs",
-      "ladder",
+      "ladder climbing",
       "warehouse labor",
       "pallet jack",
-      "heavy lifting",
-      "unannounced overtime"
+      "heavy lifting"
     ],
     "schedule_boundaries": [
       "overnight",
       "graveyard shift",
       "mandatory weekends",
-      "night shift"
+      "unannounced overtime"
     ]
   },
   "master_experience": {
@@ -33,30 +35,34 @@
       "Accounting Specialist",
       "Accounts Payable / Receivable Lead"
     ],
+    "narrative_context": "Detail-oriented financial specialist with expertise in general ledger integrity, payroll compliance, and automated bookkeeping workflows.",
+    "engineering_projects": [],
     "roles": [
       {
+        "id": "role-1",
         "title": "Full Charge Bookkeeper",
-        "organization": "Apex Advisory Group",
-        "location": "Berkeley, CA",
+        "organization": "Acme Advisory Group",
+        "location": "Metropolis, NY",
         "start_date": "Mar 2021",
         "end_date": "Present",
+        "tags": ["bookkeeping", "accounting", "payroll", "general_ledger"],
         "bullets": [
-          "Managed end-to-end full-cycle bookkeeping for 18 SMB client accounts with combined annual revenues exceeding $14M.",
+          "Managed end-to-end full-cycle bookkeeping for 18 client accounts with combined annual revenues exceeding $14M.",
           "Streamlined monthly GL reconciliations and AP/AR workflows in QuickBooks Online, cutting month-end close duration from 12 to 5 business days.",
-          "Processed bi-weekly multi-state payroll for 120+ employees via Gusto, maintaining 99.8% compliance accuracy across state tax jurisdictions.",
-          "Instituted automated bank feed rules and receipt scanning pipelines in Dext, eliminating 15+ hours of manual data entry per monthly cycle."
+          "Processed bi-weekly multi-state payroll for 120+ employees maintaining 99.8% accuracy across tax jurisdictions."
         ]
       },
       {
-        "title": "Accounting Assistant & Bookkeeper",
-        "organization": "Pacific Crest Retail Partners",
-        "location": "Oakland, CA",
+        "id": "role-2",
+        "title": "Accounting Assistant",
+        "organization": "Nexus Commercial Partners",
+        "location": "Metropolis, NY",
         "start_date": "Jun 2018",
         "end_date": "Feb 2021",
+        "tags": ["accounting", "clerical", "reconciliation", "accounts_payable"],
         "bullets": [
-          "Reconciled high-volume commercial checking, merchant credit card, and vendor accounts totaling $4.2M annually.",
-          "Audited vendor invoices, resolved discrepancy claims, and captured $38,000 in early-pay discounts over a 24-month span.",
-          "Prepared quarterly sales tax filings (CDTFA) and assisted senior CPA partners during annual year-end financial audits."
+          "Reconciled high-volume commercial checking and vendor accounts totaling $4.2M annually.",
+          "Audited vendor invoices, resolved discrepancy claims, and captured early-pay discounts across active accounts."
         ]
       }
     ],
@@ -65,15 +71,29 @@
       "QuickBooks Desktop",
       "Xero",
       "Gusto",
-      "Excel (Advanced PivotTables, VLOOKUP, XLOOKUP)",
+      "Microsoft Excel (VLOOKUP, PivotTables)",
       "Bill.com",
-      "Dext / Receipt Bank",
-      "ADP Workforce Now"
+      "Dext"
     ],
     "education": [
-      "A.S. in Business Administration (Accounting Concentration), Berkeley City College",
-      "Certified QuickBooks ProAdvisor (Online & Desktop)",
-      "National Bookkeepers Association Certified Bookkeeper (CB)"
+      {
+        "id": "edu-1",
+        "institution": "Metropolis Community College",
+        "degree": "A.S. in Business Administration (Accounting Concentration)",
+        "start_date": "2016",
+        "end_date": "2018",
+        "tags": ["local", "accounting"]
+      }
+    ],
+    "certifications": [
+      {
+        "name": "Certified QuickBooks ProAdvisor",
+        "status": "Active"
+      },
+      {
+        "name": "National Bookkeepers Association Certified Bookkeeper (CB)",
+        "status": "Active"
+      }
     ]
   }
 }

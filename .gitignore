@@ -2,6 +2,11 @@
 .env
 *.env
 
+# Candidate Profiles (zero-storage protection for ephemeral secrets)
+profiles/*.json
+!profiles/*.example
+!profiles/*.example.json
+
 # SQLite Databases
 *.db
 !matches.db

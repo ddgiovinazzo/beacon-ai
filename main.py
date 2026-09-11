@@ -3,7 +3,7 @@
 import json
 import logging
 from pathlib import Path
-from typing import Optional
+from typing import List, Optional
 
 import typer
 from rich.console import Console
@@ -87,11 +87,11 @@ def scan(
         "-p",
         help="Path to user profile JSON file.",
     ),
-    feed: str = typer.Option(
-        ...,
+    feed: Optional[List[str]] = typer.Option(
+        None,
         "--feed",
         "-f",
-        help="RSS feed URL or local XML file path.",
+        help="RSS feed URL or local XML file path (can be specified multiple times).",
     ),
     dry_run: bool = typer.Option(
         False,
@@ -118,158 +118,175 @@ def scan(
 
     user_profile = load_profile(profile)
 
+    # Collect and normalize target feeds
+    raw_feed_inputs = list(feed) if feed else []
+    if not raw_feed_inputs and settings.target_feed_urls:
+        raw_feed_inputs = [settings.target_feed_urls]
+
+    target_feeds = []
+    for raw in raw_feed_inputs:
+        for line in str(raw).splitlines():
+            for f in line.split(","):
+                clean = f.strip()
+                if clean and not clean.startswith("#"):
+                    target_feeds.append(clean)
+
+    if not target_feeds:
+        console.print("[bold red]Error:[/bold red] No target feeds provided via --feed or TARGET_FEED_URLS.")
+        raise typer.Exit(code=1)
+
     mode_label = "[bold yellow]DRY-RUN (Deterministic Scoring)[/bold yellow]" if dry_run else f"[bold cyan]LIVE (Tier 1 + {settings.llm_model})[/bold cyan]"
     notify_label = "[bold green]ENABLED (Resend)[/bold green]" if notify else "[dim]DISABLED[/dim]"
+    min_h = f"${user_profile.constraints.min_hourly_rate:.2f}/hr" if user_profile.constraints.min_hourly_rate is not None else "Not Set"
+    min_a = f"${user_profile.constraints.min_annual_salary:,.0f}/yr" if user_profile.constraints.min_annual_salary is not None else "Not Set"
+
     console.print(
         Panel(
             f"Candidate: [bold]{user_profile.name}[/bold] ({user_profile.location})\n"
-            f"Feed Source: [blue]{feed}[/blue]\n"
+            f"Target Feeds: [blue]{len(target_feeds)} configured[/blue]\n"
             f"Evaluation Mode: {mode_label}\n"
             f"Notifications: {notify_label}\n"
             f"Active LLM: [magenta]{settings.llm_model}[/magenta]\n"
-            f"Min Pay Floor: [green]${user_profile.constraints.min_hourly_rate:.2f}/hr[/green] | [green]${user_profile.constraints.min_annual_salary or 0:,.0f}/yr[/green]\n"
+            f"Min Pay Floor: [green]{min_h}[/green] | [green]{min_a}[/green]\n"
             f"Circuit Breaker Cap: [magenta]{settings.max_llm_evals_per_run} LLM evals/run[/magenta]",
             title="BeaconAI Scan Initiated",
             border_style="cyan",
         )
     )
 
-
-    # 1. Ingest postings
-    postings = fetch_feed(
-        feed,
-        user_agent=settings.user_agent,
-        timeout_seconds=settings.request_timeout_seconds,
-    )
-
-    if not postings:
-        console.print("[yellow]No postings found or failed to parse feed.[/yellow]")
-        return
-
-    if limit and limit > 0:
-        postings = postings[:limit]
-
-    console.print(f"[bold]Fetched {len(postings)} total postings from feed.[/bold]\n")
-
-    # 2. Evaluation & Deduplication Loop
     engine = EvaluationEngine(settings, dry_run=dry_run)
+    total_skipped_count = 0
+    total_match_count = 0
+    total_reject_count = 0
+    total_deferred_count = 0
+    all_generated_matches = []
 
-    results_table = Table(title="Scan Execution Results", header_style="bold magenta")
-    results_table.add_column("Status", justify="center", width=10)
-    results_table.add_column("Tier", justify="center", width=6)
-    results_table.add_column("Score", justify="right", width=7)
-    results_table.add_column("Title", style="bold", width=34)
-    results_table.add_column("Verdict / Details", width=42)
+    for current_feed in target_feeds:
+        console.print(f"\n[bold blue]==> Scanning Target Feed: {current_feed}[/bold blue]")
 
-    skipped_count = 0
-    match_count = 0
-    reject_count = 0
-    deferred_count = 0
-    generated_matches = []
+        postings = fetch_feed(
+            current_feed,
+            user_agent=settings.user_agent,
+            timeout_seconds=settings.request_timeout_seconds,
+        )
 
-    for posting in postings:
-        # Check SQLite deduplication
-        if is_job_seen(posting.link, settings.db_path):
-            skipped_count += 1
-            results_table.add_row(
-                "[dim]SKIPPED[/dim]",
-                "-",
-                "-",
-                posting.title[:32],
-                "[dim]Already processed (seen in DB)[/dim]",
-            )
+        if not postings:
+            console.print(f"[yellow]No postings found or failed to parse feed: {current_feed}[/yellow]")
             continue
 
-        # Evaluate posting
-        result = engine.evaluate(posting, user_profile)
+        if limit and limit > 0:
+            postings = postings[:limit]
 
-        if result.status == EvaluationStatus.MATCH:
-            try:
-                # Generate Tailored Resume (Markdown & Sandboxed ATS PDF) and Outreach Draft
-                resume_path = generate_tailored_resume(
-                    posting, user_profile, result, settings, dry_run=dry_run
-                )
-                pdf_path = export_markdown_to_pdf(resume_path)
-                outreach_path = generate_outreach_draft(
-                    posting, user_profile, result, settings
-                )
-                generated_matches.append((posting, result, resume_path, outreach_path))
+        console.print(f"[bold]Fetched {len(postings)} postings from feed.[/bold]")
 
-                # Dispatch notification if enabled
-                if notify:
-                    sent = send_match_notification(
-                        posting, result, pdf_path, outreach_path, config=settings
-                    )
-                    if sent:
-                        console.print(
-                            f"  [bold blue]✉ Email alert dispatched to {settings.notification_email_to}[/bold blue]"
-                        )
-                    else:
-                        console.print(
-                            "  [dim yellow]⚠ Email alert skipped (check RESEND_API_KEY and NOTIFICATION_EMAIL_TO)[/dim yellow]"
-                        )
+        results_table = Table(title=f"Scan Results: {current_feed[:40]}", header_style="bold magenta")
+        results_table.add_column("Status", justify="center", width=10)
+        results_table.add_column("Tier", justify="center", width=6)
+        results_table.add_column("Score", justify="right", width=7)
+        results_table.add_column("Title", style="bold", width=34)
+        results_table.add_column("Verdict / Details", width=42)
 
-                # Persist match state only after successful artifact synthesis
-                record_job(posting, result, settings.db_path)
-                match_count += 1
-
+        for posting in postings:
+            # Check SQLite deduplication
+            if is_job_seen(posting.link, settings.db_path):
+                total_skipped_count += 1
                 results_table.add_row(
-                    "[bold green]MATCH[/bold green]",
-                    f"T{result.tier_evaluated}",
-                    f"[bold green]{result.fit_score}[/bold green]",
+                    "[dim]SKIPPED[/dim]",
+                    "-",
+                    "-",
                     posting.title[:32],
-                    f"[green]Matched[/green] -> [underline]{pdf_path.name}[/underline]",
+                    "[dim]Already processed (seen in DB)[/dim]",
                 )
-            except Exception as e:
-                logging.getLogger("beacon.main").error(
-                    f"Artifact generation failed for '{posting.title}': {e}", exc_info=True
-                )
+                continue
+
+            # Evaluate posting
+            result = engine.evaluate(posting, user_profile)
+
+            if result.status == EvaluationStatus.MATCH:
+                try:
+                    resume_path = generate_tailored_resume(
+                        posting, user_profile, result, settings, dry_run=dry_run
+                    )
+                    pdf_path = export_markdown_to_pdf(resume_path)
+                    outreach_path = generate_outreach_draft(
+                        posting, user_profile, result, settings
+                    )
+                    all_generated_matches.append((posting, result, resume_path, outreach_path))
+
+                    if notify:
+                        sent = send_match_notification(
+                            posting, result, pdf_path, outreach_path, config=settings
+                        )
+                        if sent:
+                            console.print(
+                                f"  [bold blue]✉ Email alert dispatched to {settings.notification_email_to}[/bold blue]"
+                            )
+                        else:
+                            console.print(
+                                "  [dim yellow]⚠ Email alert skipped (check RESEND_API_KEY and NOTIFICATION_EMAIL_TO)[/dim yellow]"
+                            )
+
+                    record_job(posting, result, settings.db_path)
+                    total_match_count += 1
+
+                    results_table.add_row(
+                        "[bold green]MATCH[/bold green]",
+                        f"T{result.tier_evaluated}",
+                        f"[bold green]{result.fit_score}[/bold green]",
+                        posting.title[:32],
+                        f"[green]Matched[/green] -> [underline]{pdf_path.name}[/underline]",
+                    )
+                except Exception as e:
+                    logging.getLogger("beacon.main").error(
+                        f"Artifact generation failed for '{posting.title}': {e}", exc_info=True
+                    )
+                    results_table.add_row(
+                        "[bold red]ERROR[/bold red]",
+                        f"T{result.tier_evaluated}",
+                        f"[dim]{result.fit_score}[/dim]",
+                        posting.title[:32],
+                        f"[red]Synthesis failed: {str(e)[:25]}[/red]",
+                    )
+                    continue
+            elif result.status == EvaluationStatus.DEFERRED:
+                record_job(posting, result, settings.db_path)
+                total_deferred_count += 1
+                reason = result.rejection_reason or "Throttled"
                 results_table.add_row(
-                    "[bold red]ERROR[/bold red]",
+                    "[bold yellow]DEFERRED[/bold yellow]",
+                    f"T{result.tier_evaluated}",
+                    "[dim]0[/dim]",
+                    posting.title[:32],
+                    f"[yellow]{reason[:40]}[/yellow]",
+                )
+            else:
+                record_job(posting, result, settings.db_path)
+                total_reject_count += 1
+                reason = result.rejection_reason or "Disqualified"
+                results_table.add_row(
+                    "[bold red]REJECT[/bold red]",
                     f"T{result.tier_evaluated}",
                     f"[dim]{result.fit_score}[/dim]",
                     posting.title[:32],
-                    f"[red]Synthesis failed: {str(e)[:25]}[/red]",
+                    f"[red]{reason[:40]}[/red]",
                 )
-                continue
-        elif result.status == EvaluationStatus.DEFERRED:
-            record_job(posting, result, settings.db_path)
-            deferred_count += 1
-            reason = result.rejection_reason or "Throttled"
-            results_table.add_row(
-                "[bold yellow]DEFERRED[/bold yellow]",
-                f"T{result.tier_evaluated}",
-                "[dim]0[/dim]",
-                posting.title[:32],
-                f"[yellow]{reason[:40]}[/yellow]",
-            )
-        else:
-            record_job(posting, result, settings.db_path)
-            reject_count += 1
-            reason = result.rejection_reason or "Disqualified"
-            results_table.add_row(
-                "[bold red]REJECT[/bold red]",
-                f"T{result.tier_evaluated}",
-                f"[dim]{result.fit_score}[/dim]",
-                posting.title[:32],
-                f"[red]{reason[:40]}[/red]",
-            )
 
-    console.print(results_table)
+        console.print(results_table)
 
-    # 3. Append to daily digest if matches occurred
-    if generated_matches:
-        digest_path = append_daily_digest(generated_matches, settings)
+    # Append to daily digest if matches occurred across all feeds
+    if all_generated_matches:
+        digest_path = append_daily_digest(all_generated_matches, settings)
         console.print(f"\n[bold green]✓ Daily digest updated:[/bold green] [cyan]{digest_path}[/cyan]")
 
     # Summary Panel
     console.print(
         Panel(
-            f"• Total Evaluated: [bold]{match_count + reject_count + deferred_count}[/bold]\n"
-            f"• Skipped (Deduplicated): [dim]{skipped_count}[/dim]\n"
-            f"• Qualified Matches: [bold green]{match_count}[/bold green]\n"
-            f"• Disqualified: [bold red]{reject_count}[/bold red]\n"
-            f"• Deferred (Circuit Breaker): [bold yellow]{deferred_count}[/bold yellow]\n"
+            f"• Target Feeds Scanned: [bold]{len(target_feeds)}[/bold]\n"
+            f"• Total Evaluated: [bold]{total_match_count + total_reject_count + total_deferred_count}[/bold]\n"
+            f"• Skipped (Deduplicated): [dim]{total_skipped_count}[/dim]\n"
+            f"• Qualified Matches: [bold green]{total_match_count}[/bold green]\n"
+            f"• Disqualified: [bold red]{total_reject_count}[/bold red]\n"
+            f"• Deferred (Circuit Breaker): [bold yellow]{total_deferred_count}[/bold yellow]\n"
             f"• Tier-2 LLM / Heuristic Calls: [magenta]{engine.llm_eval_count}[/magenta]",
             title="Scan Summary",
             border_style="cyan",

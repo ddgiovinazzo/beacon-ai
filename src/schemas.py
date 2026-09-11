@@ -3,7 +3,7 @@
 from datetime import datetime
 from enum import Enum
 from typing import Dict, List, Optional
-from pydantic import BaseModel, Field, HttpUrl
+from pydantic import BaseModel, Field, HttpUrl, field_validator
 
 
 class EvaluationStatus(str, Enum):
@@ -14,11 +14,71 @@ class EvaluationStatus(str, Enum):
 
 
 
+class ExperienceRole(BaseModel):
+    """Historical professional role entry with metadata tags for dynamic role selection."""
+    id: str = Field(default="", description="Unique role identifier.")
+    title: str = Field(..., description="Job title held.")
+    organization: str = Field(..., description="Company, agency, or institution name.")
+    location: str = Field(..., description="City, State or Remote.")
+    start_date: str = Field(..., description="Start date (e.g., 'Jan 2021').")
+    end_date: str = Field(..., description="End date (e.g., 'Present' or 'Dec 2023').")
+    tags: List[str] = Field(
+        default_factory=list,
+        description="Domain tags for dynamic selection (e.g., 'data_entry', 'engineering', 'accounting').",
+    )
+    bullets: List[str] = Field(
+        default_factory=list,
+        description="Quantified accomplishment bullet points.",
+    )
+
+
+# Backward-compatibility alias
+WorkRole = ExperienceRole
+
+
+class EngineeringProject(BaseModel):
+    """Independent technical or engineering project entry."""
+    id: str = Field(default="", description="Unique project identifier.")
+    name: str = Field(..., description="Project name or system title.")
+    tags: List[str] = Field(
+        default_factory=list,
+        description="Domain or technology tags (e.g., 'rag', 'llm', 'backend', 'fullstack').",
+    )
+    bullets: List[str] = Field(
+        default_factory=list,
+        description="Key implementation details and quantifiable results.",
+    )
+
+
+class EducationEntry(BaseModel):
+    """Educational credential with institutional and geographic tags."""
+    id: str = Field(default="", description="Unique education entry identifier.")
+    institution: str = Field(..., description="Educational institution or program name.")
+    degree: str = Field(..., description="Degree, diploma, or certification earned.")
+    start_date: Optional[str] = Field(default=None, description="Start date string.")
+    end_date: Optional[str] = Field(default=None, description="End date or completion year.")
+    tags: List[str] = Field(
+        default_factory=list,
+        description="Geographic and category tags (e.g., 'local', 'tech', 'universal').",
+    )
+
+
+class CertificationEntry(BaseModel):
+    """Professional or industry certification."""
+    name: str = Field(..., description="Certification name.")
+    status: str = Field(default="Active", description="Certification status (e.g., 'Active', 'In Progress').")
+
+
 class UserConstraints(BaseModel):
     """Declarative constraints and non-negotiables for job filtering."""
-    min_hourly_rate: float = Field(
-        ...,
+    min_hourly_rate: Optional[float] = Field(
+        default=None,
         description="Minimum acceptable gross hourly rate in USD.",
+        ge=0.0,
+    )
+    min_weekly_earnings: Optional[float] = Field(
+        default=None,
+        description="Minimum acceptable weekly earnings in USD.",
         ge=0.0,
     )
     min_annual_salary: Optional[float] = Field(
@@ -26,47 +86,36 @@ class UserConstraints(BaseModel):
         description="Minimum acceptable annual salary in USD.",
         ge=0.0,
     )
-    max_commute_miles: int = Field(
+    max_commute_miles: Optional[int] = Field(
         default=25,
         description="Maximum acceptable one-way commute distance in miles.",
         ge=0,
     )
     physical_restrictions: List[str] = Field(
         default_factory=list,
-        description="Disqualifying physical demands (e.g., 'lift 50 lbs', 'ladder', 'prolonged standing').",
+        description="Disqualifying physical demands (e.g., 'heavy lifting', 'ladder climbing', 'prolonged standing').",
     )
     schedule_boundaries: List[str] = Field(
         default_factory=list,
-        description="Disqualifying schedule requirements (e.g., 'weekend', 'overnight', 'graveyard', 'mandatory overtime').",
-    )
-
-
-class ExperienceBullet(BaseModel):
-    """A quantified work accomplishment bullet point."""
-    bullet: str = Field(..., description="Action verb + quantifiable achievement + outcome.")
-    tags: List[str] = Field(default_factory=list, description="Associated skills or domain areas.")
-
-
-class WorkRole(BaseModel):
-    """Historical professional role entry."""
-    title: str = Field(..., description="Job title held.")
-    organization: str = Field(..., description="Company, agency, or institution name.")
-    location: str = Field(..., description="City, State or Remote.")
-    start_date: str = Field(..., description="Start date (e.g., 'Jan 2021').")
-    end_date: str = Field(..., description="End date (e.g., 'Present' or 'Dec 2023').")
-    bullets: List[str] = Field(
-        default_factory=list,
-        description="Quantified accomplishment bullet points.",
+        description="Disqualifying schedule requirements (e.g., 'graveyard', 'unannounced overtime', 'mandatory weekend').",
     )
 
 
 class MasterExperience(BaseModel):
-    """Comprehensive portfolio of past experience, tools, and education."""
+    """Comprehensive portfolio of past experience, tools, projects, and education."""
     target_titles: List[str] = Field(
         default_factory=list,
         description="Desired job titles to match against.",
     )
-    roles: List[WorkRole] = Field(
+    narrative_context: Optional[str] = Field(
+        default=None,
+        description="Strategic positioning directive and narrative framing guidance.",
+    )
+    engineering_projects: List[EngineeringProject] = Field(
+        default_factory=list,
+        description="Independent engineering and software projects.",
+    )
+    roles: List[ExperienceRole] = Field(
         default_factory=list,
         description="Chronological work history.",
     )
@@ -74,10 +123,54 @@ class MasterExperience(BaseModel):
         default_factory=list,
         description="Known software, tools, and technical competencies.",
     )
-    education: List[str] = Field(
+    education: List[EducationEntry] = Field(
         default_factory=list,
-        description="Degrees, certifications, and educational credentials.",
+        description="Degrees, academic credentials, and educational programs.",
     )
+    certifications: List[CertificationEntry] = Field(
+        default_factory=list,
+        description="Professional and industry certifications.",
+    )
+
+    @field_validator("education", mode="before")
+    @classmethod
+    def coerce_education(cls, v):
+        """Coerce legacy string education entries into EducationEntry objects."""
+        if isinstance(v, list):
+            coerced = []
+            for idx, item in enumerate(v):
+                if isinstance(item, str):
+                    coerced.append({
+                        "id": f"edu-{idx+1}",
+                        "institution": item,
+                        "degree": item,
+                        "tags": ["universal"],
+                    })
+                else:
+                    coerced.append(item)
+            return coerced
+        return v
+
+    @field_validator("roles", mode="before")
+    @classmethod
+    def coerce_roles(cls, v):
+        """Ensure roles have IDs if missing."""
+        if isinstance(v, list):
+            for idx, r in enumerate(v):
+                if isinstance(r, dict) and not r.get("id"):
+                    r["id"] = f"role-{idx+1}"
+        return v
+
+    @field_validator("engineering_projects", mode="before")
+    @classmethod
+    def coerce_projects(cls, v):
+        """Ensure engineering projects have IDs if missing."""
+        if isinstance(v, list):
+            for idx, p in enumerate(v):
+                if isinstance(p, dict) and not p.get("id"):
+                    p["id"] = f"proj-{idx+1}"
+        return v
+
 
 
 class UserProfile(BaseModel):
@@ -87,7 +180,9 @@ class UserProfile(BaseModel):
     phone: str = Field(..., description="Contact telephone number.")
     location: str = Field(..., description="Candidate home city and state.")
     linkedin_url: Optional[str] = Field(default=None, description="LinkedIn profile URL.")
-    constraints: UserConstraints = Field(..., description="Deterministic filtering constraints.")
+    portfolio_url: Optional[str] = Field(default=None, description="Portfolio website URL.")
+    github_url: Optional[str] = Field(default=None, description="GitHub profile URL.")
+    constraints: UserConstraints = Field(default_factory=UserConstraints, description="Deterministic filtering constraints.")
     master_experience: MasterExperience = Field(..., description="Candidate's comprehensive work background.")
 
 
@@ -136,9 +231,17 @@ class TailoredResumeData(BaseModel):
     tailored_summary: str = Field(..., description="3-4 sentence professional summary emphasizing alignment.")
     categorized_skills: Dict[str, List[str]] = Field(
         ...,
-        description="Categorized skills (e.g. Core Accounting, Software & ERP, Compliance).",
+        description="Categorized skills (e.g. Core Technical, Domain Workflows, Tools).",
     )
-    tailored_experience: List[WorkRole] = Field(
+    tailored_experience: List[ExperienceRole] = Field(
         ...,
         description="Roles with bullets prioritized and tailored to highlight target job requirements.",
+    )
+    tailored_projects: List[EngineeringProject] = Field(
+        default_factory=list,
+        description="Relevant engineering or technical projects tailored to the role.",
+    )
+    tailored_education: List[EducationEntry] = Field(
+        default_factory=list,
+        description="Selected education credentials aligned with geographic and technical context.",
     )

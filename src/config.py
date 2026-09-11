@@ -35,6 +35,7 @@ class Settings(BaseSettings):
     # Ingestion
     user_agent: str = "BeaconAI/1.0 (+https://github.com/beacon-ai; polite-job-crawler)"
     request_timeout_seconds: int = 15
+    target_feed_urls: Optional[str] = None
 
     # Outbound Notifications (Resend)
     resend_api_key: Optional[str] = None

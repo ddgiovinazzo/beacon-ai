@@ -1,0 +1,118 @@
+{
+  "name": "Alex Chen",
+  "email": "alex.chen@example.com",
+  "phone": "(555) 876-5432",
+  "location": "Metropolis, NY",
+  "linkedin_url": "https://linkedin.com/in/alexchen-dev",
+  "portfolio_url": "https://alexchen.dev",
+  "github_url": "https://github.com/alexchen-dev",
+  "constraints": {
+    "min_hourly_rate": 55.0,
+    "min_weekly_earnings": null,
+    "min_annual_salary": 115000.0,
+    "max_commute_miles": 25,
+    "physical_restrictions": [
+      "heavy lifting",
+      "warehouse labor",
+      "ladder climbing"
+    ],
+    "schedule_boundaries": [
+      "graveyard shift",
+      "unannounced overtime",
+      "mandatory weekends"
+    ]
+  },
+  "master_experience": {
+    "target_titles": [
+      "Software Engineer",
+      "Full Stack Engineer",
+      "Backend Developer",
+      "Systems Engineer",
+      "Python Developer"
+    ],
+    "narrative_context": "Mid-level software and systems engineer focused on dependable backend services, event-driven pipelines, and developer tooling.",
+    "engineering_projects": [
+      {
+        "id": "proj-1",
+        "name": "EventBridge Stream Engine",
+        "tags": ["python", "aws", "backend", "distributed_systems"],
+        "bullets": [
+          "Engineered high-throughput event processing pipelines ingesting 2.4M daily telemetry messages using Python and AWS SQS.",
+          "Implemented automated retry logic and dead-letter queue routing, eliminating message loss under peak loads."
+        ]
+      },
+      {
+        "id": "proj-2",
+        "name": "VectorDoc Search Agent",
+        "tags": ["python", "rag", "fastapi", "llm"],
+        "bullets": [
+          "Developed semantic retrieval service leveraging FastAPI, Qdrant vector index, and hybrid BM25 search.",
+          "Reduced document retrieval latency by 42% through connection pooling and in-memory embedding caches."
+        ]
+      }
+    ],
+    "roles": [
+      {
+        "id": "role-1",
+        "title": "Software Engineer",
+        "organization": "CloudScale Platforms",
+        "location": "Metropolis, NY",
+        "start_date": "Jan 2022",
+        "end_date": "Present",
+        "tags": ["software_engineering", "backend", "python", "rest_api", "cloud"],
+        "bullets": [
+          "Developed scalable REST microservices in FastAPI and PostgreSQL serving 150K monthly active users.",
+          "Maintained CI/CD deployment pipelines on GitHub Actions, cutting release deployment cycles from 45 to 12 minutes."
+        ]
+      },
+      {
+        "id": "role-2",
+        "title": "Systems Integration Specialist",
+        "organization": "Nexus Enterprise Systems",
+        "location": "Metropolis, NY",
+        "start_date": "Aug 2019",
+        "end_date": "Dec 2021",
+        "tags": ["systems", "it_support", "qa", "integration", "automation"],
+        "bullets": [
+          "Built data migration and validation scripts in Python, streamlining ERP data exchange across 4 business units.",
+          "Authored automated integration test suites increasing regression test coverage from 62% to 91%."
+        ]
+      }
+    ],
+    "tools_and_technologies": [
+      "Python",
+      "FastAPI",
+      "PostgreSQL",
+      "Docker",
+      "AWS (Lambda, SQS, S3)",
+      "React",
+      "TypeScript",
+      "Git CI/CD",
+      "Redis"
+    ],
+    "education": [
+      {
+        "id": "edu-1",
+        "institution": "Metropolis Technical Institute",
+        "degree": "B.S. in Computer Science",
+        "start_date": "2015",
+        "end_date": "2019",
+        "tags": ["tech", "universal"]
+      },
+      {
+        "id": "edu-2",
+        "institution": "Metropolis Community College",
+        "degree": "A.S. in Computer Information Systems",
+        "start_date": "2013",
+        "end_date": "2015",
+        "tags": ["local", "tech"]
+      }
+    ],
+    "certifications": [
+      {
+        "name": "AWS Certified Solutions Architect – Associate",
+        "status": "Active"
+      }
+    ]
+  }
+}

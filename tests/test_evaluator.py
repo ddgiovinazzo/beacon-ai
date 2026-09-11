@@ -403,3 +403,60 @@ def test_generate_tailored_resume_data_model_agnostic(monkeypatch, test_profile)
     assert called_model == "gpt-4o-mini"
 
 
+def test_tier1_rejects_dynamic_physical_restriction(test_profile):
+    """Tier 1 must dynamically reject postings matching any arbitrary physical restriction in profile."""
+    test_profile.constraints.physical_restrictions = ["prolonged standing", "pallet jack operation"]
+    job = JobPosting(
+        title="Inventory Clerk",
+        link="https://example.com/job-inv",
+        raw_text="Position requires prolonged standing across 8-hour shifts.",
+        source="example.com",
+    )
+    result = evaluate_tier1_deterministic(job, test_profile)
+    assert result is not None
+    assert result.status == EvaluationStatus.REJECT
+    assert "prolonged standing" in result.rejection_reason
+
+
+def test_tier1_rejects_commute_distance_exceeding_max(test_profile):
+    """Tier 1 must reject postings where physical commute exceeds profile max_commute_miles."""
+    test_profile.constraints.max_commute_miles = 15
+    job = JobPosting(
+        title="On-Site Operations Lead",
+        link="https://example.com/job-commute",
+        raw_text="Requires a 50-mile commute to our rural operations hub.",
+        source="example.com",
+    )
+    result = evaluate_tier1_deterministic(job, test_profile)
+    assert result is not None
+    assert result.status == EvaluationStatus.REJECT
+    assert "Commute distance exceeds limit: 50 miles" in result.rejection_reason
+
+
+def test_tier1_allows_remote_job_regardless_of_distance(test_profile):
+    """Tier 1 must not disqualify remote roles even if distant coordinates or miles are mentioned."""
+    test_profile.constraints.max_commute_miles = 15
+    job = JobPosting(
+        title="Remote Accounting Specialist",
+        link="https://example.com/job-remote",
+        raw_text="100% remote telecommute position. Headquarters is 60 miles from nearest airport.",
+        source="example.com",
+    )
+    result = evaluate_tier1_deterministic(job, test_profile)
+    assert result is None
+
+
+def test_tier2_heuristic_scores_dynamic_tags(test_profile):
+    """Tier 2 heuristic must dynamically match role and project tags against posting text."""
+    test_profile.master_experience.roles[0].tags = ["payroll_compliance", "general_ledger"]
+    job = JobPosting(
+        title="Accounting Specialist",
+        link="https://example.com/job-tag",
+        raw_text="Seeking candidate strong in general ledger and payroll compliance.",
+        source="example.com",
+    )
+    result = evaluate_tier2_heuristic(job, test_profile)
+    assert result.status == EvaluationStatus.MATCH
+    assert any("Domain alignment tags" in h for h in result.match_highlights)
+
+
