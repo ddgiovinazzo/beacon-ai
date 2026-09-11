@@ -10,6 +10,7 @@ import feedparser
 import requests
 from bs4 import BeautifulSoup
 
+from src.config import HTTP_USER_AGENT
 from src.schemas import JobPosting
 
 logger = logging.getLogger("beacon.ingestion")
@@ -79,15 +80,12 @@ def wrap_untrusted_content(clean_text: str) -> str:
     return f"<untrusted_job_posting>\n{safe_text}\n</untrusted_job_posting>"
 
 
-DEFAULT_BROWSER_USER_AGENT = (
-    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 "
-    "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
-)
+DEFAULT_BROWSER_USER_AGENT = HTTP_USER_AGENT
 
 
 def fetch_feed(
     source: Union[str, Path],
-    user_agent: str = DEFAULT_BROWSER_USER_AGENT,
+    user_agent: str = HTTP_USER_AGENT,
     timeout_seconds: int = 15,
 ) -> List[JobPosting]:
     """Ingest and parse an RSS feed from a remote URL or local XML file.

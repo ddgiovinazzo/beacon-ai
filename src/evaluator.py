@@ -5,7 +5,7 @@ import logging
 import re
 from typing import List, Optional, Tuple
 
-from src.config import Settings
+from src.config import LLM_MAX_RETRIES, Settings
 from src.schemas import (
     EvaluationResult,
     EvaluationStatus,
@@ -53,7 +53,7 @@ def is_retryable_llm_error(exc: BaseException) -> bool:
 @retry(
     retry=retry_if_exception(is_retryable_llm_error),
     wait=wait_exponential(multiplier=2, min=4, max=30),
-    stop=stop_after_attempt(3),
+    stop=stop_after_attempt(LLM_MAX_RETRIES),
     before_sleep=before_sleep_log(logger, logging.WARNING),
     reraise=True,
 )

@@ -8,6 +8,15 @@ from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
+# Operational runtime defaults backed by environment variables
+LLM_RATE_LIMIT_DELAY: float = float(os.getenv("LLM_RATE_LIMIT_DELAY", "7.0"))
+LLM_MAX_RETRIES: int = int(os.getenv("LLM_MAX_RETRIES", "3"))
+HTTP_USER_AGENT: str = os.getenv(
+    "HTTP_USER_AGENT",
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+)
+
+
 class Settings(BaseSettings):
     """Application settings loaded from environment or .env file."""
 
@@ -28,12 +37,15 @@ class Settings(BaseSettings):
     db_path: Path = Path("matches.db")
 
     # Ingestion
-    user_agent: str = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+    user_agent: str = HTTP_USER_AGENT
+    http_user_agent: str = HTTP_USER_AGENT
     request_timeout_seconds: int = 15
     target_feed_urls: Optional[str] = None
 
     # Rate Limiting & Throttling
-    llm_rate_limit_delay_seconds: float = 6.0
+    llm_rate_limit_delay: float = LLM_RATE_LIMIT_DELAY
+    llm_rate_limit_delay_seconds: float = LLM_RATE_LIMIT_DELAY
+    llm_max_retries: int = LLM_MAX_RETRIES
 
     # Outbound Notifications (Resend)
     resend_api_key: Optional[str] = None

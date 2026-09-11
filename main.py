@@ -12,7 +12,7 @@ from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
 
-from src.config import get_settings
+from src.config import LLM_RATE_LIMIT_DELAY, get_settings
 from src.db import get_recent_matches, get_stats, init_db, is_job_seen, record_job
 from src.evaluator import EvaluationEngine, evaluate_tier1_deterministic
 from src.generator import (
