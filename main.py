@@ -12,7 +12,7 @@ from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
 
-from src.config import LLM_RATE_LIMIT_DELAY, get_settings
+from src.config import get_settings
 from src.db import get_recent_matches, get_stats, init_db, is_job_seen, record_job
 from src.evaluator import EvaluationEngine, evaluate_tier1_deterministic
 from src.generator import (
@@ -175,7 +175,7 @@ def scan(
 
         postings = fetch_feed(
             current_feed,
-            user_agent=settings.user_agent,
+            user_agent=settings.http_user_agent,
             timeout_seconds=settings.request_timeout_seconds,
         )
 
@@ -212,16 +212,16 @@ def scan(
             result = engine.evaluate(posting, user_profile)
 
             # Enforce sequential delay between live LLM evaluations to stay strictly within 5-15 RPM quotas
-            if not dry_run and result.tier_evaluated == 2 and settings.llm_rate_limit_delay_seconds > 0:
-                time.sleep(settings.llm_rate_limit_delay_seconds)
+            if not dry_run and result.tier_evaluated == 2 and settings.llm_rate_limit_delay > 0:
+                time.sleep(settings.llm_rate_limit_delay)
 
             if result.status == EvaluationStatus.MATCH:
                 try:
                     resume_path = generate_tailored_resume(
                         posting, user_profile, result, settings, dry_run=dry_run
                     )
-                    if not dry_run and settings.llm_rate_limit_delay_seconds > 0:
-                        time.sleep(settings.llm_rate_limit_delay_seconds)
+                    if not dry_run and settings.llm_rate_limit_delay > 0:
+                        time.sleep(settings.llm_rate_limit_delay)
                     pdf_path = export_markdown_to_pdf(resume_path)
                     outreach_path = generate_outreach_draft(
                         posting, user_profile, result, settings

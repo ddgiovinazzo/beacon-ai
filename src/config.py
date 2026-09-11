@@ -37,15 +37,23 @@ class Settings(BaseSettings):
     db_path: Path = Path("matches.db")
 
     # Ingestion
-    user_agent: str = HTTP_USER_AGENT
     http_user_agent: str = HTTP_USER_AGENT
     request_timeout_seconds: int = 15
     target_feed_urls: Optional[str] = None
 
     # Rate Limiting & Throttling
     llm_rate_limit_delay: float = LLM_RATE_LIMIT_DELAY
-    llm_rate_limit_delay_seconds: float = LLM_RATE_LIMIT_DELAY
     llm_max_retries: int = LLM_MAX_RETRIES
+
+    @property
+    def user_agent(self) -> str:
+        """Backward-compatible alias for http_user_agent."""
+        return self.http_user_agent
+
+    @property
+    def llm_rate_limit_delay_seconds(self) -> float:
+        """Backward-compatible alias for llm_rate_limit_delay."""
+        return self.llm_rate_limit_delay
 
     # Outbound Notifications (Resend)
     resend_api_key: Optional[str] = None

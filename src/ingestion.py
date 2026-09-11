@@ -3,7 +3,7 @@
 import logging
 import re
 from pathlib import Path
-from typing import List, Optional, Union
+from typing import List, Union
 from urllib.parse import urlparse
 
 import feedparser

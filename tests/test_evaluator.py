@@ -1,7 +1,5 @@
 """Unit tests for deterministic filtering, compensation extraction, and multi-tier evaluation."""
 
-import json
-from pathlib import Path
 import pytest
 
 from src.config import Settings

@@ -1,6 +1,5 @@
 """Outbound transactional email notification module using Resend."""
 
-import html
 import logging
 from pathlib import Path
 import re

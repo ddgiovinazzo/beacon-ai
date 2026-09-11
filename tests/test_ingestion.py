@@ -1,7 +1,6 @@
 """Unit tests for feed ingestion, HTML sanitization, and XML guard encapsulation."""
 
 from pathlib import Path
-import pytest
 
 from src.ingestion import fetch_feed, sanitize_html, wrap_untrusted_content
 
@@ -121,7 +120,6 @@ def test_slug_uniqueness_for_identical_titles():
 def test_fetch_feed_enforces_byte_limit(monkeypatch):
     """Verify HTTP ingestion aborts when feed payload exceeds MAX_FEED_BYTES."""
     import requests
-    from src.ingestion import MAX_FEED_BYTES
 
     class MockResponse:
         def __init__(self):

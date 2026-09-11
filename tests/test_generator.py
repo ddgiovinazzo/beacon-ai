@@ -3,7 +3,7 @@
 from pathlib import Path
 import pytest
 
-from src.generator import blocked_url_fetcher, export_markdown_to_pdf, get_job_slug
+from src.generator import blocked_url_fetcher, export_markdown_to_pdf
 from src.schemas import JobPosting
 
 

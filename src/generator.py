@@ -18,7 +18,6 @@ from src.schemas import (
     JobPosting,
     TailoredResumeData,
     UserProfile,
-    WorkRole,
 )
 
 logger = logging.getLogger("beacon.generator")

@@ -22,6 +22,13 @@ def test_operational_defaults():
     assert settings.user_agent == HTTP_USER_AGENT
     assert settings.http_user_agent == HTTP_USER_AGENT
 
+    # Confirm canonical fields exist in schema and aliases are properties (no duplicate schema fields)
+    assert "http_user_agent" in Settings.model_fields
+    assert "llm_rate_limit_delay" in Settings.model_fields
+    assert "llm_max_retries" in Settings.model_fields
+    assert "user_agent" not in Settings.model_fields
+    assert "llm_rate_limit_delay_seconds" not in Settings.model_fields
+
 
 def test_operational_env_overrides():
     """Verify environment variables dynamically override operational defaults."""

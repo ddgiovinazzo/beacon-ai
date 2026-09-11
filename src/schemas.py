@@ -1,9 +1,8 @@
 """Strict Pydantic V2 schemas for BeaconAI data contracts."""
 
-from datetime import datetime
 from enum import Enum
-from typing import Dict, List, Optional
-from pydantic import BaseModel, Field, HttpUrl, field_validator
+from typing import Any, Dict, List, Optional
+from pydantic import BaseModel, Field, field_validator
 
 
 class EvaluationStatus(str, Enum):
@@ -273,7 +272,7 @@ class TailoredResumeData(BaseModel):
         return self.tailored_education
 
     @property
-    def skill_categories(self) -> List[Dict[str, any]]:
+    def skill_categories(self) -> List[Dict[str, Any]]:
         if isinstance(self.categorized_skills, dict):
             categories = []
             for cat, sk in self.categorized_skills.items():
