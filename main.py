@@ -30,6 +30,7 @@ from src.db import (
     is_job_seen,
     parse_timeframe,
     record_job,
+    unblock_company,
 )
 from src.evaluator import EvaluationEngine, evaluate_tier1_deterministic
 from src.generator import (
@@ -660,6 +661,33 @@ def list_blocked_cmd():
         table.add_row(item["company_name"], item["reason"] or "", item["added_at"] or "")
 
     console.print(table)
+
+
+@app.command("unblock-company")
+def unblock_company_cmd(
+    company: str = typer.Argument(..., help="Name of the company or employer to unblock"),
+):
+    """Remove a company from the persistent blocklist in SQLite."""
+    settings = get_settings()
+    init_db(settings.db_path)
+    clean_name = company.strip()
+    if not clean_name:
+        console.print("[bold red]Error:[/bold red] Company name cannot be empty.")
+        raise typer.Exit(code=1)
+
+    removed = unblock_company(clean_name, db_path=settings.db_path)
+    if removed:
+        console.print(
+            Panel(
+                f"[bold green]✓ Company unblocked successfully![/bold green]\n"
+                f"• Company: [bold green]{clean_name}[/bold green]\n"
+                f"• Database: [dim]{settings.db_path}[/dim]",
+                title="BeaconAI Company Blocklist",
+                border_style="green",
+            )
+        )
+    else:
+        console.print(f"[yellow]Company '{clean_name}' was not found in the blocklist.[/yellow]")
 
 
 if __name__ == "__main__":

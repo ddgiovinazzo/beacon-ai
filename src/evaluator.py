@@ -218,12 +218,6 @@ def evaluate_tier1_deterministic(
     ]
     for pattern in test_gate_patterns:
         if re.search(pattern, text_lower):
-            if company_name and config and getattr(config, "db_path", None):
-                from src.db import block_company
-                try:
-                    block_company(company_name, reason="Automated test-mill gate detection", db_path=config.db_path)
-                except Exception:
-                    pass
             return EvaluationResult(
                 status=EvaluationStatus.REJECT,
                 rejection_reason="Disqualified: Mandatory pre-interview test gate / assessment mill detected",

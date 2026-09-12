@@ -327,7 +327,7 @@ def is_company_blocked(
     company_name: str,
     db_path: Union[str, Path] = "matches.db",
 ) -> bool:
-    """Check if a company name matches any entry in the persistent blocklist."""
+    """Check if a company name matches any entry in the persistent blocklist using safe word boundaries."""
     clean_name = company_name.strip().lower()
     if not clean_name:
         return False
@@ -338,9 +338,33 @@ def is_company_blocked(
         rows = cursor.fetchall()
         for row in rows:
             blocked_term = str(row[0]).strip().lower()
-            if blocked_term and (blocked_term in clean_name or clean_name in blocked_term):
+            if not blocked_term:
+                continue
+            if clean_name == blocked_term:
+                return True
+            escaped_term = re.escape(blocked_term)
+            if re.search(rf"\b{escaped_term}\b", clean_name):
                 return True
     return False
+
+
+def unblock_company(
+    company_name: str,
+    db_path: Union[str, Path] = "matches.db",
+) -> bool:
+    """Remove a company from the persistent blocklist. Returns True if deleted, False if not found."""
+    clean_name = company_name.strip()
+    if not clean_name:
+        return False
+    init_db(db_path)
+    with get_connection(db_path) as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            "DELETE FROM blocked_companies WHERE LOWER(company_name) = LOWER(?);",
+            (clean_name,),
+        )
+        conn.commit()
+        return cursor.rowcount > 0
 
 
 def get_blocked_companies(db_path: Union[str, Path] = "matches.db") -> List[str]:

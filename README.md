@@ -418,7 +418,7 @@ python main.py clear-cache -t 1d --status reject -y
 python main.py clear-cache -t 1w --artifacts -y
 ```
 
-### 6. Company Blocklist & Assessment-Mill Defense (`block-company`, `list-blocked`)
+### 6. Company Blocklist & Assessment-Mill Defense (`block-company`, `unblock-company`, `list-blocked`)
 Protects against predatory assessment funnels, ghost job mills (e.g. Coalition Technologies), and candidate-harvesting agencies through deterministic Tier 1 exclusion:
 
 ```bash
@@ -427,10 +427,15 @@ python main.py block-company "Coalition Technologies" --reason "Perpetual test-m
 
 # View all blocked companies and reasons in database
 python main.py list-blocked
+
+# Unblock a company if needed
+python main.py unblock-company "Coalition Technologies"
 ```
 
 > [!TIP]
-> **1-Click Email Action & Workflow:** Match alert emails automatically detect company names and include a direct `[ 🚫 Block Company ]` button linking to the [`.github/workflows/block_company.yml`](.github/workflows/block_company.yml) GitHub Action. Clicking the button opens the workflow dispatch form pre-configured to append the offending employer to `matches.db` with zero local terminal work. In addition, mandatory upfront unpaid assessment gates (e.g., TestGorilla, CriteriaCorp) are automatically detected and auto-blocked at Tier 1.
+> **1-Click Email Action & Workflow:** Match alert emails automatically detect company names and include a direct `[ 🚫 Block Company ]` button linking to the [`.github/workflows/block_company.yml`](.github/workflows/block_company.yml) GitHub Action. Clicking the button opens the workflow dispatch form pre-configured to append or remove the offending employer to `matches.db` with zero local terminal work.
+>
+> **Safe Forensic Sniffer:** Mandatory upfront unpaid assessment gates (e.g., TestGorilla, CriteriaCorp) are automatically caught and disqualified at Tier 1 (saving 100% of LLM token costs) without permanently banning the employer across all future non-assessment postings unless you explicitly confirm a block.
 
 ---
 

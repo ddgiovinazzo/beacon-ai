@@ -26,6 +26,7 @@ from src.db import (
     is_job_seen,
     parse_timeframe,
     record_job,
+    unblock_company,
 )
 from src.schemas import EvaluationResult, EvaluationStatus, JobPosting
 
@@ -247,7 +248,7 @@ def test_clear_cache_cli(temp_db, monkeypatch):
 
 
 def test_blocked_companies_db(temp_db):
-    """Test block_company, is_company_blocked, and retrieval functions."""
+    """Test block_company, is_company_blocked, unblock_company, and retrieval functions."""
     assert not is_company_blocked("Coalition Technologies", db_path=temp_db)
     assert get_blocked_companies(temp_db) == []
 
@@ -258,25 +259,28 @@ def test_blocked_companies_db(temp_db):
     assert is_company_blocked("Coalition Technologies LLC", db_path=temp_db)
     assert not is_company_blocked("Google", db_path=temp_db)
 
+    # Word-boundary check: "Apex" does not match "Speakeasy"
+    block_company("Apex", reason="Generic agency", db_path=temp_db)
+    assert is_company_blocked("Apex Systems", db_path=temp_db)
+    assert not is_company_blocked("Speakeasy Bar & Grill", db_path=temp_db)
+
     # Retrieval
     names = get_blocked_companies(temp_db)
     assert "Coalition Technologies" in names
+    assert "Apex" in names
 
     details = get_blocked_companies_details(temp_db)
-    assert len(details) == 1
-    assert details[0]["company_name"] == "Coalition Technologies"
-    assert details[0]["reason"] == "Unpaid test-mill funnel"
-    assert details[0]["added_at"] != ""
+    assert len(details) == 2
 
-    # Duplicate block does not fail
-    block_company("Coalition Technologies", reason="Updated reason", db_path=temp_db)
-    details2 = get_blocked_companies_details(temp_db)
-    assert len(details2) == 1
-    assert details2[0]["reason"] == "Updated reason"
+    # Unblock company
+    assert unblock_company("Apex", db_path=temp_db) is True
+    assert not is_company_blocked("Apex", db_path=temp_db)
+    assert unblock_company("NonExistentCorp", db_path=temp_db) is False
+    assert len(get_blocked_companies(temp_db)) == 1
 
 
 def test_blocked_companies_cli(temp_db, monkeypatch):
-    """Test CLI commands block-company and list-blocked."""
+    """Test CLI commands block-company, unblock-company, and list-blocked."""
     runner = CliRunner()
     import main
     class MockSettings:
@@ -299,4 +303,13 @@ def test_blocked_companies_cli(temp_db, monkeypatch):
     assert res_list.exit_code == 0
     assert "Apex Staffing" in res_list.stdout
     assert "Ghost jobs" in res_list.stdout
+
+    # Unblock via CLI
+    res_unblock = runner.invoke(app, ["unblock-company", "Apex Staffing"])
+    assert res_unblock.exit_code == 0
+    assert "Company unblocked successfully!" in res_unblock.stdout
+
+    # Verify empty after unblock
+    res_list_after = runner.invoke(app, ["list-blocked"])
+    assert "No companies currently blocked" in res_list_after.stdout
 

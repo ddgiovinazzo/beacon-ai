@@ -768,8 +768,8 @@ def test_tier1_rejects_blocked_companies_from_db(test_profile, tmp_path):
     assert "Blocked company/employer matched: 'Revature'" in res.rejection_reason
 
 
-def test_tier1_rejects_test_gate_patterns_and_auto_blocks(test_profile, tmp_path):
-    """Verify that upfront unpaid assessment gates are rejected and logged to blocked_companies."""
+def test_tier1_rejects_test_gate_patterns(test_profile, tmp_path):
+    """Verify that upfront unpaid assessment gates are rejected at Tier 1 without auto-banning company."""
     from src.db import is_company_blocked
     db_file = tmp_path / "test_testgate.db"
     config = Settings(db_path=db_file)
@@ -786,8 +786,9 @@ def test_tier1_rejects_test_gate_patterns_and_auto_blocks(test_profile, tmp_path
     assert "Mandatory pre-interview test gate" in res.rejection_reason
     assert res.detected_company == "TestMill Agency"
 
-    # Verify auto-blocked in database
-    assert is_company_blocked("TestMill Agency", db_path=db_file)
+    # Verify company is NOT auto-blocked in database (requires human confirmation to prevent false positives)
+    assert not is_company_blocked("TestMill Agency", db_path=db_file)
+
 
 
 

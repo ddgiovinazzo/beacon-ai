@@ -1,14 +1,22 @@
-name: Block Company / Employer
+name: Manage Blocked Companies
 
 on:
   workflow_dispatch:
     inputs:
       company_name:
-        description: "Exact company or employer name to block"
+        description: "Exact company or employer name"
         required: true
         type: string
+      action:
+        description: "Action to perform"
+        required: true
+        type: choice
+        default: "block"
+        options:
+          - "block"
+          - "unblock"
       reason:
-        description: "Reason for blocking (e.g. ghost jobs, test mill, spam)"
+        description: "Reason (for blocking only)"
         required: false
         type: string
         default: "Manual block via GitHub Action"
@@ -21,8 +29,8 @@ permissions:
   contents: write
 
 jobs:
-  block_company:
-    name: Block Company
+  manage_blocklist:
+    name: Manage Blocklist
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Repository
@@ -39,10 +47,17 @@ jobs:
           pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: Add Company to Blocklist
+      - name: Block Company
+        if: ${{ inputs.action == 'block' }}
         run: |
           echo "==> Blocking company: ${{ inputs.company_name }}"
           python main.py block-company "${{ inputs.company_name }}" --reason "${{ inputs.reason }}"
+
+      - name: Unblock Company
+        if: ${{ inputs.action == 'unblock' }}
+        run: |
+          echo "==> Unblocking company: ${{ inputs.company_name }}"
+          python main.py unblock-company "${{ inputs.company_name }}"
 
       - name: List Current Blocklist
         run: python main.py list-blocked
@@ -55,6 +70,6 @@ jobs:
           if git diff --staged --quiet; then
             echo "No state changes to commit."
           else
-            git commit -m "chore(blocklist): block company '${{ inputs.company_name }}' [skip ci]"
+            git commit -m "chore(blocklist): ${{ inputs.action }} company '${{ inputs.company_name }}' [skip ci]"
             git push origin main
           fi
