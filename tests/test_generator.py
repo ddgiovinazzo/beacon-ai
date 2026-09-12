@@ -1426,7 +1426,7 @@ def test_generate_tailored_resume_data_grounds_experience_to_track():
 
     # Verify bullets were snapped back to track.roles verified bullets verbatim
     assert result.tailored_experience[0].organization == "PowerSchool"
-    assert "**Data Verification & Entry:** Validated and processed high-volume student and institutional data records across web portals, maintaining 100% data entry integrity." in result.tailored_experience[0].bullets[0]
+    assert "**Data Grid Architecture:** Built modular, reusable data-grid components" in result.tailored_experience[0].bullets[0]
     assert "Invented Fluff" not in result.tailored_experience[0].bullets[0]
     # Verify github link was forced to False
     assert result.include_github_link is False
