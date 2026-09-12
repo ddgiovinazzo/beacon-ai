@@ -1,0 +1,110 @@
+name: Evaluate Single Job On-The-Fly
+
+on:
+  workflow_dispatch:
+    inputs:
+      job_title:
+        description: "Job Title (e.g. Bookkeeper, IT Support Specialist)"
+        required: true
+        type: string
+      company:
+        description: "Company Name (e.g. Inter County Alarm Systems)"
+        required: true
+        type: string
+      location:
+        description: "Location (e.g. Valley Cottage, NY)"
+        required: false
+        type: string
+        default: "Rockland County, NY"
+      job_url:
+        description: "Job Posting URL (Craigslist, Indeed, LinkedIn, etc.)"
+        required: false
+        type: string
+      job_description:
+        description: "Full Job Description Text (Paste posting content here)"
+        required: true
+        type: string
+      send_notification:
+        description: "Send email alert with tailored PDF resume & outreach draft if matched"
+        required: false
+        type: boolean
+        default: true
+
+concurrency:
+  group: manual-eval-execution
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  evaluate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Install System Dependencies (WeasyPrint)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libpango-1.0-0 libharfbuzz0b libpangoft2-1.0-0
+
+      - name: Install Python Dependencies
+        run: |
+          pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Inject Candidate Profile from Secret
+        env:
+          PROFILE_B64: ${{ secrets.USER_PROFILE_JSON_B64 || secrets.PROFILE_JSON_BASE64 || secrets.CANDIDATE_PROFILE_B64 }}
+        run: |
+          mkdir -p profiles
+          echo "$PROFILE_B64" | base64 --decode > profiles/ephemeral_raw
+          python3 -c "import gzip; d = open('profiles/ephemeral_raw', 'rb').read(); open('profiles/ephemeral_profile.json', 'wb').write(gzip.decompress(d) if d.startswith(b'\x1f\x8b') else d)"
+          rm -f profiles/ephemeral_raw
+
+      - name: Execute On-The-Fly Job Evaluation
+        env:
+          LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
+          LLM_MODEL: ${{ vars.LLM_MODEL || secrets.LLM_MODEL }}
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          NOTIFICATION_EMAIL_TO: ${{ secrets.NOTIFICATION_EMAIL_TO }}
+          NOTIFICATION_EMAIL_FROM: ${{ secrets.NOTIFICATION_EMAIL_FROM }}
+          JOB_TITLE: ${{ inputs.job_title }}
+          COMPANY: ${{ inputs.company }}
+          LOCATION: ${{ inputs.location }}
+          JOB_URL: ${{ inputs.job_url }}
+          JOB_DESCRIPTION: ${{ inputs.job_description }}
+          NOTIFY_FLAG: ${{ inputs.send_notification && '--notify' || '--no-notify' }}
+        run: |
+          echo "==> Evaluating job posting on-the-fly: '$JOB_TITLE' at '$COMPANY'"
+          python main.py evaluate-job \
+            --title "$JOB_TITLE" \
+            --company "$COMPANY" \
+            --location "$LOCATION" \
+            --url "$JOB_URL" \
+            --text "$JOB_DESCRIPTION" \
+            --profile profiles/ephemeral_profile.json \
+            $NOTIFY_FLAG
+
+      - name: Purge Ephemeral Profile
+        if: always()
+        run: rm -f profiles/ephemeral_profile.json
+
+      - name: Commit Updated State
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git add matches.db || true
+          if git diff --staged --quiet; then
+            echo "No state changes to commit."
+          else
+            git commit -m "chore(automation): record manual evaluation state [skip ci]"
+            git push origin main
+          fi

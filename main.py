@@ -38,6 +38,7 @@ from src.generator import (
     export_markdown_to_pdf,
     generate_outreach_draft,
     generate_tailored_resume,
+    slugify,
 )
 from src.ingestion import fetch_feed, fetch_imap_emails, mark_imap_messages_seen
 from src.notifier import send_match_notification
@@ -501,6 +502,113 @@ def test_eval(
                 border_style="red",
             )
         )
+
+
+@app.command("evaluate-job")
+def evaluate_job_cmd(
+    title: str = typer.Option(..., "--title", "-t", help="Job title (e.g. 'Bookkeeper')."),
+    company: str = typer.Option(..., "--company", "-c", help="Company name (e.g. 'Inter County Alarm Systems')."),
+    text: str = typer.Option(..., "--text", help="Raw job description text."),
+    location: Optional[str] = typer.Option("Rockland County, NY", "--location", "-l", help="Job location."),
+    url: Optional[str] = typer.Option(None, "--url", "-u", help="Job posting URL."),
+    profile: Path = typer.Option(
+        Path("profiles/daniel_giovinazzo.json"),
+        "--profile",
+        "-p",
+        help="Path to user profile JSON file.",
+    ),
+    notify: bool = typer.Option(True, "--notify/--no-notify", help="Send email alert if matched."),
+    dry_run: bool = typer.Option(False, "--dry-run", help="Run in dry-run mode without live LLM calls."),
+):
+    """Evaluate a single job posting on-the-fly and generate tailored artifacts if matched."""
+    settings = get_settings()
+    init_db(settings.db_path)
+    settings.ensure_directories()
+    user_profile = load_profile(profile)
+
+    job_title = f"{title} - {company}" if company.lower() not in title.lower() else title
+    job_link = url if (url and url.strip()) else f"https://beacon.local/manual-eval/{slugify(company)}_{slugify(title)}"
+    posting = JobPosting(
+        title=job_title,
+        link=job_link,
+        raw_text=text,
+        source=f"manual-input:{company}",
+    )
+
+    console.print(
+        Panel(
+            f"Title: [bold]{title}[/bold]\n"
+            f"Company: [bold cyan]{company}[/bold cyan]\n"
+            f"Location: {location}\n"
+            f"Candidate: [bold]{user_profile.name}[/bold]\n"
+            f"Evaluation Mode: {'Deterministic Dry-Run' if dry_run else 'Full 4-Layer LLM'}",
+            title="BeaconAI On-The-Fly Job Evaluation",
+            border_style="cyan",
+        )
+    )
+
+    engine = EvaluationEngine(settings, dry_run=dry_run)
+    result = engine.evaluate(posting, user_profile)
+
+    if result.status == EvaluationStatus.MATCH:
+        try:
+            resume_path = generate_tailored_resume(
+                posting, user_profile, result, settings, dry_run=dry_run
+            )
+            pdf_path = export_markdown_to_pdf(resume_path)
+            outreach_path = generate_outreach_draft(
+                posting, user_profile, result, settings
+            )
+            record_job(posting, result, settings.db_path)
+
+            email_status = "[dim]Disabled (--no-notify)[/dim]"
+            if notify:
+                sent = send_match_notification(
+                    posting, result, pdf_path, outreach_path, config=settings
+                )
+                if sent:
+                    email_status = f"[bold green]✓ Dispatched to {settings.notification_email_to}[/bold green]"
+                else:
+                    email_status = "[dim yellow]⚠ Skipped (check RESEND_API_KEY/email settings)[/dim yellow]"
+
+            console.print(
+                Panel(
+                    f"[bold green]✓ QUALIFIED MATCH (Tier {result.tier_evaluated})[/bold green]\n"
+                    f"Fit Score: [bold green]{result.fit_score}/100[/bold green]\n"
+                    f"Estimated Comp: {result.estimated_compensation or 'Not specified'}\n"
+                    f"Reason: {result.rejection_reason or 'Qualified against candidate criteria'}\n\n"
+                    f"• Tailored Resume: [cyan]{resume_path}[/cyan]\n"
+                    f"• Sandboxed PDF: [cyan]{pdf_path}[/cyan]\n"
+                    f"• Outreach Draft: [cyan]{outreach_path}[/cyan]\n"
+                    f"• Email Alert: {email_status}",
+                    title="Evaluation Verdict: MATCH",
+                    border_style="green",
+                )
+            )
+        except Exception as e:
+            console.print(f"[bold red]Error generating artifacts:[/bold red] {e}")
+            raise typer.Exit(code=1)
+    elif result.status == EvaluationStatus.REJECT:
+        console.print(
+            Panel(
+                f"[bold red]✗ REJECTED (Tier {result.tier_evaluated})[/bold red]\n"
+                f"Reason: [red]{result.rejection_reason}[/red]\n"
+                f"Estimated Comp: {result.estimated_compensation or 'Not detected'}",
+                title="Evaluation Verdict: REJECT",
+                border_style="red",
+            )
+        )
+        record_job(posting, result, settings.db_path)
+    else:
+        console.print(
+            Panel(
+                f"[bold yellow]? DEFERRED (Tier {result.tier_evaluated})[/bold yellow]\n"
+                f"Reason: {result.rejection_reason}",
+                title="Evaluation Verdict: DEFERRED",
+                border_style="yellow",
+            )
+        )
+        record_job(posting, result, settings.db_path)
 
 
 @app.command("clear-cache")
