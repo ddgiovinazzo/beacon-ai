@@ -5,8 +5,33 @@ on:
     - cron: "0 13 * * *"
   workflow_dispatch:
     inputs:
+      clear_cache:
+        description: "Clear cache before scan (timeframe window)"
+        required: false
+        type: choice
+        default: "none"
+        options:
+          - "none"
+          - "1h"
+          - "6h"
+          - "1d"
+          - "1w"
+          - "1m"
+          - "6m"
+          - "1y"
+          - "all"
+      clear_status:
+        description: "Status filter for cache clearing (e.g. reject only)"
+        required: false
+        type: choice
+        default: "all"
+        options:
+          - "all"
+          - "reject"
+          - "match"
+          - "deferred"
       force_rescan:
-        description: "Force re-evaluate all active postings (wipe cached matches.db)"
+        description: "Legacy alias: Force wipe all cache (same as clear_cache=all)"
         required: false
         type: boolean
         default: false
@@ -25,12 +50,6 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Handle Force Rescan (Wipe Deduplication Cache)
-        if: ${{ inputs.force_rescan == true || github.event.inputs.force_rescan == 'true' }}
-        run: |
-          echo "Force rescan requested: wiping matches.db to re-evaluate all active postings."
-          rm -f matches.db
-
       - name: Set up Python 3.11
         uses: actions/setup-python@v5
         with:
@@ -46,6 +65,17 @@ jobs:
         run: |
           pip install --upgrade pip
           pip install -r requirements.txt
+
+      - name: Clear Deduplication Cache (if requested)
+        if: ${{ (inputs.clear_cache && inputs.clear_cache != 'none') || inputs.force_rescan == true || github.event.inputs.force_rescan == 'true' }}
+        run: |
+          TIMEFRAME="${{ inputs.clear_cache }}"
+          if [ -z "$TIMEFRAME" ] || [ "$TIMEFRAME" = "none" ]; then
+            TIMEFRAME="all"
+          fi
+          STATUS="${{ inputs.clear_status || 'all' }}"
+          echo "==> Clearing cache before scan: timeframe=$TIMEFRAME, status=$STATUS"
+          python main.py clear-cache --timeframe "$TIMEFRAME" --status "$STATUS" --yes
 
       - name: Inject Candidate Profile from Secret
         env:

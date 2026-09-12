@@ -1,0 +1,89 @@
+name: Manage Cache & History
+
+on:
+  workflow_dispatch:
+    inputs:
+      timeframe:
+        description: "Time range to clear from history"
+        required: true
+        type: choice
+        default: "1d"
+        options:
+          - "1h"
+          - "6h"
+          - "1d"
+          - "1w"
+          - "1m"
+          - "6m"
+          - "1y"
+          - "all"
+      status:
+        description: "Filter by posting evaluation status"
+        required: true
+        type: choice
+        default: "all"
+        options:
+          - "all"
+          - "reject"
+          - "match"
+          - "deferred"
+      action:
+        description: "Action to perform"
+        required: true
+        type: choice
+        default: "clear"
+        options:
+          - "clear"
+          - "stats-only (inspect metrics)"
+
+concurrency:
+  group: cache-management-execution
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  manage_cache:
+    name: Clear / Inspect Cache
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Install Python Dependencies
+        run: |
+          pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Display Database Metrics (Before)
+        run: python main.py stats
+
+      - name: Execute Cache Clear
+        if: ${{ inputs.action == 'clear' }}
+        run: |
+          echo "==> Clearing cache with timeframe=${{ inputs.timeframe }}, status=${{ inputs.status }}"
+          python main.py clear-cache --timeframe "${{ inputs.timeframe }}" --status "${{ inputs.status }}" --yes
+
+      - name: Display Database Metrics (After)
+        if: ${{ inputs.action == 'clear' }}
+        run: python main.py stats
+
+      - name: Commit Updated State
+        if: ${{ inputs.action == 'clear' }}
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git add matches.db || true
+          if git diff --staged --quiet; then
+            echo "No state changes to commit."
+          else
+            git commit -m "chore(cache): clear history (${{ inputs.timeframe }} / ${{ inputs.status }}) [skip ci]"
+            git push origin main
+          fi

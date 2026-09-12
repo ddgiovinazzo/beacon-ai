@@ -425,6 +425,7 @@ python main.py clear-cache -t 1w --artifacts -y
 BeaconAI operates as an autonomous background agent via a scheduled, headless GitHub Actions workflow ([`.github/workflows/daily_scan.yml`](.github/workflows/daily_scan.yml)):
 
 * **Zero-Storage Privacy:** Ingests the candidate profile dynamically from the `USER_PROFILE_JSON_B64` secret at runtime. Decodes to `profiles/ephemeral_profile.json` and purges it under `if: always()` so no candidate data remains on the runner or in Git history.
+* **Production Cache Management:** Clear or inspect deduplication history in production `matches.db` on demand via the standalone **Manage Cache & History** workflow ([`.github/workflows/manage_cache.yml`](.github/workflows/manage_cache.yml)) or directly before a scan in [`daily_scan.yml`](.github/workflows/daily_scan.yml) across granular timeframes (`1h`, `6h`, `1d`, `1w`, `1m`, `6m`, `1y`, `all`) and status filters (`all`, `reject`, `match`).
 * **Dynamic Multi-Feed Ingestion:** Loops across feeds defined in repository variable `TARGET_FEED_URLS` (or secret `TARGET_FEED_URLS`), allowing feed sources to be managed without committing code.
 * **IMAP Mailbox Integration:** Supports `IMAP_SERVER`, `IMAP_USERNAME`, and `IMAP_PASSWORD` secrets to automatically check for job alerts during scheduled runs.
 * **Cron Schedule:** Executes daily at `0 12 * * *` (8:00 AM EST) with support for on-demand `workflow_dispatch` manual triggers.
