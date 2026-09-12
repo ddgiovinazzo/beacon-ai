@@ -98,6 +98,10 @@ class UserConstraints(BaseModel):
         default_factory=list,
         description="Disqualifying schedule requirements (e.g., 'graveyard', 'unannounced overtime', 'mandatory weekend').",
     )
+    culture_disqualifiers: List[str] = Field(
+        default_factory=list,
+        description="Disqualifying toxic workplace indicators, predatory startup buzzwords, and exploitative work conditions (e.g., 'work hard play hard', 'we are a family', 'wear many hats').",
+    )
 
 
 class ProfileTrack(BaseModel):

@@ -163,20 +163,27 @@ def evaluate_tier1_deterministic(
             for restriction in profile.constraints.physical_restrictions:
                 restriction_lower = restriction.lower()
                 num_match = re.search(r"(\d+)", restriction_lower)
-                if num_match and "lift" in restriction_lower:
+                if num_match and ("lift" in restriction_lower or "pound" in restriction_lower or "lb" in restriction_lower):
                     max_allowed = int(num_match.group(1))
-                    if weight >= max_allowed:
-                        return EvaluationResult(
-                            status=EvaluationStatus.REJECT,
-                            rejection_reason=f"Physical demand exceeds limit: requires lifting {weight} lbs (max {max_allowed} lbs)",
-                            fit_score=0,
-                            tier_evaluated=1,
-                        )
+                elif "heavy lifting" in restriction_lower:
+                    max_allowed = 25
+                else:
+                    max_allowed = None
+
+                if max_allowed is not None and weight >= max_allowed:
+                    return EvaluationResult(
+                        status=EvaluationStatus.REJECT,
+                        rejection_reason=f"Physical demand exceeds limit: requires lifting {weight} lbs (max {max_allowed} lbs)",
+                        fit_score=0,
+                        tier_evaluated=1,
+                    )
         except ValueError:
             pass
 
     # Dynamic regex match against profile physical restrictions
     for restriction in profile.constraints.physical_restrictions:
+        if re.search(r"[><=]", restriction):
+            continue
         pattern = re.escape(restriction.lower())
         if re.search(rf"\b{pattern}s?\b", clean_keyword_text):
             return EvaluationResult(
@@ -193,6 +200,17 @@ def evaluate_tier1_deterministic(
             return EvaluationResult(
                 status=EvaluationStatus.REJECT,
                 rejection_reason=f"Schedule conflict matched: '{boundary}'",
+                fit_score=0,
+                tier_evaluated=1,
+            )
+
+    # 3. Check culture disqualifiers & toxic workplace indicators
+    for flag in getattr(profile.constraints, "culture_disqualifiers", []):
+        pattern = re.escape(flag.lower())
+        if re.search(rf"\b{pattern}\b", text_lower):
+            return EvaluationResult(
+                status=EvaluationStatus.REJECT,
+                rejection_reason=f"Toxic workplace culture indicator matched: '{flag}'",
                 fit_score=0,
                 tier_evaluated=1,
             )
@@ -441,9 +459,10 @@ def evaluate_tier2_llm(
             "Decision Rules:\n"
             "1. If the job role matches the candidate's target domains, skills, and qualifications, set status to 'MATCH' and provide a fit_score between 70 and 100.\n"
             "2. If the role is unrelated or under-qualified, set status to 'REJECT', provide a concise rejection_reason, and a fit_score below 50.\n"
-            "3. Extract any estimated compensation range found in the text.\n"
-            "4. Return 2-4 concrete match highlights if matching.\n"
-            "5. Set tier_evaluated = 2."
+            "3. If the role displays toxic culture red flags, predatory startup jargon ('work hard play hard', 'we are a family', 'wear many hats'), or unstated physical warehouse labor, set status to 'REJECT'.\n"
+            "4. Extract any estimated compensation range found in the text.\n"
+            "5. Return 2-4 concrete match highlights if matching.\n"
+            "6. Set tier_evaluated = 2."
         )
 
         matched_track = resolve_profile_track(posting, profile) if profile.tracks else None
@@ -459,6 +478,7 @@ def evaluate_tier2_llm(
         target_titles = matched_track.target_titles if matched_track else profile.master_experience.target_titles
         directive = matched_track.narrative_context if (matched_track and matched_track.narrative_context) else profile.master_experience.narrative_context
         skills = [s for cat in matched_track.categorized_skills.values() for s in cat] if matched_track else profile.master_experience.tools_and_technologies
+        culture_red_flags = getattr(profile.constraints, "culture_disqualifiers", [])
 
         user_content = f"""CANDIDATE TARGET TITLES:
 {json.dumps(target_titles)}
@@ -469,10 +489,11 @@ CANDIDATE POSITIONING DIRECTIVE:
 CANDIDATE MASTER SKILLS & TOOLS:
 {json.dumps(skills)}
 
-CANDIDATE CONSTRAINTS:
+CANDIDATE CONSTRAINTS & RED FLAGS:
 Min Hourly: ${profile.constraints.min_hourly_rate or 0}/hr
 Min Salary: ${profile.constraints.min_annual_salary or 0}
 Max Commute: {profile.constraints.max_commute_miles or 'Any'} miles from {profile.location}
+Disqualifying Culture & Workplace Red Flags: {json.dumps(culture_red_flags)}
 
 JOB POSTING (Strictly bounded untrusted input):
 <untrusted_job_posting>

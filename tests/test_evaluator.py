@@ -652,3 +652,55 @@ def test_evaluate_tier2_rejects_immediately_when_no_track_matched():
     assert "does not match any configured candidate career tracks" in (result.rejection_reason or "")
     assert result.fit_score == 15
 
+
+def test_tier1_rejects_heavy_lifting_default_threshold(test_profile):
+    """Verify that 'heavy lifting' in profile physical restrictions automatically rejects lifting >= 25 lbs."""
+    from src.evaluator import evaluate_tier1_deterministic
+    from src.schemas import EvaluationStatus, JobPosting
+
+    test_profile.constraints.physical_restrictions = ["heavy lifting", "prolonged standing"]
+
+    job = JobPosting(
+        title="Office Assistant",
+        link="https://example.com/office",
+        raw_text="Must be able to lift 35 lbs boxes of files regularly.",
+        source="example.com",
+    )
+    result = evaluate_tier1_deterministic(job, test_profile)
+    assert result is not None
+    assert result.status == EvaluationStatus.REJECT
+    assert "requires lifting 35 lbs (max 25 lbs)" in result.rejection_reason
+
+
+def test_tier1_rejects_toxic_culture_disqualifiers(test_profile):
+    """Verify that culture disqualifiers reject exploitative workplace buzzwords at Tier 1."""
+    from src.evaluator import evaluate_tier1_deterministic
+    from src.schemas import EvaluationStatus, JobPosting
+
+    test_profile.constraints.culture_disqualifiers = [
+        "work hard, play hard", "we are a family", "wear many hats", "thrives in chaos"
+    ]
+
+    job_family = JobPosting(
+        title="Frontend Developer",
+        link="https://example.com/startup-1",
+        raw_text="Join our tight-knit team! We are a family here and love what we do.",
+        source="example.com",
+    )
+    res_family = evaluate_tier1_deterministic(job_family, test_profile)
+    assert res_family is not None
+    assert res_family.status == EvaluationStatus.REJECT
+    assert "Toxic workplace culture indicator matched: 'we are a family'" in res_family.rejection_reason
+
+    job_hats = JobPosting(
+        title="Junior Developer",
+        link="https://example.com/startup-2",
+        raw_text="Fast-moving startup where you will wear many hats and work directly with founders.",
+        source="example.com",
+    )
+    res_hats = evaluate_tier1_deterministic(job_hats, test_profile)
+    assert res_hats is not None
+    assert res_hats.status == EvaluationStatus.REJECT
+    assert "Toxic workplace culture indicator matched: 'wear many hats'" in res_hats.rejection_reason
+
+
