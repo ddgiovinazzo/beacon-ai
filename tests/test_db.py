@@ -13,12 +13,16 @@ from typer.testing import CliRunner
 from main import app
 from src.db import (
     TIMEFRAME_PRESETS,
+    block_company,
     clear_cache,
     clear_match_artifacts,
+    get_blocked_companies,
+    get_blocked_companies_details,
     get_cache_counts,
     get_recent_matches,
     get_stats,
     init_db,
+    is_company_blocked,
     is_job_seen,
     parse_timeframe,
     record_job,
@@ -240,3 +244,59 @@ def test_clear_cache_cli(temp_db, monkeypatch):
     result_invalid = runner.invoke(app, ["cache-clear", "--timeframe", "bad-timeframe", "--yes"])
     assert result_invalid.exit_code == 1
     assert "Unknown timeframe" in result_invalid.stdout
+
+
+def test_blocked_companies_db(temp_db):
+    """Test block_company, is_company_blocked, and retrieval functions."""
+    assert not is_company_blocked("Coalition Technologies", db_path=temp_db)
+    assert get_blocked_companies(temp_db) == []
+
+    # Block company
+    block_company("Coalition Technologies", reason="Unpaid test-mill funnel", db_path=temp_db)
+    assert is_company_blocked("Coalition Technologies", db_path=temp_db)
+    assert is_company_blocked("coalition technologies", db_path=temp_db)
+    assert is_company_blocked("Coalition Technologies LLC", db_path=temp_db)
+    assert not is_company_blocked("Google", db_path=temp_db)
+
+    # Retrieval
+    names = get_blocked_companies(temp_db)
+    assert "Coalition Technologies" in names
+
+    details = get_blocked_companies_details(temp_db)
+    assert len(details) == 1
+    assert details[0]["company_name"] == "Coalition Technologies"
+    assert details[0]["reason"] == "Unpaid test-mill funnel"
+    assert details[0]["added_at"] != ""
+
+    # Duplicate block does not fail
+    block_company("Coalition Technologies", reason="Updated reason", db_path=temp_db)
+    details2 = get_blocked_companies_details(temp_db)
+    assert len(details2) == 1
+    assert details2[0]["reason"] == "Updated reason"
+
+
+def test_blocked_companies_cli(temp_db, monkeypatch):
+    """Test CLI commands block-company and list-blocked."""
+    runner = CliRunner()
+    import main
+    class MockSettings:
+        db_path = temp_db
+    monkeypatch.setattr(main, "get_settings", lambda: MockSettings())
+
+    # Empty list
+    res_list_empty = runner.invoke(app, ["list-blocked"])
+    assert res_list_empty.exit_code == 0
+    assert "No companies currently blocked" in res_list_empty.stdout
+
+    # Block via CLI
+    res_block = runner.invoke(app, ["block-company", "Apex Staffing", "--reason", "Ghost jobs"])
+    assert res_block.exit_code == 0
+    assert "Company blocked successfully!" in res_block.stdout
+    assert "Apex Staffing" in res_block.stdout
+
+    # List blocked
+    res_list = runner.invoke(app, ["list-blocked"])
+    assert res_list.exit_code == 0
+    assert "Apex Staffing" in res_list.stdout
+    assert "Ghost jobs" in res_list.stdout
+

@@ -72,10 +72,18 @@
           </td>
           {% endif %}
           {% if target_email %}
-          <td style="vertical-align: middle;">
+          <td style="padding-right: 10px; vertical-align: middle;">
             <a href="mailto:{{ target_email }}?subject=Application:%20{{ job_title | urlencode }}&body={{ email_draft | urlencode }}"
                style="background-color: #3b82f6; color: #ffffff; padding: 11px 20px; text-decoration: none; border-radius: 6px; font-size: 13px; font-weight: 700; display: inline-block;">
               ✉ Send Pre-Filled Outreach
+            </a>
+          </td>
+          {% endif %}
+          {% if block_company_url %}
+          <td style="vertical-align: middle;">
+            <a href="{{ block_company_url }}" target="_blank"
+               style="background-color: #dc2626; color: #ffffff; padding: 11px 18px; text-decoration: none; border-radius: 6px; font-size: 13px; font-weight: 700; display: inline-block; border: 1px solid #b91c1c;">
+              🚫 Block {{ company_name or 'Company' }} ↗
             </a>
           </td>
           {% endif %}

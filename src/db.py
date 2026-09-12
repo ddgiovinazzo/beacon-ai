@@ -36,6 +36,12 @@ def init_db(db_path: Union[str, Path] = "matches.db") -> None:
     CREATE INDEX IF NOT EXISTS idx_jobs_status ON jobs(status);
     CREATE INDEX IF NOT EXISTS idx_jobs_processed_at ON jobs(processed_at);
     CREATE INDEX IF NOT EXISTS idx_jobs_url_status ON jobs(url, status);
+
+    CREATE TABLE IF NOT EXISTS blocked_companies (
+        company_name TEXT PRIMARY KEY,
+        reason TEXT,
+        added_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
     """
     with get_connection(db_path) as conn:
         conn.executescript(schema)
@@ -292,3 +298,76 @@ def clear_match_artifacts(
             pass
 
     return deleted_files
+
+
+def block_company(
+    company_name: str,
+    reason: str = "manual",
+    db_path: Union[str, Path] = "matches.db",
+) -> None:
+    """Add a company to the persistent blocklist."""
+    clean_name = company_name.strip()
+    if not clean_name:
+        return
+    init_db(db_path)
+    with get_connection(db_path) as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            """
+            INSERT INTO blocked_companies (company_name, reason, added_at)
+            VALUES (?, ?, CURRENT_TIMESTAMP)
+            ON CONFLICT(company_name) DO UPDATE SET reason = excluded.reason;
+            """,
+            (clean_name, reason),
+        )
+        conn.commit()
+
+
+def is_company_blocked(
+    company_name: str,
+    db_path: Union[str, Path] = "matches.db",
+) -> bool:
+    """Check if a company name matches any entry in the persistent blocklist."""
+    clean_name = company_name.strip().lower()
+    if not clean_name:
+        return False
+    init_db(db_path)
+    with get_connection(db_path) as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT company_name FROM blocked_companies;")
+        rows = cursor.fetchall()
+        for row in rows:
+            blocked_term = str(row[0]).strip().lower()
+            if blocked_term and (blocked_term in clean_name or clean_name in blocked_term):
+                return True
+    return False
+
+
+def get_blocked_companies(db_path: Union[str, Path] = "matches.db") -> List[str]:
+    """Retrieve all blocked company names from SQLite."""
+    init_db(db_path)
+    with get_connection(db_path) as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT company_name FROM blocked_companies ORDER BY company_name ASC;")
+        rows = cursor.fetchall()
+        return [str(r[0]) for r in rows if r[0]]
+
+
+def get_blocked_companies_details(db_path: Union[str, Path] = "matches.db") -> List[Dict[str, Any]]:
+    """Retrieve all blocked company records with details from SQLite."""
+    init_db(db_path)
+    with get_connection(db_path) as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT company_name, reason, added_at FROM blocked_companies ORDER BY added_at DESC, company_name ASC;")
+        rows = cursor.fetchall()
+        return [
+            {
+                "company_name": str(r[0]),
+                "reason": str(r[1]) if r[1] is not None else "",
+                "added_at": str(r[2]) if r[2] is not None else "",
+            }
+            for r in rows
+            if r[0]
+        ]
+
+

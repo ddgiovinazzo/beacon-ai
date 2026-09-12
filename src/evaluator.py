@@ -143,17 +143,94 @@ def extract_compensation(text: str) -> Tuple[Optional[float], Optional[float], O
 
 
 
+def extract_company_from_posting(posting: JobPosting) -> Optional[str]:
+    """Attempt to extract recognized company or employer name from posting."""
+    if posting.detected_company:
+        return posting.detected_company
+
+    from src.generator import extract_company_from_title, sanitize_target_company
+    company = extract_company_from_title(posting.title)
+    if company:
+        return company
+
+    text = f"{posting.title}\n{posting.raw_text}"
+    patterns = [
+        r"(?:Company|Employer|Organization|About)\s*:\s*([A-Za-z0-9&.,' -]{2,35})",
+        r"\b([A-Z][A-Za-z0-9&.,' -]{2,35})\s+(?:is\s+seeking|is\s+looking\s+for|is\s+hiring)\b",
+    ]
+    for pat in patterns:
+        m = re.search(pat, text)
+        if m:
+            cand = sanitize_target_company(m.group(1).strip().rstrip(".,;:-"))
+            if cand:
+                return cand
+
+    return sanitize_target_company(posting.source)
+
+
 def evaluate_tier1_deterministic(
     posting: JobPosting,
     profile: UserProfile,
+    config: Optional[Settings] = None,
 ) -> Optional[EvaluationResult]:
     """Tier 1 Cost Shield: Generic, context-agnostic deterministic rejection checks.
     
-    Evaluates physical restrictions, compensation floors, commute boundaries, and schedule conflicts.
+    Evaluates physical restrictions, compensation floors, commute boundaries, blocked companies, and schedule conflicts.
     Returns EvaluationResult(REJECT) if disqualified, or None if cleared for Tier 2.
     """
     text = f"{posting.title}\n{posting.raw_text}"
     text_lower = text.lower()
+
+    # 0. Extract and bind detected company
+    company_name = extract_company_from_posting(posting)
+    if company_name:
+        posting.detected_company = company_name
+
+    # 0a. Check blocked / excluded companies dynamically
+    blocked_companies = list(getattr(profile.constraints, "excluded_companies", []))
+    if config and getattr(config, "db_path", None):
+        from src.db import get_blocked_companies
+        try:
+            blocked_companies.extend(get_blocked_companies(config.db_path))
+        except Exception:
+            pass
+
+    for blocked in blocked_companies:
+        clean_blocked = blocked.strip().lower()
+        if not clean_blocked:
+            continue
+        pattern = re.escape(clean_blocked)
+        if re.search(rf"\b{pattern}\b", text_lower) or (company_name and clean_blocked in company_name.lower()):
+            return EvaluationResult(
+                status=EvaluationStatus.REJECT,
+                rejection_reason=f"Blocked company/employer matched: '{blocked}'",
+                fit_score=0,
+                tier_evaluated=1,
+                detected_company=company_name or blocked,
+            )
+
+    # 0b. Forensic Check: Mandatory Upfront Unpaid Test Gates / Assessment Mills
+    test_gate_patterns = [
+        r"\b(?:skills?\s+assessment|pre-employment\s+test|online\s+assessment|timed\s+assessment|evaluation\s+test|assessment\s+test|mandatory\s+assessment)\s+(?:is\s+)?(?:required|mandatory|must\s+complete|to\s+be\s+considered)\b",
+        r"\b(?:must\s+complete|required\s+to\s+complete|take\s+our)\s+(?:a\s+)?(?:\d+[\s-]*(?:minute|min|hour|hr)\s+)?(?:skills?\s+assessment|test|evaluation|assessment)\b",
+        r"\b(?:testgorilla\.com|criteriacorp\.com|eskill\.com|hireflix\.com|wonscore\.com|interviewmocha\.com)\b",
+        r"\b(?:unpaid\s+(?:trial|test|assessment|evaluation))\b",
+    ]
+    for pattern in test_gate_patterns:
+        if re.search(pattern, text_lower):
+            if company_name and config and getattr(config, "db_path", None):
+                from src.db import block_company
+                try:
+                    block_company(company_name, reason="Automated test-mill gate detection", db_path=config.db_path)
+                except Exception:
+                    pass
+            return EvaluationResult(
+                status=EvaluationStatus.REJECT,
+                rejection_reason="Disqualified: Mandatory pre-interview test gate / assessment mill detected",
+                fit_score=0,
+                tier_evaluated=1,
+                detected_company=company_name,
+            )
 
     # 1. Check physical restrictions & lifting thresholds dynamically
     clean_keyword_text = CORPORATE_IDIOMS_PATTERN.sub(" ", text_lower)
@@ -343,6 +420,10 @@ def evaluate_tier2_heuristic(
     
     Evaluates title alignment, tool competencies, and domain tags dynamically.
     """
+    detected_company = posting.detected_company or extract_company_from_posting(posting)
+    if not posting.detected_company and detected_company:
+        posting.detected_company = detected_company
+
     matched_track = resolve_profile_track(posting, profile) if profile.tracks else None
     if profile.tracks and not matched_track:
         return EvaluationResult(
@@ -351,6 +432,7 @@ def evaluate_tier2_heuristic(
             fit_score=15,
             tier_evaluated=2,
             matched_track_id=None,
+            detected_company=detected_company,
         )
 
     target_titles = matched_track.target_titles if matched_track else profile.master_experience.target_titles
@@ -414,6 +496,7 @@ def evaluate_tier2_heuristic(
             match_highlights=highlights,
             tier_evaluated=2,
             matched_track_id=matched_track.track_id if matched_track else None,
+            detected_company=detected_company,
         )
     else:
         return EvaluationResult(
@@ -423,6 +506,7 @@ def evaluate_tier2_heuristic(
             estimated_compensation=comp_str,
             tier_evaluated=2,
             matched_track_id=matched_track.track_id if matched_track else None,
+            detected_company=detected_company,
         )
 
 
@@ -524,12 +608,16 @@ CONTENT:
         result.tier_evaluated = 2
         if matched_track:
             result.matched_track_id = matched_track.track_id
+        if not result.detected_company:
+            result.detected_company = posting.detected_company or extract_company_from_posting(posting)
         return result
 
     except Exception as e:
         logger.error(f"LiteLLM evaluation failed ({active_model}) for '{posting.title}': {e}. Falling back to heuristic scorer.")
         fallback = evaluate_tier2_heuristic(posting, profile)
         fallback.rejection_reason = f"(LLM Error: {e}) {fallback.rejection_reason or ''}".strip()
+        if not fallback.detected_company:
+            fallback.detected_company = posting.detected_company or extract_company_from_posting(posting)
         return fallback
 
 
@@ -545,7 +633,7 @@ class EvaluationEngine:
     def evaluate(self, posting: JobPosting, profile: UserProfile) -> EvaluationResult:
         """Execute two-tier evaluation pipeline."""
         # Tier 1: Deterministic Cost Shield
-        tier1_result = evaluate_tier1_deterministic(posting, profile)
+        tier1_result = evaluate_tier1_deterministic(posting, profile, self.config)
         if tier1_result is not None:
             logger.info(f"Tier 1 DISQUALIFIED: {posting.title} -> {tier1_result.rejection_reason}")
             return tier1_result
@@ -560,9 +648,12 @@ class EvaluationEngine:
                 rejection_reason=f"Circuit breaker limit reached (MAX_LLM_EVALS_PER_RUN = {self.config.max_llm_evals_per_run})",
                 fit_score=0,
                 tier_evaluated=2,
+                detected_company=posting.detected_company,
             )
-
 
         # Tier 2: LLM Evaluation
         self.llm_eval_count += 1
-        return evaluate_tier2_llm(posting, profile, self.config, dry_run=self.dry_run)
+        res = evaluate_tier2_llm(posting, profile, self.config, dry_run=self.dry_run)
+        if not res.detected_company and posting.detected_company:
+            res.detected_company = posting.detected_company
+        return res

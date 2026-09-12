@@ -104,6 +104,10 @@ class UserConstraints(BaseModel):
         default_factory=list,
         description="Disqualifying toxic workplace indicators, predatory startup buzzwords, and exploitative work conditions (e.g., 'work hard play hard', 'we are a family', 'wear many hats').",
     )
+    excluded_companies: List[str] = Field(
+        default_factory=list,
+        description="Explicit list of disqualified employers, recruiting agencies, or candidate harvesting mills (e.g., 'Coalition Technologies', 'Revature').",
+    )
 
 
 class ProfileTrack(BaseModel):
@@ -266,6 +270,7 @@ class JobPosting(BaseModel):
     contact_email: Optional[str] = Field(default=None, description="Optional direct employer contact email.")
     description: Optional[str] = Field(default=None, description="Optional job description body.")
     email_msg_id: Optional[str] = Field(default=None, description="IMAP message ID for non-destructive seen tracking.")
+    detected_company: Optional[str] = Field(default=None, description="Recognized employer or company name.")
 
 
 class EvaluationResult(BaseModel):
@@ -299,6 +304,10 @@ class EvaluationResult(BaseModel):
     matched_track_id: Optional[str] = Field(
         default=None,
         description="ID of the resolved ProfileTrack if multi-track routing matched.",
+    )
+    detected_company: Optional[str] = Field(
+        default=None,
+        description="Recognized employer or company name.",
     )
 
 

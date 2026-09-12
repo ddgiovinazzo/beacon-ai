@@ -18,8 +18,11 @@ from rich.table import Table
 from src.config import Settings, get_settings
 from src.db import (
     TIMEFRAME_PRESETS,
+    block_company,
     clear_cache,
     clear_match_artifacts,
+    get_blocked_companies,
+    get_blocked_companies_details,
     get_cache_counts,
     get_recent_matches,
     get_stats,
@@ -610,6 +613,53 @@ def cache_clear_alias(
 ):
     """Alias for clear-cache."""
     clear_cache_cmd(timeframe=timeframe, status=status, clear_artifacts=clear_artifacts, yes=yes)
+
+
+@app.command("block-company")
+def block_company_cmd(
+    company: str = typer.Argument(..., help="Name of the company or employer to block"),
+    reason: str = typer.Option("Manual candidate block", "--reason", "-r", help="Reason for blocking"),
+):
+    """Add a company to the persistent blocklist in SQLite."""
+    settings = get_settings()
+    init_db(settings.db_path)
+    clean_name = company.strip()
+    if not clean_name:
+        console.print("[bold red]Error:[/bold red] Company name cannot be empty.")
+        raise typer.Exit(code=1)
+
+    block_company(clean_name, reason=reason, db_path=settings.db_path)
+    console.print(
+        Panel(
+            f"[bold green]✓ Company blocked successfully![/bold green]\n"
+            f"• Company: [bold red]{clean_name}[/bold red]\n"
+            f"• Reason: [cyan]{reason}[/cyan]\n"
+            f"• Database: [dim]{settings.db_path}[/dim]",
+            title="BeaconAI Company Blocklist",
+            border_style="red",
+        )
+    )
+
+
+@app.command("list-blocked")
+def list_blocked_cmd():
+    """List all blocked companies stored in the database."""
+    settings = get_settings()
+    init_db(settings.db_path)
+    blocked = get_blocked_companies_details(settings.db_path)
+    if not blocked:
+        console.print("[yellow]No companies currently blocked in database.[/yellow]")
+        return
+
+    table = Table(title="BeaconAI Blocked Companies", border_style="red")
+    table.add_column("Company Name", style="bold red")
+    table.add_column("Reason", style="cyan")
+    table.add_column("Added At", style="dim")
+
+    for item in blocked:
+        table.add_row(item["company_name"], item["reason"] or "", item["added_at"] or "")
+
+    console.print(table)
 
 
 if __name__ == "__main__":

@@ -159,6 +159,17 @@ def build_notification_html(
             gmail_params["to"] = target_email
         gmail_compose_url = f"https://mail.google.com/mail/?{urllib.parse.urlencode(gmail_params, quote_via=urllib.parse.quote)}"
 
+    # Determine company name if detected
+    company_name = getattr(result, "detected_company", None) or getattr(job, "detected_company", None)
+    if not company_name:
+        try:
+            from src.evaluator import extract_company_from_posting
+            company_name = extract_company_from_posting(job)
+        except Exception:
+            company_name = None
+
+    block_company_url = "https://github.com/ddgiovinazzo/beacon-ai/actions/workflows/block_company.yml"
+
     try:
         env = get_email_jinja_env(template_dir)
         template = env.get_template("email_alert.html.j2")
@@ -168,6 +179,8 @@ def build_notification_html(
             job_title=clean_title,
             job_source=display_source,
             display_source=display_source,
+            company_name=company_name,
+            block_company_url=block_company_url,
             match_score=result.fit_score,
             email_draft=email_draft,
             gmail_compose_url=gmail_compose_url,

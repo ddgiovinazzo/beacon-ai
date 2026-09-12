@@ -7,6 +7,7 @@ from src.evaluator import (
     EvaluationEngine,
     evaluate_tier1_deterministic,
     evaluate_tier2_heuristic,
+    extract_company_from_posting,
     extract_compensation,
 )
 from src.schemas import (
@@ -702,5 +703,91 @@ def test_tier1_rejects_toxic_culture_disqualifiers(test_profile):
     assert res_hats is not None
     assert res_hats.status == EvaluationStatus.REJECT
     assert "Toxic workplace culture indicator matched: 'wear many hats'" in res_hats.rejection_reason
+
+
+def test_extract_company_from_posting():
+    """Verify regex extraction of company/employer names from postings."""
+    p1 = JobPosting(
+        title="Web Developer (Remote) - Coalition Technologies",
+        link="https://craigslist.org/1",
+        raw_text="We are hiring a full time developer.",
+        source="craigslist.org",
+    )
+    assert extract_company_from_posting(p1) == "Coalition Technologies"
+
+    p2 = JobPosting(
+        title="Data Specialist",
+        link="https://craigslist.org/2",
+        raw_text="Company: Acme Corp Inc.\nLocation: New York, NY\nApply today.",
+        source="craigslist.org",
+    )
+    assert extract_company_from_posting(p2) == "Acme Corp Inc"
+
+    p3 = JobPosting(
+        title="Software Engineer at Stripe",
+        link="https://example.com/3",
+        raw_text="Join our infrastructure team.",
+        source="example.com",
+    )
+    assert extract_company_from_posting(p3) == "Stripe"
+
+
+def test_tier1_rejects_excluded_companies_from_profile(test_profile):
+    """Verify that candidate profile excluded_companies are rejected at Tier 1."""
+    test_profile.constraints.excluded_companies = ["Coalition Technologies", "Apex Staffing"]
+
+    job = JobPosting(
+        title="Python Engineer - Coalition Technologies",
+        link="https://craigslist.org/coalition-1",
+        raw_text="Coalition Technologies is looking for a backend developer.",
+        source="craigslist.org",
+    )
+    res = evaluate_tier1_deterministic(job, test_profile)
+    assert res is not None
+    assert res.status == EvaluationStatus.REJECT
+    assert "Blocked company/employer matched" in res.rejection_reason
+    assert res.detected_company == "Coalition Technologies"
+
+
+def test_tier1_rejects_blocked_companies_from_db(test_profile, tmp_path):
+    """Verify that SQLite blocked_companies table entries are rejected at Tier 1."""
+    from src.db import block_company
+    db_file = tmp_path / "test_blocked.db"
+    block_company("Revature", reason="Predatory training contract", db_path=db_file)
+
+    config = Settings(db_path=db_file)
+    job = JobPosting(
+        title="Associate Software Engineer",
+        link="https://example.com/revature-1",
+        raw_text="Revature is currently seeking entry level engineers for our client placements.",
+        source="example.com",
+    )
+    res = evaluate_tier1_deterministic(job, test_profile, config=config)
+    assert res is not None
+    assert res.status == EvaluationStatus.REJECT
+    assert "Blocked company/employer matched: 'Revature'" in res.rejection_reason
+
+
+def test_tier1_rejects_test_gate_patterns_and_auto_blocks(test_profile, tmp_path):
+    """Verify that upfront unpaid assessment gates are rejected and logged to blocked_companies."""
+    from src.db import is_company_blocked
+    db_file = tmp_path / "test_testgate.db"
+    config = Settings(db_path=db_file)
+
+    job = JobPosting(
+        title="Copywriter - TestMill Agency",
+        link="https://example.com/testmill-1",
+        raw_text="To be considered for this role, a 45-minute skills assessment is required before any interviews.",
+        source="example.com",
+    )
+    res = evaluate_tier1_deterministic(job, test_profile, config=config)
+    assert res is not None
+    assert res.status == EvaluationStatus.REJECT
+    assert "Mandatory pre-interview test gate" in res.rejection_reason
+    assert res.detected_company == "TestMill Agency"
+
+    # Verify auto-blocked in database
+    assert is_company_blocked("TestMill Agency", db_path=db_file)
+
 
 

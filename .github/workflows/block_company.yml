@@ -1,0 +1,60 @@
+name: Block Company / Employer
+
+on:
+  workflow_dispatch:
+    inputs:
+      company_name:
+        description: "Exact company or employer name to block"
+        required: true
+        type: string
+      reason:
+        description: "Reason for blocking (e.g. ghost jobs, test mill, spam)"
+        required: false
+        type: string
+        default: "Manual block via GitHub Action"
+
+concurrency:
+  group: cache-management-execution
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  block_company:
+    name: Block Company
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Install Python Dependencies
+        run: |
+          pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Add Company to Blocklist
+        run: |
+          echo "==> Blocking company: ${{ inputs.company_name }}"
+          python main.py block-company "${{ inputs.company_name }}" --reason "${{ inputs.reason }}"
+
+      - name: List Current Blocklist
+        run: python main.py list-blocked
+
+      - name: Commit Updated Database
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git add matches.db || true
+          if git diff --staged --quiet; then
+            echo "No state changes to commit."
+          else
+            git commit -m "chore(blocklist): block company '${{ inputs.company_name }}' [skip ci]"
+            git push origin main
+          fi

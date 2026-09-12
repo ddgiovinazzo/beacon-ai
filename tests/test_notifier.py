@@ -311,3 +311,19 @@ def test_gmail_compose_link_generation(sample_job: JobPosting, sample_result: Ev
     assert "Please%20accept%20my%20application" in html_out
 
 
+def test_block_company_button_in_email(sample_job: JobPosting, sample_result: EvaluationResult):
+    """Verify that Block Company button is rendered in alert email with correct workflow link."""
+    sample_result.detected_company = "Apex Staffing"
+    html_out = build_notification_html(sample_job, sample_result)
+    assert "🚫 Block Apex Staffing ↗" in html_out
+    assert "https://github.com/ddgiovinazzo/beacon-ai/actions/workflows/block_company.yml" in html_out
+
+    # Fallback when company is not detected
+    sample_result.detected_company = None
+    sample_job.detected_company = None
+    html_out_no_company = build_notification_html(sample_job, sample_result)
+    assert "🚫 Block Company ↗" in html_out_no_company
+    assert "https://github.com/ddgiovinazzo/beacon-ai/actions/workflows/block_company.yml" in html_out_no_company
+
+
+

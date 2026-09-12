@@ -107,9 +107,22 @@ def extract_company_from_title(title: str) -> Optional[str]:
         if len(parts) > 1 and 1 < len(parts[-1].strip()) <= 30:
             candidate = parts[-1].strip()
     elif " - " in title:
-        parts = title.split(" - ", 1)[0].strip()
-        if 1 < len(parts) <= 30:
-            candidate = parts
+        parts = title.split(" - ")
+        if len(parts) >= 2:
+            left = parts[0].strip()
+            right = parts[-1].strip()
+            role_keywords = [
+                "developer", "engineer", "specialist", "bookkeeper", "clerk",
+                "manager", "copywriter", "assistant", "director", "lead",
+                "analyst", "consultant", "technician", "intern", "coordinator",
+                "accountant", "designer", "administrator", "writer", "editor",
+            ]
+            if any(kw in left.lower() for kw in role_keywords):
+                candidate = right
+            elif any(kw in right.lower() for kw in role_keywords):
+                candidate = left
+            elif 1 < len(left) <= 30:
+                candidate = left
     return sanitize_target_company(candidate)
 
 
