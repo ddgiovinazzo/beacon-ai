@@ -79,7 +79,7 @@ jobs:
 
       - name: Inject Candidate Profile from Secret
         env:
-          PROFILE_B64: ${{ secrets.USER_PROFILE_JSON_B64 }}
+          PROFILE_B64: ${{ secrets.USER_PROFILE_JSON_B64 || secrets.PROFILE_JSON_BASE64 || secrets.CANDIDATE_PROFILE_B64 }}
         run: |
           mkdir -p profiles
           echo "$PROFILE_B64" | base64 --decode > profiles/ephemeral_raw
