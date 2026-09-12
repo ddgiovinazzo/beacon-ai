@@ -394,6 +394,30 @@ Displays persistent crawl metrics, match averages, and detailed categorical reje
 python main.py stats
 ```
 
+### 5. Cache Management & History Clearing (`clear-cache`)
+Similar to Google / browser history clearing, you can clear deduplication history and cached evaluations across granular timeframes so postings can be re-evaluated under updated profile rules or fresh criteria:
+
+```bash
+# Interactive selection menu (shows live count of jobs tracked in each time window)
+python main.py clear-cache
+
+# Clear specific timeframe non-interactively
+python main.py clear-cache --timeframe 1h      # Last 1 hour
+python main.py clear-cache --timeframe 6h      # Last 6 hours
+python main.py clear-cache --timeframe 1d      # Last 1 day (24 hours)
+python main.py clear-cache --timeframe 1w      # Last 1 week (7 days)
+python main.py clear-cache --timeframe 1m      # Last 1 month (30 days)
+python main.py clear-cache --timeframe 6m      # Last 6 months
+python main.py clear-cache --timeframe 1y      # Last 1 year
+python main.py clear-cache --timeframe all     # All time
+
+# Filter by evaluation status (e.g. only clear rejected postings to re-evaluate them)
+python main.py clear-cache -t 1d --status reject -y
+
+# Also purge generated match artifacts (resumes, PDFs, outreach drafts) in that timeframe
+python main.py clear-cache -t 1w --artifacts -y
+```
+
 ---
 
 ## ⚙️ Zero-Storage GitHub Actions Automation

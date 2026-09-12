@@ -2,9 +2,9 @@
 
 import re
 import sqlite3
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 from src.schemas import EvaluationResult, JobPosting
 
@@ -156,3 +156,137 @@ def get_recent_matches(
             (limit,),
         )
         return [dict(row) for row in cursor.fetchall()]
+ 
+ 
+TIMEFRAME_PRESETS: Dict[str, Tuple[str, Optional[timedelta]]] = {
+    "1h": ("Last 1 hour", timedelta(hours=1)),
+    "6h": ("Last 6 hours", timedelta(hours=6)),
+    "1d": ("Last 1 day (24 hours)", timedelta(days=1)),
+    "1w": ("Last 1 week (7 days)", timedelta(weeks=1)),
+    "1m": ("Last 1 month (30 days)", timedelta(days=30)),
+    "6m": ("Last 6 months", timedelta(days=182)),
+    "1y": ("Last 1 year", timedelta(days=365)),
+    "all": ("All time", None),
+}
+
+
+def parse_timeframe(timeframe_str: str) -> Tuple[str, Optional[timedelta]]:
+    """Parse and normalize timeframe string into preset key and timedelta.
+    
+    Supports: 1h, 6h, 1d, 1w, 1m, 6m, 1y, all (and natural language equivalents like
+    '1 hour', '6 hours', '1 day', '1 week', '1 month', '6 months', '1 year', 'all time').
+    """
+    cleaned = timeframe_str.strip().lower().replace("_", " ").replace("-", " ")
+    if cleaned in ("1h", "1 h", "1 hour", "1hour", "hour", "last hour"):
+        return "1h", timedelta(hours=1)
+    if cleaned in ("6h", "6 h", "6 hours", "6hours", "last 6 hours"):
+        return "6h", timedelta(hours=6)
+    if cleaned in ("1d", "1 d", "1 day", "1day", "day", "24h", "24 hours", "last day", "last 24 hours"):
+        return "1d", timedelta(days=1)
+    if cleaned in ("1w", "1 w", "1 week", "1week", "week", "7d", "7 days", "last week", "last 7 days"):
+        return "1w", timedelta(weeks=1)
+    if cleaned in ("1m", "1 m", "1 month", "1month", "month", "30d", "last month", "last 4 weeks"):
+        return "1m", timedelta(days=30)
+    if cleaned in ("6m", "6 m", "6 months", "6months", "last 6 months"):
+        return "6m", timedelta(days=182)
+    if cleaned in ("1y", "1 y", "1 year", "1year", "year", "365d", "last year", "last 1 year"):
+        return "1y", timedelta(days=365)
+    if cleaned in ("all", "all time", "alltime", "everything"):
+        return "all", None
+    raise ValueError(
+        f"Unknown timeframe '{timeframe_str}'. Valid options: 1h, 6h, 1d, 1w, 1m, 6m, 1y, all (or '1 hour', '1 day', 'all time', etc.)"
+    )
+
+
+def get_cache_counts(
+    db_path: Union[str, Path] = "matches.db",
+    status: Optional[str] = None,
+) -> Dict[str, int]:
+    """Retrieve count of jobs eligible for clearing across each standard timeframe preset."""
+    counts = {}
+    now = datetime.now(timezone.utc)
+
+    with get_connection(db_path) as conn:
+        cursor = conn.cursor()
+        for key, (_, delta) in TIMEFRAME_PRESETS.items():
+            query = "SELECT COUNT(*) FROM jobs WHERE 1=1"
+            params: List[Any] = []
+
+            if delta is not None:
+                cutoff = (now - delta).isoformat()
+                query += " AND datetime(processed_at) >= datetime(?)"
+                params.append(cutoff)
+
+            if status and status.upper() != "ALL":
+                query += " AND status = ?"
+                params.append(status.upper())
+
+            cursor.execute(query, params)
+            counts[key] = cursor.fetchone()[0]
+
+    return counts
+
+
+def clear_cache(
+    timeframe: str,
+    status: Optional[str] = None,
+    db_path: Union[str, Path] = "matches.db",
+) -> int:
+    """Clear cached jobs matching timeframe and optional status filter.
+
+    Returns the number of deleted records.
+    """
+    key, delta = parse_timeframe(timeframe)
+    now = datetime.now(timezone.utc)
+
+    query = "DELETE FROM jobs WHERE 1=1"
+    params: List[Any] = []
+
+    if delta is not None:
+        cutoff = (now - delta).isoformat()
+        query += " AND datetime(processed_at) >= datetime(?)"
+        params.append(cutoff)
+
+    if status and status.upper() != "ALL":
+        query += " AND status = ?"
+        params.append(status.upper())
+
+    with get_connection(db_path) as conn:
+        cursor = conn.cursor()
+        cursor.execute(query, params)
+        deleted_count = cursor.rowcount
+        conn.commit()
+        # Compact database to reclaim disk space
+        conn.execute("VACUUM;")
+        conn.commit()
+
+    return deleted_count
+
+
+def clear_match_artifacts(
+    timeframe: str,
+    matches_dir: Union[str, Path] = "artifacts/matches",
+) -> int:
+    """Purge generated resume/outreach match artifacts created within the given timeframe."""
+    dir_path = Path(matches_dir)
+    if not dir_path.exists():
+        return 0
+
+    key, delta = parse_timeframe(timeframe)
+    now_ts = datetime.now(timezone.utc).timestamp()
+    deleted_files = 0
+
+    for file in dir_path.iterdir():
+        if file.name.startswith(".") or file.is_dir():
+            continue
+        if delta is not None:
+            cutoff_ts = now_ts - delta.total_seconds()
+            if file.stat().st_mtime < cutoff_ts:
+                continue
+        try:
+            file.unlink()
+            deleted_files += 1
+        except OSError:
+            pass
+
+    return deleted_files

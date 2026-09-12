@@ -10,10 +10,22 @@ from typing import List, Optional
 import typer
 from rich.console import Console
 from rich.panel import Panel
+from rich.prompt import Confirm, Prompt
 from rich.table import Table
 
 from src.config import get_settings
-from src.db import get_recent_matches, get_stats, init_db, is_job_seen, record_job
+from src.db import (
+    TIMEFRAME_PRESETS,
+    clear_cache,
+    clear_match_artifacts,
+    get_cache_counts,
+    get_recent_matches,
+    get_stats,
+    init_db,
+    is_job_seen,
+    parse_timeframe,
+    record_job,
+)
 from src.evaluator import EvaluationEngine, evaluate_tier1_deterministic
 from src.generator import (
     append_daily_digest,
@@ -483,6 +495,119 @@ def test_eval(
                 border_style="red",
             )
         )
+
+
+@app.command("clear-cache")
+def clear_cache_cmd(
+    timeframe: Optional[str] = typer.Option(
+        None,
+        "--timeframe",
+        "-t",
+        help="Timeframe to clear: 1h, 6h, 1d, 1w, 1m, 6m, 1y, or all (e.g. '1 hour', '1 day', 'all time').",
+    ),
+    status: str = typer.Option(
+        "all",
+        "--status",
+        "-s",
+        help="Filter jobs by status: all, match, reject, or deferred.",
+    ),
+    clear_artifacts: bool = typer.Option(
+        False,
+        "--artifacts",
+        "--clear-artifacts",
+        help="Also remove generated match artifacts (resumes, PDFs, outreach) in the timeframe.",
+    ),
+    yes: bool = typer.Option(
+        False,
+        "--yes",
+        "-y",
+        help="Confirm deletion without interactive prompting.",
+    ),
+):
+    """Clear deduplication cache and evaluation history similar to browser history."""
+    settings = get_settings()
+    init_db(settings.db_path)
+
+    if not timeframe:
+        counts = get_cache_counts(settings.db_path, status=status)
+        table = Table(title="BeaconAI Cache Clear (Select Time Range)", header_style="bold cyan")
+        table.add_column("Option", style="bold yellow", width=8)
+        table.add_column("Timeframe", style="bold", width=24)
+        table.add_column("Jobs Tracked", justify="right", style="magenta", width=16)
+
+        options_map = {
+            "1": ("1h", "Last 1 hour"),
+            "2": ("6h", "Last 6 hours"),
+            "3": ("1d", "Last 1 day (24 hours)"),
+            "4": ("1w", "Last 1 week (7 days)"),
+            "5": ("1m", "Last 1 month (30 days)"),
+            "6": ("6m", "Last 6 months"),
+            "7": ("1y", "Last 1 year"),
+            "8": ("all", "All time"),
+        }
+        for num, (key, label) in options_map.items():
+            table.add_row(f"[{num}]", label, f"{counts.get(key, 0):,} jobs")
+
+        console.print(table)
+        console.print("[dim]Select 1-8 to pick a time range, or 'q' to cancel.[/dim]")
+        choice = Prompt.ask("Select timeframe", choices=["1", "2", "3", "4", "5", "6", "7", "8", "q"], default="1")
+        if choice.lower() == "q":
+            console.print("[yellow]Cache clear canceled.[/yellow]")
+            raise typer.Exit(code=0)
+        timeframe = options_map[choice][0]
+
+    try:
+        preset_key, delta = parse_timeframe(timeframe)
+    except ValueError as e:
+        console.print(f"[bold red]Error:[/bold red] {e}")
+        raise typer.Exit(code=1)
+
+    counts = get_cache_counts(settings.db_path, status=status)
+    target_count = counts.get(preset_key, 0)
+    label = TIMEFRAME_PRESETS[preset_key][0]
+    status_desc = f" ({status.upper()} only)" if status.upper() != "ALL" else ""
+
+    if target_count == 0 and not clear_artifacts:
+        console.print(f"[yellow]No records found matching {label}{status_desc} in cache.[/yellow]")
+        return
+
+    if not yes:
+        msg = f"Permanently delete {target_count:,} cached job records from {label}{status_desc}?"
+        if clear_artifacts:
+            msg += " (Including match artifacts)"
+        confirmed = Confirm.ask(msg, default=False)
+        if not confirmed:
+            console.print("[yellow]Cache clear aborted.[/yellow]")
+            return
+
+    deleted_jobs = clear_cache(preset_key, status=status, db_path=settings.db_path)
+    deleted_artifacts = 0
+    if clear_artifacts:
+        deleted_artifacts = clear_match_artifacts(preset_key, matches_dir=settings.matches_dir)
+
+    console.print(
+        Panel(
+            f"[bold green]✓ Cache cleared successfully![/bold green]\n"
+            f"• Timeframe: [cyan]{label}[/cyan]\n"
+            f"• Scope: [cyan]{status.upper()}[/cyan]\n"
+            f"• Jobs Removed from SQLite: [bold red]{deleted_jobs:,}[/bold red]\n"
+            f"• Match Artifacts Removed: [bold red]{deleted_artifacts}[/bold red]\n"
+            f"• Database: [dim]{settings.db_path} (VACUUM completed)[/dim]",
+            title="BeaconAI Cache Manager",
+            border_style="green",
+        )
+    )
+
+
+@app.command("cache-clear")
+def cache_clear_alias(
+    timeframe: Optional[str] = typer.Option(None, "--timeframe", "-t"),
+    status: str = typer.Option("all", "--status", "-s"),
+    clear_artifacts: bool = typer.Option(False, "--artifacts", "--clear-artifacts"),
+    yes: bool = typer.Option(False, "--yes", "-y"),
+):
+    """Alias for clear-cache."""
+    clear_cache_cmd(timeframe=timeframe, status=status, clear_artifacts=clear_artifacts, yes=yes)
 
 
 if __name__ == "__main__":
