@@ -267,6 +267,7 @@ def create_deterministic_tailored_data(
         selected_roles = list(track.roles) if track.roles else list(profile.master_experience.roles)
         tailored_projects = list(track.projects)
         tailored_education = list(track.education) if track.education else list(profile.master_experience.education)
+        tailored_certifications = list(track.certifications) if track.certifications is not None else []
         categorized_skills = dict(track.categorized_skills)
 
         return TailoredResumeData(
@@ -276,6 +277,7 @@ def create_deterministic_tailored_data(
             tailored_experience=selected_roles,
             tailored_projects=tailored_projects,
             tailored_education=tailored_education,
+            tailored_certifications=tailored_certifications,
             include_portfolio_link=track.include_portfolio,
             include_github_link=False,
             include_linkedin_link=track.include_linkedin,
@@ -375,6 +377,7 @@ def create_deterministic_tailored_data(
 
     tech_keywords = {"software", "engineer", "developer", "backend", "frontend", "fullstack", "python", "devops", "cloud", "data engineer", "systems"}
     is_tech = any(kw in job_text for kw in tech_keywords)
+    tailored_certifications = list(profile.master_experience.certifications) if is_tech else []
 
     return TailoredResumeData(
         target_headline=headline,
@@ -383,6 +386,7 @@ def create_deterministic_tailored_data(
         tailored_experience=selected_roles,
         tailored_projects=tailored_projects,
         tailored_education=tailored_education,
+        tailored_certifications=tailored_certifications,
         include_portfolio_link=is_tech,
         include_github_link=is_tech,
         include_linkedin_link=True,
@@ -413,6 +417,7 @@ def generate_tailored_resume_data(
         active_projects = track.projects
         active_skills = track.categorized_skills
         active_education = track.education if track.education else profile.master_experience.education
+        active_certifications = list(track.certifications) if track.certifications is not None else []
         active_traits = track.approved_summary_traits
         active_outcomes = track.approved_summary_outcomes
         skills_header = track.skills_header
@@ -430,10 +435,11 @@ def generate_tailored_resume_data(
             "Workflows, Tools & Methodologies": domain_skills[half:],
         }
         active_education = profile.master_experience.education
+        tech_keywords = {"software", "engineer", "developer", "backend", "frontend", "fullstack", "python", "devops", "cloud", "data engineer", "systems"}
+        active_certifications = list(profile.master_experience.certifications) if any(kw in combined_job_text.lower() for kw in tech_keywords) else []
         active_traits = ["verification accuracy", "system architecture"]
         active_outcomes = ["100% data integrity", "scalable performance"]
         skills_header = "TECHNICAL SKILLS"
-        tech_keywords = {"software", "engineer", "developer", "backend", "frontend", "fullstack", "python", "devops", "cloud", "data engineer", "systems"}
         include_portfolio = any(kw in combined_job_text.lower() for kw in tech_keywords)
         narrative = profile.master_experience.narrative_context
 
@@ -498,6 +504,9 @@ APPROVED SUMMARY OUTCOMES (Sentence 2 - choose 1):
 CANDIDATE EDUCATION BANK:
 {json.dumps([e.model_dump() for e in active_education])}
 
+CANDIDATE CERTIFICATIONS BANK:
+{json.dumps([c.model_dump() for c in active_certifications])}
+
 INSTRUCTIONS:
 1. target_headline: Set to the 1 title from APPROVED RESUME HEADLINES that best matches the job posting.
 2. tailored_summary: Write exactly 2 sentences following the strict blueprint with 1 approved trait and 1 approved outcome.
@@ -505,9 +514,10 @@ INSTRUCTIONS:
 4. tailored_experience: Select 2-3 most relevant roles with bold headings '**[Heading]:** ...'.
 5. tailored_projects: Select relevant projects from candidate projects above, or empty list if none provided.
 6. tailored_education: Education credentials aligned with context.
-7. include_portfolio_link: Set to {json.dumps(include_portfolio)}.
-8. include_github_link: false.
-9. skills_header: Set to "{skills_header}".
+7. tailored_certifications: Relevant certifications selected from CANDIDATE CERTIFICATIONS BANK, or empty list [] if none or not relevant.
+8. include_portfolio_link: Set to {json.dumps(include_portfolio)}.
+9. include_github_link: false.
+10. skills_header: Set to "{skills_header}".
 """
 
         active_model = config.llm_model or LLM_MODEL

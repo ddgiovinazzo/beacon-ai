@@ -50,7 +50,7 @@
 {{ edu.degree }}{% if edu.end_date %} | {{ edu.end_date }}{% endif +%}
 
 {% endfor %}
-{% set cert_entries = profile.master_experience.certifications %}
+{% set cert_entries = tailored_data.certifications if tailored_data.certifications is not none else profile.master_experience.certifications %}
 {% if cert_entries and cert_entries | length > 0 %}
 ## CERTIFICATIONS
 

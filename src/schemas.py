@@ -338,6 +338,10 @@ class TailoredResumeData(BaseModel):
         default=None,
         description="Custom header label for the skills section (e.g. 'CORE COMPETENCIES & SKILLS').",
     )
+    tailored_certifications: Optional[List[CertificationEntry]] = Field(
+        default=None,
+        description="Selected professional certifications aligned with target role and track. Empty list suppresses certifications section.",
+    )
 
     @property
     def headline(self) -> str:
@@ -358,6 +362,10 @@ class TailoredResumeData(BaseModel):
     @property
     def education(self) -> List[EducationEntry]:
         return self.tailored_education
+
+    @property
+    def certifications(self) -> Optional[List[CertificationEntry]]:
+        return self.tailored_certifications
 
     @property
     def skill_categories(self) -> List[Dict[str, Any]]:

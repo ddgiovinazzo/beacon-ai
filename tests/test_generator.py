@@ -681,6 +681,89 @@ def test_resume_template_certifications_bullet_and_separation(tmp_path: Path):
     assert "### Boston University\nB.S. Information Systems | 2019" in content
 
 
+def test_track_specific_certifications_suppressed_for_office_roles(tmp_path: Path):
+    """Verify that office/clerical tracks with empty certifications do NOT render ## CERTIFICATIONS."""
+    from src.config import Settings
+    from src.generator import generate_tailored_resume
+    from src.schemas import (
+        CertificationEntry,
+        EducationEntry,
+        EvaluationResult,
+        EvaluationStatus,
+        JobPosting,
+        MasterExperience,
+        ProfileTrack,
+        UserConstraints,
+        UserProfile,
+    )
+
+    matches_dir = tmp_path / "matches"
+    test_settings = Settings(matches_dir=matches_dir, artifacts_dir=tmp_path)
+
+    profile = UserProfile(
+        name="Alex Morgan",
+        email="alex@example.com",
+        phone="555-0188",
+        location="New York, NY",
+        constraints=UserConstraints(),
+        master_experience=MasterExperience(
+            roles=[],
+            education=[
+                EducationEntry(
+                    id="edu-1",
+                    institution="State University",
+                    degree="A.S. Business",
+                    end_date="2010",
+                )
+            ],
+            certifications=[
+                CertificationEntry(name="AWS Certified Developer", status="In Progress"),
+            ],
+            tools_and_technologies=["Excel", "Filing"],
+            tracks={
+                "office_admin": ProfileTrack(
+                    track_id="office_admin",
+                    display_name="Office Admin",
+                    target_titles=["Office Assistant"],
+                    trigger_keywords=["office assistant", "clerk"],
+                    categorized_skills={"Administrative": ["Filing", "Scheduling"]},
+                    education=[
+                        EducationEntry(
+                            id="edu-1",
+                            institution="State University",
+                            degree="A.S. Business",
+                            end_date="2010",
+                        )
+                    ],
+                    certifications=[],  # Deliberately empty for office role
+                )
+            },
+        ),
+    )
+
+    job = JobPosting(
+        title="Office Assistant",
+        link="https://example.com/jobs/office",
+        raw_text="Seeking an Office Assistant for records filing.",
+        source="example.com",
+    )
+
+    eval_result = EvaluationResult(
+        status=EvaluationStatus.MATCH,
+        fit_score=90,
+        tier_evaluated=1,
+    )
+
+    resume_path = generate_tailored_resume(job, profile, eval_result, test_settings, dry_run=True)
+    content = resume_path.read_text(encoding="utf-8")
+
+    # Certifications section MUST NOT be rendered
+    assert "## CERTIFICATIONS" not in content
+    assert "AWS Certified Developer" not in content
+    assert "## EDUCATION" in content
+    assert "State University" in content
+
+
 def test_technical_skills_all_lines_start_with_bullet(tmp_path: Path):
     """Verify that every skill category line under Technical Skills starts with a bullet '* **'."""
     from src.config import Settings
