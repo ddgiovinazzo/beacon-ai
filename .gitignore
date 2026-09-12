@@ -15,9 +15,8 @@ profiles/*.json
 *.db-wal
 *.db-journal
 
-# Artifacts (ignore candidate-tailored resumes, PDFs, outreach drafts, and daily digests)
-artifacts/matches/
-artifacts/daily_digest_*.md
+# Artifacts (zero-storage protection for all generated files, resumes, PDFs, outreach drafts, notes, and digests)
+artifacts/*
 !artifacts/.gitkeep
 
 # Virtual Environment
