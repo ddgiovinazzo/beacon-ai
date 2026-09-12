@@ -265,6 +265,7 @@ class UserProfile(BaseModel):
     linkedin_url: Optional[str] = Field(default=None, description="LinkedIn profile URL.")
     portfolio_url: Optional[str] = Field(default=None, description="Portfolio website URL.")
     github_url: Optional[str] = Field(default=None, description="GitHub profile URL.")
+    gmail: Optional[str] = Field(default=None, description="Personal Gmail address for non-portfolio tracks.")
     constraints: UserConstraints = Field(default_factory=UserConstraints, description="Deterministic filtering constraints.")
     master_experience: MasterExperience = Field(..., description="Candidate's comprehensive work background.")
 
@@ -371,6 +372,10 @@ class TailoredResumeData(BaseModel):
     include_linkedin_link: bool = Field(
         default=True,
         description="Set False for administrative, clerical, operational, or bookkeeping roles if the candidate's LinkedIn profile is configured for software engineering.",
+    )
+    contact_email: Optional[str] = Field(
+        default=None,
+        description="Active contact email to display on the resume.",
     )
     skills_header: Optional[str] = Field(
         default=None,

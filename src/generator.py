@@ -278,10 +278,15 @@ def create_deterministic_tailored_data(
         )
 
         selected_roles = list(track.roles) if track.roles else list(profile.master_experience.roles)
+        if track.projects and len(selected_roles) > 2:
+            selected_roles = selected_roles[:2]
         tailored_projects = list(track.projects)
         tailored_education = list(track.education) if track.education else list(profile.master_experience.education)
         tailored_certifications = list(track.certifications) if track.certifications is not None else []
         categorized_skills = dict(track.categorized_skills)
+
+        include_portfolio = track.include_portfolio if track else False
+        contact_email = profile.email if include_portfolio else (getattr(profile, "gmail", None) or "ddgiovinazzo@gmail.com")
 
         return TailoredResumeData(
             target_headline=headline,
@@ -291,9 +296,10 @@ def create_deterministic_tailored_data(
             tailored_projects=tailored_projects,
             tailored_education=tailored_education,
             tailored_certifications=tailored_certifications,
-            include_portfolio_link=track.include_portfolio,
+            include_portfolio_link=include_portfolio,
             include_github_link=False,
             include_linkedin_link=track.include_linkedin,
+            contact_email=contact_email,
             skills_header=track.skills_header,
         )
 
@@ -563,6 +569,7 @@ INSTRUCTIONS:
             resume_data.include_portfolio_link = track.include_portfolio
             resume_data.include_github_link = False
             resume_data.include_linkedin_link = track.include_linkedin
+            resume_data.contact_email = profile.email if track.include_portfolio else (getattr(profile, "gmail", None) or "ddgiovinazzo@gmail.com")
 
             # Ground experience roles strictly to track's pre-approved roles and bullets
             if track.roles:
@@ -577,6 +584,9 @@ INSTRUCTIONS:
                     resume_data.tailored_experience = guarded_roles
                 else:
                     resume_data.tailored_experience = list(track.roles)
+
+                if track.projects and len(resume_data.tailored_experience) > 2:
+                    resume_data.tailored_experience = resume_data.tailored_experience[:2]
 
             # Sanitize summary and enforce strict 2-sentence formula
             clean_summary = re.sub(r"\[(?:cite|source|citation|ref)[:\s][^\]]+\]", "", resume_data.tailored_summary, flags=re.IGNORECASE).strip()
@@ -730,10 +740,12 @@ def build_grounded_email_pitch(
         "I welcome the opportunity to discuss how my skillset and background align with your team's goals."
     )
 
-    contact_parts = [profile.name, f"{profile.phone} | {profile.email}"]
-    online_links = []
     include_portfolio = track.include_portfolio if track else is_tech
     include_li = track.include_linkedin if track else True
+    active_email = profile.email if include_portfolio else (getattr(profile, "gmail", None) or "ddgiovinazzo@gmail.com")
+
+    contact_parts = [profile.name, f"{profile.phone} | {active_email}"]
+    online_links = []
 
     if include_portfolio and profile.portfolio_url:
         online_links.append(profile.portfolio_url.replace("https://", "").replace("http://", ""))
@@ -1009,6 +1021,7 @@ def generate_tailored_cover_letter(
     current_date = datetime.now().strftime("%B %d, %Y")
     include_portfolio = track.include_portfolio if track else False
     include_linkedin = track.include_linkedin if track else False
+    contact_email = profile.email if include_portfolio else (getattr(profile, "gmail", None) or "ddgiovinazzo@gmail.com")
 
     env = get_jinja_env()
     template = env.get_template("cover_letter_template.md.j2")
@@ -1024,6 +1037,7 @@ def generate_tailored_cover_letter(
         closing_paragraph=closing_paragraph,
         include_portfolio=include_portfolio,
         include_linkedin=include_linkedin,
+        contact_email=contact_email,
     )
 
     md_path.write_text(content, encoding="utf-8")

@@ -3,7 +3,8 @@
 ## Application for {{ target_role }}
 {% endif %}
 
-{{ profile.location }}{% if profile.phone %} | {{ profile.phone }}{% endif %}{% if profile.email %} | [{{ profile.email }}](mailto:{{ profile.email }}){% endif %}{% if include_portfolio and profile.portfolio_url %} | [{{ profile.portfolio_url | replace("https://", "") | replace("http://", "") }}]({{ profile.portfolio_url }}){% endif %}{% if include_linkedin and profile.linkedin_url %} | [{{ profile.linkedin_url | replace("https://", "") | replace("http://", "") }}]({{ profile.linkedin_url }}){% endif %}
+{% set active_email = contact_email if contact_email else (profile.gmail if (not include_portfolio and profile.gmail) else profile.email) %}
+{{ profile.location }}{% if profile.phone %} | {{ profile.phone }}{% endif %}{% if active_email %} | [{{ active_email }}](mailto:{{ active_email }}){% endif %}{% if include_portfolio and profile.portfolio_url %} | [{{ profile.portfolio_url | replace("https://", "") | replace("http://", "") }}]({{ profile.portfolio_url }}){% endif %}{% if include_linkedin and profile.linkedin_url %} | [{{ profile.linkedin_url | replace("https://", "") | replace("http://", "") }}]({{ profile.linkedin_url }}){% endif %}
 
 ***
 
@@ -24,4 +25,4 @@ Dear Hiring Team,
 Sincerely,
 
 **{{ profile.name }}**  
-{{ profile.email }}{% if profile.phone %} | {{ profile.phone }}{% endif %}
+{{ active_email }}{% if profile.phone %} | {{ profile.phone }}{% endif %}

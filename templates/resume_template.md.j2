@@ -3,7 +3,8 @@
 ## {{ tailored_data.headline }}
 {% endif %}
 
-{{ profile.location }}{% if profile.phone %} | {{ profile.phone }}{% endif %}{% if profile.email %} | [{{ profile.email }}](mailto:{{ profile.email }}){% endif %}{% if tailored_data.include_portfolio_link and profile.portfolio_url %} | [{{ profile.portfolio_url | replace("https://", "") | replace("http://", "") }}]({{ profile.portfolio_url }}){% endif %}{% if tailored_data.include_linkedin_link and profile.linkedin_url %} | [{{ profile.linkedin_url | replace("https://", "") | replace("http://", "") }}]({{ profile.linkedin_url }}){% endif %}{% if tailored_data.include_github_link and profile.github_url %} | [{{ profile.github_url | replace("https://", "") | replace("http://", "") }}]({{ profile.github_url }}){% endif %}
+{% set active_email = tailored_data.contact_email if tailored_data.contact_email else (profile.gmail if (not tailored_data.include_portfolio_link and profile.gmail) else profile.email) %}
+{{ profile.location }}{% if profile.phone %} | {{ profile.phone }}{% endif %}{% if active_email %} | [{{ active_email }}](mailto:{{ active_email }}){% endif %}{% if tailored_data.include_portfolio_link and profile.portfolio_url %} | [{{ profile.portfolio_url | replace("https://", "") | replace("http://", "") }}]({{ profile.portfolio_url }}){% endif %}{% if tailored_data.include_linkedin_link and profile.linkedin_url %} | [{{ profile.linkedin_url | replace("https://", "") | replace("http://", "") }}]({{ profile.linkedin_url }}){% endif %}{% if tailored_data.include_github_link and profile.github_url %} | [{{ profile.github_url | replace("https://", "") | replace("http://", "") }}]({{ profile.github_url }}){% endif %}
 
 ## PROFESSIONAL SUMMARY
 
