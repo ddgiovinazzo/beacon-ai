@@ -63,19 +63,11 @@
               Open Application Portal ↗
             </a>
           </td>
-          {% if gmail_compose_url %}
+          {% if email_draft or mailto_url %}
           <td style="padding-right: 10px; vertical-align: middle;">
-            <a href="{{ gmail_compose_url }}" target="_blank"
+            <a href="mailto:{% if target_email %}{{ target_email }}{% endif %}?subject=Application:%20{{ job_title | urlencode }}&body={{ email_draft | urlencode }}"
                style="background-color: #2563eb; color: #ffffff; padding: 11px 20px; text-decoration: none; border-radius: 6px; font-size: 13px; font-weight: 700; display: inline-block; border: 1px solid #1d4ed8;">
-              ✉ Compose in Gmail ↗
-            </a>
-          </td>
-          {% endif %}
-          {% if target_email %}
-          <td style="padding-right: 10px; vertical-align: middle;">
-            <a href="mailto:{{ target_email }}?subject=Application:%20{{ job_title | urlencode }}&body={{ email_draft | urlencode }}"
-               style="background-color: #3b82f6; color: #ffffff; padding: 11px 20px; text-decoration: none; border-radius: 6px; font-size: 13px; font-weight: 700; display: inline-block;">
-              ✉ Send Pre-Filled Outreach
+              ✉ Compose in Gmail
             </a>
           </td>
           {% endif %}

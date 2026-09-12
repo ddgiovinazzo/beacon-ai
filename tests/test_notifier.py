@@ -88,7 +88,7 @@ def test_button_routing_direct_email(
     sample_job: JobPosting,
     sample_result: EvaluationResult,
 ):
-    """Case 1: Posting with direct contact email renders a mailto: link with encoded subject and body."""
+    """Case 1: Posting with direct contact email renders an in-page compose link with pre-filled recipient, subject, and body."""
     sample_job.contact_email = "contact@company.com"
     html_out = build_notification_html(
         sample_job,
@@ -96,14 +96,14 @@ def test_button_routing_direct_email(
         email_draft="Dear Team,\n\nHere is my application.",
     )
     assert "mailto:contact@company.com?subject=Application:%20Full%20Charge%20Bookkeeper&body=Dear%20Team%2C%0A%0AHere%20is%20my%20application." in html_out
-    assert "✉ Send Pre-Filled Outreach" in html_out
+    assert "✉ Compose in Gmail" in html_out
 
 
 def test_button_routing_no_email_portal(
     sample_job: JobPosting,
     sample_result: EvaluationResult,
 ):
-    """Case 2: Posting with no contact email renders Open Application Portal link and displays draft text block."""
+    """Case 2: Posting with no contact email renders Open Application Portal, blank-recipient in-page mailto, and draft block."""
     sample_job.contact_email = None
     sample_job.raw_text = "No email here"
     draft_text = "Dear Hiring Team,\n\nI am applying for this role."
@@ -116,7 +116,8 @@ def test_button_routing_no_email_portal(
     assert f'href="{sample_job.link}"' in html_out
     assert "Pre-Generated Pitch Draft" in html_out
     assert "Dear Hiring Team," in html_out
-    assert "mailto:" not in html_out
+    assert "mailto:?subject=Application:%20Full%20Charge%20Bookkeeper&body=Dear%20Hiring%20Team" in html_out
+    assert "✉ Compose in Gmail" in html_out
 
 
 def test_extract_target_email_from_description_and_raw_text(sample_job: JobPosting):
@@ -298,7 +299,7 @@ def test_settings_validates_email_format():
 
 
 def test_gmail_compose_link_generation(sample_job: JobPosting, sample_result: EvaluationResult):
-    """Verify Gmail compose web URL is generated with pre-filled subject and body."""
+    """Verify unified Compose in Gmail button generates in-page mailto popup link with pre-filled subject and body."""
     sample_job.contact_email = None
     draft = "Dear Hiring Team,\n\nPlease accept my application."
     html_out = build_notification_html(
@@ -306,8 +307,8 @@ def test_gmail_compose_link_generation(sample_job: JobPosting, sample_result: Ev
         sample_result,
         email_draft=draft,
     )
-    assert "✉ Compose in Gmail ↗" in html_out
-    assert "https://mail.google.com/mail/?view=cm&amp;fs=1" in html_out or "https://mail.google.com/mail/?view=cm&fs=1" in html_out
+    assert "✉ Compose in Gmail" in html_out
+    assert "mailto:?subject=Application:%20Full%20Charge%20Bookkeeper&body=Dear%20Hiring%20Team" in html_out
     assert "Please%20accept%20my%20application" in html_out
 
 
