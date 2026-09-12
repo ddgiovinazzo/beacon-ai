@@ -1,9 +1,10 @@
 """SQLite persistence, schema management, and deduplication logic."""
 
+import re
 import sqlite3
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, List, Union
+from typing import Any, Dict, List, Optional, Union
 
 from src.schemas import EvaluationResult, JobPosting
 
@@ -66,6 +67,11 @@ def record_job(
     """
     now = datetime.now(timezone.utc).isoformat()
 
+    sanitized_reason = result.rejection_reason
+    if sanitized_reason:
+        # Strip specific geographic PII that the LLM might echo from candidate constraints
+        sanitized_reason = re.sub(r"from\s+[A-Z][a-zA-Z\s,]+(?:\b\d{5}\b)?", "from candidate location", sanitized_reason)
+
     with get_connection(db_path) as conn:
         conn.execute(
             sql,
@@ -75,7 +81,7 @@ def record_job(
                 job.source,
                 result.status.value,
                 result.fit_score,
-                result.rejection_reason,
+                sanitized_reason,
                 now,
             ),
         )
