@@ -153,6 +153,10 @@ class ProfileTrack(BaseModel):
         default=False,
         description="Whether to include raw GitHub link in contact line.",
     )
+    include_linkedin: bool = Field(
+        default=True,
+        description="Whether to include LinkedIn profile in contact line and outreach. Set False for non-technical roles if LinkedIn headline highlights software engineering.",
+    )
     narrative_context: Optional[str] = Field(
         default=None,
         description="Optional positioning guidance for this track.",
@@ -325,6 +329,10 @@ class TailoredResumeData(BaseModel):
     include_github_link: bool = Field(
         default=False,
         description="Set True ONLY if the target role specifically evaluates code repositories. Set False for non-developer or general analytical roles.",
+    )
+    include_linkedin_link: bool = Field(
+        default=True,
+        description="Set False for administrative, clerical, operational, or bookkeeping roles if the candidate's LinkedIn profile is configured for software engineering.",
     )
     skills_header: Optional[str] = Field(
         default=None,

@@ -278,6 +278,7 @@ def create_deterministic_tailored_data(
             tailored_education=tailored_education,
             include_portfolio_link=track.include_portfolio,
             include_github_link=False,
+            include_linkedin_link=track.include_linkedin,
             skills_header=track.skills_header,
         )
 
@@ -384,6 +385,7 @@ def create_deterministic_tailored_data(
         tailored_education=tailored_education,
         include_portfolio_link=is_tech,
         include_github_link=is_tech,
+        include_linkedin_link=True,
         skills_header="TECHNICAL SKILLS" if is_tech else "CORE COMPETENCIES & SKILLS",
     )
 
@@ -537,6 +539,7 @@ INSTRUCTIONS:
             resume_data.tailored_projects = track.projects
             resume_data.include_portfolio_link = track.include_portfolio
             resume_data.include_github_link = False
+            resume_data.include_linkedin_link = track.include_linkedin
 
             # Ground experience roles strictly to track's pre-approved roles and bullets
             if track.roles:
@@ -706,9 +709,12 @@ def build_grounded_email_pitch(
 
     contact_parts = [profile.name, f"{profile.phone} | {profile.email}"]
     online_links = []
-    if is_tech and profile.portfolio_url:
+    include_portfolio = track.include_portfolio if track else is_tech
+    include_li = track.include_linkedin if track else True
+
+    if include_portfolio and profile.portfolio_url:
         online_links.append(profile.portfolio_url.replace("https://", "").replace("http://", ""))
-    if profile.linkedin_url:
+    if include_li and profile.linkedin_url:
         online_links.append(profile.linkedin_url.replace("https://", "").replace("http://", ""))
     if online_links:
         contact_parts.append(" | ".join(online_links))

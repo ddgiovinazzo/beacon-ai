@@ -1163,6 +1163,7 @@ def test_multi_track_deterministic_tailored_data_clerical():
     assert data.skills_header == "CORE COMPETENCIES & OFFICE TOOLS"
     assert data.include_portfolio_link is False
     assert data.include_github_link is False
+    assert data.include_linkedin_link is False
 
     # 3. Single-Page Guarantee: projects must be strictly empty
     assert len(data.tailored_projects) == 0
@@ -1252,7 +1253,7 @@ def test_multi_track_resume_markdown_rendering_non_tech_guarantee(tmp_path: Path
     assert "## PROJECTS" not in md_content
     assert "ddgiovinazzo.com" not in md_content.splitlines()[5]  # Contact line does not have portfolio
     assert "github.com" not in md_content
-    assert "linkedin.com/in/ddgiovinazzo" in md_content
+    assert "linkedin.com/in/ddgiovinazzo" not in md_content
 
 
 def test_build_grounded_email_pitch_with_tracks():
@@ -1277,7 +1278,7 @@ def test_build_grounded_email_pitch_with_tracks():
     assert "Application for Records Clerk - Daniel Giovinazzo" in subject
     assert "ddgiovinazzo.com |" not in body
     assert "github.com" not in body
-    assert "linkedin.com/in/ddgiovinazzo" in body
+    assert "linkedin.com/in/ddgiovinazzo" not in body
 
     # Tech job
     tech_job = JobPosting(
