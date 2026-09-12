@@ -41,3 +41,7 @@ htmlcov/
 .DS_Store
 .idea/
 .vscode/
+
+# Scratch & temporary development scripts
+scratch/
+

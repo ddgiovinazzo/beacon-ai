@@ -1069,12 +1069,12 @@ def test_build_grounded_email_pitch_guardrails():
     )
 
     profile = UserProfile(
-        name="Daniel Giovinazzo",
-        email="contact@ddgiovinazzo.com",
+        name="Alex Mercer",
+        email="alex.mercer@example.com",
         phone="555-019-2834",
         location="New York, NY 10001",
-        portfolio_url="https://ddgiovinazzo.com",
-        linkedin_url="https://linkedin.com/in/ddgiovinazzo",
+        portfolio_url="https://alexmercer.dev",
+        linkedin_url="https://linkedin.com/in/alexmercer",
         constraints=UserConstraints(),
         master_experience=MasterExperience(
             roles=[],
@@ -1100,7 +1100,7 @@ def test_build_grounded_email_pitch_guardrails():
 
     subject, body = build_grounded_email_pitch(job, profile, eval_result)
 
-    assert "Application for Junior Software Developer - Daniel Giovinazzo" in subject
+    assert "Application for Junior Software Developer - Alex Mercer" in subject
     assert "email:alerts.craigslist.org" not in body
     assert "Matches target job title" not in body
     assert "Leverages candidate's" not in body
@@ -1109,9 +1109,9 @@ def test_build_grounded_email_pitch_guardrails():
     assert "Job Link:" not in body
     assert "Please accept my application for the Junior Software Developer position." in body
     assert "Python" in body
-    assert "ddgiovinazzo.com" in body
-    assert "linkedin.com/in/ddgiovinazzo" in body
-    assert "555-019-2834 | contact@ddgiovinazzo.com" in body
+    assert "alexmercer.dev" in body
+    assert "linkedin.com/in/alexmercer" in body
+    assert "555-019-2834 | alex.mercer@example.com" in body
 
 
 def test_clean_role_title_strips_recruitment_prefixes_and_normalizes_slashes():
