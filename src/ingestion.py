@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from collections import defaultdict
 import email
 from email.header import decode_header
@@ -5,7 +7,7 @@ import imaplib
 import logging
 import re
 from pathlib import Path
-from typing import TYPE_CHECKING, List, Optional, Union
+from typing import List, Optional, Union
 from urllib.parse import urlparse
 
 import feedparser
@@ -15,11 +17,8 @@ from bs4 import BeautifulSoup, MarkupResemblesLocatorWarning
 
 warnings.filterwarnings("ignore", category=MarkupResemblesLocatorWarning)
 
-from src.config import HTTP_USER_AGENT
+from src.config import HTTP_USER_AGENT, Settings
 from src.schemas import JobPosting
-
-if TYPE_CHECKING:
-    from src.config import Settings
 
 logger = logging.getLogger("beacon.ingestion")
 

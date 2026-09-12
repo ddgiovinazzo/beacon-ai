@@ -1,5 +1,7 @@
 """Two-Tier Evaluation Engine: Deterministic Cost Shield + Structured Multi-Provider LLM Scorer."""
 
+from __future__ import annotations
+
 import json
 import logging
 import re
@@ -10,6 +12,7 @@ from src.schemas import (
     EvaluationResult,
     EvaluationStatus,
     JobPosting,
+    ProfileTrack,
     UserProfile,
 )
 

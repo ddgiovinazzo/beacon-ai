@@ -1,5 +1,7 @@
 """SQLite persistence, schema management, and deduplication logic."""
 
+from __future__ import annotations
+
 import re
 import sqlite3
 from datetime import datetime, timedelta, timezone

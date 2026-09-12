@@ -1,5 +1,7 @@
 """Artifact generator: Markdown resumes, outreach drafts, and daily digests."""
 
+from __future__ import annotations
+
 import hashlib
 import json
 import logging

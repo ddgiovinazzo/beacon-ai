@@ -1,5 +1,7 @@
 """BeaconAI: Lightweight, modular, deterministic CLI job intelligence engine."""
 
+from __future__ import annotations
+
 import json
 import logging
 import re
@@ -13,7 +15,7 @@ from rich.panel import Panel
 from rich.prompt import Confirm, Prompt
 from rich.table import Table
 
-from src.config import get_settings
+from src.config import Settings, get_settings
 from src.db import (
     TIMEFRAME_PRESETS,
     clear_cache,
@@ -35,7 +37,7 @@ from src.generator import (
 )
 from src.ingestion import fetch_feed, fetch_imap_emails, mark_imap_messages_seen
 from src.notifier import send_match_notification
-from src.schemas import EvaluationStatus, JobPosting, UserProfile
+from src.schemas import EvaluationResult, EvaluationStatus, JobPosting, UserProfile
 
 # Configure logging
 logging.basicConfig(
