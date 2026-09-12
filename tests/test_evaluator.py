@@ -163,12 +163,12 @@ def test_tier2_heuristic_matches_aligned_role(test_profile):
     job = JobPosting(
         title="Senior Bookkeeper",
         link="https://example.com/job5",
-        raw_text="Experienced Bookkeeper needed. Proficient in QuickBooks Online and Excel reconciliations.",
+        raw_text="Experienced Bookkeeper needed. Proficient in QuickBooks Online, Excel reconciliations, and Gusto payroll.",
         source="example.com",
     )
     result = evaluate_tier2_heuristic(job, test_profile)
     assert result.status == EvaluationStatus.MATCH
-    assert result.fit_score >= 70
+    assert result.fit_score >= 75
     assert result.tier_evaluated == 2
 
 
@@ -180,7 +180,7 @@ def test_circuit_breaker_caps_evaluations(test_profile):
     job = JobPosting(
         title="Senior Bookkeeper",
         link="https://example.com/job",
-        raw_text="QuickBooks and Excel accounting work. $35/hr.",
+        raw_text="QuickBooks Online, Excel reconciliations, and Gusto payroll accounting work. $35/hr.",
         source="example.com",
     )
 
@@ -269,7 +269,7 @@ def test_circuit_breaker_sets_deferred_and_eligible_for_rescan(tmp_path, test_pr
     job = JobPosting(
         title="Senior Bookkeeper",
         link="https://example.com/deferred-job",
-        raw_text="QuickBooks and reconciliations. $35/hr.",
+        raw_text="QuickBooks Online, Excel reconciliations, and Gusto payroll. $35/hr.",
         source="example.com",
     )
 
@@ -506,7 +506,7 @@ def test_tier2_heuristic_scores_dynamic_tags(test_profile):
     job = JobPosting(
         title="Accounting Specialist",
         link="https://example.com/job-tag",
-        raw_text="Seeking candidate strong in general ledger and payroll compliance.",
+        raw_text="Seeking candidate strong in general ledger, payroll compliance, and QuickBooks Online.",
         source="example.com",
     )
     result = evaluate_tier2_heuristic(job, test_profile)
@@ -788,6 +788,216 @@ def test_tier1_rejects_test_gate_patterns(test_profile, tmp_path):
 
     # Verify company is NOT auto-blocked in database (requires human confirmation to prevent false positives)
     assert not is_company_blocked("TestMill Agency", db_path=db_file)
+
+
+def test_layer1_rejects_seniority_titles(test_profile):
+    """Layer 1: Verify deterministic rejection of Senior/Lead/Staff/Architect titles at Tier 1."""
+    test_profile.constraints.seniority_disqualifiers = [
+        "senior", "sr.", "sr ", "lead", "principal", "staff", "architect", "director", "manager", "controller", "head of", "vp"
+    ]
+
+    senior_titles = [
+        "Senior Software Engineer",
+        "Sr. Python Developer",
+        "Lead Full Stack Engineer",
+        "Principal Systems Architect",
+        "Staff Software Engineer",
+        "Director of Software Engineering",
+        "Accounting Controller",
+        "VP of Technology",
+    ]
+    for title in senior_titles:
+        job = JobPosting(
+            title=title,
+            link="https://example.com/job",
+            raw_text="Full time engineering role with great benefits.",
+            source="example.com",
+        )
+        res = evaluate_tier1_deterministic(job, test_profile)
+        assert res is not None, f"Expected {title} to be rejected at Tier 1"
+        assert res.status == EvaluationStatus.REJECT
+        assert "Seniority ceiling exceeded" in res.rejection_reason
+
+    # Clean titles should pass through Tier 1
+    clean_titles = [
+        "Software Engineer",
+        "Full Stack Developer",
+        "Junior Web Developer",
+        "Bookkeeper",
+        "Data Analyst",
+    ]
+    for title in clean_titles:
+        job = JobPosting(
+            title=title,
+            link="https://example.com/job",
+            raw_text="Full time role building web apps in Python and React. Seated desk work.",
+            source="example.com",
+        )
+        res = evaluate_tier1_deterministic(job, test_profile)
+        assert res is None, f"Expected {title} to pass Tier 1"
+
+
+def test_layer1_rejects_excessive_experience_years(test_profile):
+    """Layer 1: Verify deterministic rejection of postings demanding 5+ or more years of experience."""
+    test_profile.constraints.max_experience_years = 4
+
+    excessive_job = JobPosting(
+        title="Python Engineer",
+        link="https://example.com/job",
+        raw_text="Requirements: 7+ years of experience in backend development required.",
+        source="example.com",
+    )
+    res = evaluate_tier1_deterministic(excessive_job, test_profile)
+    assert res is not None
+    assert res.status == EvaluationStatus.REJECT
+    assert "Experience ceiling exceeded: demands 7+ years" in res.rejection_reason
+
+    # Moderate experience passes
+    moderate_job = JobPosting(
+        title="Python Engineer",
+        link="https://example.com/job",
+        raw_text="Requirements: 2-3 years of experience in backend development. Seated office work.",
+        source="example.com",
+    )
+    res_mod = evaluate_tier1_deterministic(moderate_job, test_profile)
+    assert res_mod is None
+
+
+def test_layer1_rejects_track_forbidden_keywords_in_title(test_profile):
+    """Layer 1: Verify deterministic rejection when job title contains track-forbidden core technologies."""
+    from src.schemas import ProfileTrack
+    test_profile.master_experience.tracks = {
+        "software": ProfileTrack(
+            track_id="software",
+            display_name="Software",
+            target_titles=["Software Engineer"],
+            trigger_keywords=["software"],
+            forbidden_keywords=["c++", "java", "c#", ".net", "golang"],
+        )
+    }
+
+    job_cpp = JobPosting(
+        title="C++ Software Engineer",
+        link="https://example.com/job",
+        raw_text="Build low-latency trading systems.",
+        source="example.com",
+    )
+    res = evaluate_tier1_deterministic(job_cpp, test_profile)
+    assert res is not None
+    assert res.status == EvaluationStatus.REJECT
+    assert "Incompatible core stack in title: 'c++'" in res.rejection_reason
+
+
+def test_layer3_python_veto_unmet_core_stack(test_profile):
+    """Layer 3: Verify Python Veto overrides an eager LLM MATCH if candidate_meets_core_stack is False."""
+    from unittest.mock import patch
+    config = Settings()
+    engine = EvaluationEngine(config=config, dry_run=False)
+
+    fake_llm_result = EvaluationResult(
+        status=EvaluationStatus.MATCH,
+        fit_score=88,
+        candidate_meets_core_stack=False,
+        unmet_mandatory_requirements=["C++", "Qt Framework"],
+        primary_required_languages=["C++"],
+        tier_evaluated=2,
+    )
+
+    job = JobPosting(
+        title="Software Engineer",
+        link="https://example.com/job",
+        raw_text="Desktop application development in C++.",
+        source="example.com",
+    )
+
+    with patch("src.evaluator.evaluate_tier2_llm", return_value=fake_llm_result):
+        final_res = engine.evaluate(job, test_profile)
+
+    assert final_res.status == EvaluationStatus.REJECT
+    assert "Deterministic Veto: Role requires core technologies" in final_res.rejection_reason
+
+
+def test_layer3_python_veto_forbidden_track_keyword(test_profile):
+    """Layer 3: Verify Python Veto overrides LLM MATCH if posting body contains track forbidden keyword."""
+    from unittest.mock import patch
+    from src.schemas import ProfileTrack
+    test_profile.master_experience.tracks = {
+        "software": ProfileTrack(
+            track_id="software",
+            display_name="Software",
+            target_titles=["Software Engineer", "Full Stack Engineer"],
+            trigger_keywords=["software", "engineer"],
+            forbidden_keywords=["c++", "golang"],
+        )
+    }
+    config = Settings()
+    engine = EvaluationEngine(config=config, dry_run=False)
+
+    fake_llm_result = EvaluationResult(
+        status=EvaluationStatus.MATCH,
+        fit_score=85,
+        candidate_meets_core_stack=True,
+        unmet_mandatory_requirements=[],
+        tier_evaluated=2,
+        matched_track_id="software",
+    )
+
+    job = JobPosting(
+        title="Full Stack Engineer",
+        link="https://example.com/job",
+        raw_text="We build web apps, but all background microservices are strictly implemented in Golang.",
+        source="example.com",
+    )
+
+    with patch("src.evaluator.evaluate_tier2_llm", return_value=fake_llm_result):
+        final_res = engine.evaluate(job, test_profile)
+
+    assert final_res.status == EvaluationStatus.REJECT
+    assert "Deterministic Veto: Posting requires incompatible track keyword: 'golang'" in final_res.rejection_reason
+
+
+def test_layer4_quality_threshold_rejection(test_profile):
+    """Layer 4: Verify that fit scores below 75 are converted to REJECT."""
+    from unittest.mock import patch
+    config = Settings()
+    engine = EvaluationEngine(config=config, dry_run=False)
+
+    # Lukewarm score of 70
+    lukewarm_result = EvaluationResult(
+        status=EvaluationStatus.MATCH,
+        fit_score=70,
+        candidate_meets_core_stack=True,
+        unmet_mandatory_requirements=[],
+        tier_evaluated=2,
+    )
+
+    job = JobPosting(
+        title="Software Engineer",
+        link="https://example.com/job",
+        raw_text="General web development role.",
+        source="example.com",
+    )
+
+    with patch("src.evaluator.evaluate_tier2_llm", return_value=lukewarm_result):
+        res = engine.evaluate(job, test_profile)
+
+    assert res.status == EvaluationStatus.REJECT
+    assert "Score below quality threshold (70/100, minimum 75 required)" in res.rejection_reason
+
+    # Strong score of 82 passes
+    strong_result = EvaluationResult(
+        status=EvaluationStatus.MATCH,
+        fit_score=82,
+        candidate_meets_core_stack=True,
+        unmet_mandatory_requirements=[],
+        tier_evaluated=2,
+    )
+    with patch("src.evaluator.evaluate_tier2_llm", return_value=strong_result):
+        res_strong = engine.evaluate(job, test_profile)
+
+    assert res_strong.status == EvaluationStatus.MATCH
+    assert res_strong.fit_score == 82
+
 
 
 

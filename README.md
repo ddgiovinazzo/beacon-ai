@@ -21,7 +21,7 @@
 [![PDF Engine: Sandboxed WeasyPrint](https://img.shields.io/badge/PDF-Sandboxed%20WeasyPrint-0284C7?style=for-the-badge&logo=adobeacrobatreader&logoColor=white)](https://weasyprint.org/)
 [![CI/CD: Zero-Storage GitHub Actions](https://img.shields.io/badge/CI%2FCD-Zero--Storage%20Actions-2088FF?style=for-the-badge&logo=githubactions&logoColor=white)](.github/workflows/daily_scan.yml)
 
-[Executive Overview](#-executive-overview) • [System Architecture](#-system-architecture) • [The Selector Pattern](#-the-multi-track-persona-engine-the-selector-pattern) • [Security & Cost Shield](#-security--cost-shield) • [Model Agnostic Layer](#-zero-vendor-lock-in-model-matrix) • [Declarative Profile Configuration](#-declarative-profile-configuration) • [Quick Start](#-quick-start) • [CLI Reference](#-cli-reference) • [CI/CD Runner](#-zero-storage-github-actions-automation) • [Author & Contact](#-author--contact)
+[Executive Overview](#-executive-overview) • [System Architecture](#-system-architecture) • [The Selector Pattern](#-the-multi-track-persona-engine-the-selector-pattern) • [Truth & Competency Guardrails](#-truth--competency-guardrails-the-4-layer-precision-defense) • [Security & Cost Shield](#-security--cost-shield) • [Model Agnostic Layer](#-zero-vendor-lock-in-model-matrix) • [Declarative Profile Configuration](#-declarative-profile-configuration) • [Quick Start](#-quick-start) • [CLI Reference](#-cli-reference) • [CI/CD Runner](#-zero-storage-github-actions-automation) • [Author & Contact](#-author--contact)
 
 ---
 
@@ -163,6 +163,66 @@ BeaconAI eliminates context poisoning and hallucinations by replacing unconstrai
 * **Context-Aware Link Scrubbing:** Raw GitHub repository URLs are dropped across all tracks. Technical portfolio links (`ddgiovinazzo.com`) appear exclusively on engineering and data tracks, while non-technical applications present a clean, credible header with LinkedIn and direct phone/email contact.
 * **Predefined Title Selector (Anti-Hallucination Headlines):** Instead of allowing the LLM to invent resume headlines or echoing messy job board titles (*"Clerical / Administrative Assistant Needed Immediately - Great Benefits!"*), each track defines the 3 most standard professional titles for that domain. The headline and outreach subject are strictly selected from this 3-title bank, eliminating typos, weird slashes, and recruiter advertising noise.
 * **Intelligent Recruitment Ad Title Cleaner:** Automated regex cleans verbose advertising phrasing common in job boards (e.g., `"Construction Company seeking Clerical/ Administrative Assistant"` -> `"Clerical / Administrative Assistant"`), ensuring generated resumes and outreach emails address the legitimate position title with professional polish.
+
+---
+
+## ⚖️ Truth & Competency Guardrails (The 4-Layer Precision Defense)
+
+Most AI job application bots optimize for **recall**—they eagerly apply candidate profiles to high-volume postings using loose keyword associations. In practice, this results in **LLM sycophancy and imposter matching**: an entry-to-mid level Python/TypeScript engineer receives automated matches for Lead Java microservice architects or C++ game engine developers because the LLM assumes "the candidate can learn it on the job."
+
+BeaconAI treats **precision > recall** as a foundational engineering constraint. If a candidate does not possess the primary day-to-day core stack or demanded credentials, the posting is rejected. We enforce this through a four-layer defense system:
+
+```text
+       UNTRUSTED JOB POSTING
+                 │
+                 ▼
+  ┌─────────────────────────────────────────────────────────────┐
+  │ LAYER 1: DETERMINISTIC SENIORITY & EXPERIENCE GATES ($0)    │
+  │ • Seniority regex: Senior, Lead, Principal, Staff, Director │
+  │ • Experience ceiling: Rejects if posting demands > 4 years  │
+  │ • Track forbidden keywords in title: Rejects C++, Java, CPA │
+  └──────────────────────────────┬──────────────────────────────┘
+                                 │ Passes Layer 1
+                                 ▼
+  ┌─────────────────────────────────────────────────────────────┐
+  │ LAYER 2: PYDANTIC AUDIT PROTOCOL (TOKEN COERCION)          │
+  │ Model must emit these fields BEFORE evaluating status:       │
+  │ 1. primary_required_languages: ["C++"]                      │
+  │ 2. candidate_meets_core_stack: false                        │
+  │ 3. unmet_mandatory_requirements: ["5+ yrs C++", "Qt"]       │
+  └──────────────────────────────┬──────────────────────────────┘
+                                 │ Model Emits Verdict
+                                 ▼
+  ┌─────────────────────────────────────────────────────────────┐
+  │ LAYER 3: DETERMINISTIC PYTHON VETO (ZERO-TRUST HARDFORK)    │
+  │ Overrules LLM hallucinated MATCH:                           │
+  │ • Veto 1: candidate_meets_core_stack == False -> REJECT     │
+  │ • Veto 2: unmet_mandatory_requirements != [] -> REJECT      │
+  │ • Veto 3: track forbidden_keywords in text -> REJECT        │
+  └──────────────────────────────┬──────────────────────────────┘
+                                 │ Cleared Vetoes
+                                 ▼
+  ┌─────────────────────────────────────────────────────────────┐
+  │ LAYER 4: ELEVATED QUALITY THRESHOLD (SCORE >= 75)           │
+  │ • Scores 0 - 74: REJECT (Filtered out as lukewarm/marginal) │
+  │ • Scores 75 - 100: MATCH -> High-Conviction Synthesis       │
+  └─────────────────────────────────────────────────────────────┘
+```
+
+1. **Layer 1: Deterministic Seniority & Experience Ceilings ($0 Cost):**
+   * **Title Seniority Filter:** Disqualifies postings containing `senior`, `sr.`, `lead`, `principal`, `staff`, `architect`, `director`, `vp`, `manager`, or `controller` in the job title at Tier 1 before consuming any API tokens.
+   * **Experience Years Ceiling:** Regex scans for demanded experience (`\b(\d+)\+?\s*years?\s+(?:of\s+)?experience\b`) and rejects any role requiring more than the candidate's declarative `max_experience_years` (e.g., `4`).
+   * **Track Title Rejection:** Rejects postings whose titles contain track-level `forbidden_keywords` (e.g., `C++ Software Engineer`).
+2. **Layer 2: Pydantic Structured Auditing Protocol (Auto-Regressive Coercion):**
+   * Auto-regressive LLMs generate tokens sequentially. If `status` appears first in the schema, models prematurely output `MATCH` and rationalize their answer afterward.
+   * BeaconAI places `primary_required_languages`, `mandatory_credentials`, `candidate_meets_core_stack: bool`, and `unmet_mandatory_requirements: List[str]` **before** `status` in the Pydantic schema, forcing the model to articulate the hard reality of technical mismatches before deciding.
+3. **Layer 3: Deterministic Post-Evaluation Python Veto:**
+   * Treats LLM outputs as untrusted. Even if an LLM hallucinates a `MATCH` for an unqualified role, Python execution logic inspects the schema output and posting body:
+     - If `candidate_meets_core_stack == False` -> Overrules to `REJECT`.
+     - If `unmet_mandatory_requirements` is non-empty -> Overrules to `REJECT`.
+     - If the posting text contains track-level `forbidden_keywords` (e.g., `C++`, `Java`, `C#`, `.NET`, `Golang`, `Rust`, `CPA required`) -> Overrules to `REJECT`.
+4. **Layer 4: Elevated Match Quality Threshold (Minimum 75/100):**
+   * Raised the qualification threshold from 50 to 75. Scores between 50 and 74 (lukewarm matches with marginal tool overlap) are converted to `REJECT`. Only high-conviction alignments (75–100) trigger PDF resume synthesis and transactional dispatch.
 
 ---
 

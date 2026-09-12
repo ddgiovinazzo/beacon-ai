@@ -108,6 +108,15 @@ class UserConstraints(BaseModel):
         default_factory=list,
         description="Explicit list of disqualified employers, recruiting agencies, or candidate harvesting mills (e.g., 'Coalition Technologies', 'Revature').",
     )
+    seniority_disqualifiers: List[str] = Field(
+        default_factory=list,
+        description="Seniority titles or keywords to disqualify at Tier 1 to prevent over-level matching.",
+    )
+    max_experience_years: Optional[int] = Field(
+        default=None,
+        description="Maximum required years of experience ceiling to reject at Tier 1.",
+        ge=0,
+    )
 
 
 class ProfileTrack(BaseModel):
@@ -121,6 +130,10 @@ class ProfileTrack(BaseModel):
         description="Top 3 standard, professional titles for this track from which the resume headline is selected.",
     )
     trigger_keywords: List[str] = Field(default_factory=list, description="Keywords in posting title/body that align with this track.")
+    forbidden_keywords: List[str] = Field(
+        default_factory=list,
+        description="Hard disqualifying technologies, frameworks, or credentials for this track (e.g. ['c++', 'java', 'cpa']).",
+    )
     approved_summary_traits: List[str] = Field(
         default_factory=list,
         description="Curated bank of approved professional traits for Sentence 1 of the summary.",
@@ -275,6 +288,22 @@ class JobPosting(BaseModel):
 
 class EvaluationResult(BaseModel):
     """Verdict and quantitative rationale for a job posting evaluation."""
+    primary_required_languages: List[str] = Field(
+        default_factory=list,
+        description="The 1-3 primary day-to-day programming languages or core domain tools required by the posting.",
+    )
+    mandatory_credentials: List[str] = Field(
+        default_factory=list,
+        description="Mandatory degrees, licenses, or certifications demanded by the posting (e.g. CPA, PE, Active Secret).",
+    )
+    candidate_meets_core_stack: bool = Field(
+        default=True,
+        description="True if the candidate possesses the essential primary core language/tool stack demanded.",
+    )
+    unmet_mandatory_requirements: List[str] = Field(
+        default_factory=list,
+        description="Any hard prerequisites, licenses, or deep technical competencies demanded that the candidate lacks.",
+    )
     status: EvaluationStatus = Field(
         ...,
         description="Overall decision: MATCH if passing all constraints and relevant, else REJECT.",
