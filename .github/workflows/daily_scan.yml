@@ -52,7 +52,9 @@ jobs:
           PROFILE_B64: ${{ secrets.USER_PROFILE_JSON_B64 }}
         run: |
           mkdir -p profiles
-          echo "$PROFILE_B64" | base64 --decode > profiles/ephemeral_profile.json
+          echo "$PROFILE_B64" | base64 --decode > profiles/ephemeral_raw
+          python3 -c "import gzip; d = open('profiles/ephemeral_raw', 'rb').read(); open('profiles/ephemeral_profile.json', 'wb').write(gzip.decompress(d) if d.startswith(b'\x1f\x8b') else d)"
+          rm -f profiles/ephemeral_raw
 
       - name: Run Multi-Feed & Email Intelligence Scan
         env:
