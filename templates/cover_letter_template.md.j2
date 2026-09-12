@@ -1,0 +1,27 @@
+# **{{ profile.name }}**
+{% if target_role %}
+## Application for {{ target_role }}
+{% endif %}
+
+{{ profile.location }}{% if profile.phone %} | {{ profile.phone }}{% endif %}{% if profile.email %} | [{{ profile.email }}](mailto:{{ profile.email }}){% endif %}{% if include_portfolio and profile.portfolio_url %} | [{{ profile.portfolio_url | replace("https://", "") | replace("http://", "") }}]({{ profile.portfolio_url }}){% endif %}{% if include_linkedin and profile.linkedin_url %} | [{{ profile.linkedin_url | replace("https://", "") | replace("http://", "") }}]({{ profile.linkedin_url }}){% endif %}
+
+***
+
+**Date:** {{ current_date }}  
+**To:** Hiring Team | {{ company_name }}{% if job_location %} ({{ job_location }}){% endif %}  
+**Position:** {{ target_role }}
+
+Dear Hiring Team,
+
+{{ opening_paragraph }}
+
+{{ experience_paragraph }}
+
+{{ values_paragraph }}
+
+{{ closing_paragraph }}
+
+Sincerely,
+
+**{{ profile.name }}**  
+{{ profile.email }}{% if profile.phone %} | {{ profile.phone }}{% endif %}

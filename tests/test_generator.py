@@ -1515,3 +1515,50 @@ def test_generate_tailored_resume_data_grounds_experience_to_track():
     assert result.include_github_link is False
     assert result.include_portfolio_link is False
 
+
+def test_generate_tailored_cover_letter(tmp_path: Path):
+    """Verify that generate_tailored_cover_letter creates valid markdown and PDF files without unrendered Jinja tags."""
+    import json
+    from src.config import Settings
+    from src.generator import generate_tailored_cover_letter
+    from src.schemas import EvaluationResult, EvaluationStatus, JobPosting, UserProfile
+
+    profile_path = Path("profiles/daniel_giovinazzo.json")
+    if not profile_path.exists():
+        pytest.skip("Profile not found")
+    profile = UserProfile.model_validate(json.loads(profile_path.read_text(encoding="utf-8")))
+
+    config = Settings(
+        artifacts_dir=tmp_path / "artifacts",
+        db_path=tmp_path / "test.db",
+    )
+    config.ensure_directories()
+
+    posting = JobPosting(
+        title="Bookkeeper - Inter County Alarm Systems",
+        link="https://example.com/job/bookkeeper",
+        raw_text="Seeking a Bookkeeper in Valley Cottage, NY to handle QuickBooks accounts payable and payroll.",
+        source="craigslist",
+    )
+    eval_result = EvaluationResult(
+        status=EvaluationStatus.MATCH,
+        fit_score=92,
+        tier_evaluated=2,
+        matched_track="accounting_bookkeeping",
+        rejection_reason=None,
+    )
+
+    md_path, pdf_path = generate_tailored_cover_letter(posting, profile, eval_result, config, dry_run=True)
+
+    assert md_path.exists()
+    assert pdf_path.exists()
+    assert pdf_path.stat().st_size > 0
+
+    content = md_path.read_text(encoding="utf-8")
+    assert "Daniel Giovinazzo" in content
+    assert "Inter County Alarm Systems" in content
+    assert "{{" not in content
+    assert "}}" not in content
+    assert "Rockland County" in content or "Nanuet" in content
+
+

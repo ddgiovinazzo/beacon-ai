@@ -327,4 +327,45 @@ def test_block_company_button_in_email(sample_job: JobPosting, sample_result: Ev
     assert "https://github.com/ddgiovinazzo/beacon-ai/actions/workflows/block_company.yml" in html_out_no_company
 
 
+@patch("resend.Emails.send")
+def test_send_match_notification_dual_attachments(
+    mock_resend_send: MagicMock,
+    sample_job: JobPosting,
+    sample_result: EvaluationResult,
+    tmp_path: Path,
+):
+    """Verify that both Resume PDF and Cover Letter PDF are attached to notification email."""
+    mock_resend_send.return_value = {"id": "msg_dual_123"}
+
+    resume_pdf = tmp_path / "Jane_Doe_Acme_Resume.pdf"
+    resume_pdf.write_bytes(b"%PDF-resume")
+    cl_pdf = tmp_path / "Jane_Doe_Acme_Cover_Letter.pdf"
+    cl_pdf.write_bytes(b"%PDF-cover-letter")
+    outreach = tmp_path / "outreach.txt"
+    outreach.write_text("mailto:?subject=Test&body=Hello", encoding="utf-8")
+
+    config = Settings(
+        resend_api_key="re_test_key",
+        notification_email_to="candidate@example.com",
+    )
+
+    success = send_match_notification(
+        sample_job,
+        sample_result,
+        resume_pdf,
+        outreach,
+        config=config,
+        cover_letter_pdf_path=cl_pdf,
+    )
+
+    assert success is True
+    assert mock_resend_send.called
+    params = mock_resend_send.call_args[0][0]
+    assert len(params["attachments"]) == 2
+    filenames = [a["filename"] for a in params["attachments"]]
+    assert "Jane_Doe_Acme_Resume.pdf" in filenames
+    assert "Jane_Doe_Acme_Cover_Letter.pdf" in filenames
+
+
+
 

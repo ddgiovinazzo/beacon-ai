@@ -923,3 +923,117 @@ def export_markdown_to_pdf(
     return output_pdf_path
 
 
+def generate_tailored_cover_letter(
+    posting: JobPosting,
+    profile: UserProfile,
+    result: EvaluationResult,
+    config: Settings,
+    dry_run: bool = False,
+) -> tuple[Path, Path]:
+    """Generate a clean, preformatted Markdown cover letter and sandboxed ATS PDF."""
+    config.ensure_directories()
+    from src.evaluator import resolve_profile_track
+
+    company = extract_company_from_title(posting.title) or sanitize_target_company(posting.source)
+    company_name = company or "your organization"
+    clean_base = generate_clean_resume_filename(profile.name, company, posting.title).replace("_Resume.pdf", "")
+
+    md_path = config.matches_dir / f"{clean_base}_Cover_Letter.md"
+    pdf_path = config.matches_dir / f"{clean_base}_Cover_Letter.pdf"
+
+    track = resolve_profile_track(posting, profile) if profile.tracks else None
+    target_role = clean_role_title(posting.title, company)
+    if track and track.approved_titles and target_role not in track.approved_titles:
+        target_role = select_best_approved_title(track.approved_titles, posting.title, posting.raw_text)
+
+    # Detect local proximity
+    job_text = f"{posting.title} {posting.raw_text}".lower()
+    is_remote = bool(re.search(r"\b(?:remote|telecommute|virtual|work\s+from\s+home|100%\s+remote)\b", job_text))
+    is_local = any(kw in job_text for kw in ["rockland", "bergen", "nanuet", "valley cottage", "westchester", "nyack", "pearl river", "paramus", "montvale"]) or not is_remote
+
+    # 1. Opening Paragraph
+    if is_local and not is_remote:
+        opening_paragraph = (
+            f"I am writing to express my strong interest in the {target_role} position at {company_name}. "
+            f"As a resident of Rockland County based in Nanuet, I am particularly drawn to {company_name}'s "
+            "reputation and community presence. With a proven commitment to accuracy, reliable execution, "
+            "and structured workflows, I am eager to bring my background to your team."
+        )
+    else:
+        opening_paragraph = (
+            f"I am writing to express my strong interest in the {target_role} position at {company_name}. "
+            "With a solid background in structured workflow management, data accuracy, and collaborative problem-solving, "
+            "I am excited about the opportunity to contribute dependable, high-integrity support to your operations."
+        )
+
+    # 2. Experience Paragraph tailored to track
+    track_id = track.track_id if track else "general"
+    if track_id in ("accounting_bookkeeping", "clerical_data_entry", "office_administrative"):
+        experience_paragraph = (
+            "In my recent work operating DDG Enterprises, I managed end-to-end small-business financial and operational "
+            "records, executing accounts payable, bank and order reconciliations across PayPal and bank statements, and "
+            "detailed cost tracking in Microsoft Excel. Previously at PowerSchool and Headed2, I maintained rigorous "
+            "data verification standards and sprint documentation across high-volume systems. This blend of hands-on "
+            "financial reconciliation and disciplined digital record-keeping enables me to maintain organized, audit-ready "
+            "records with zero dropped details."
+        )
+    elif track_id == "technical_support_qa":
+        experience_paragraph = (
+            "Over three years supporting K-12 educator and administrative platforms at PowerSchool and Headed2, I triaged "
+            "software and user access incidents, performed root-cause diagnostics, and authored comprehensive knowledge-base "
+            "troubleshooting articles that reduced recurring inquiries. In addition, my hands-on CRM data hygiene across "
+            "HubSpot and Zoho CRM reinforced my focus on meticulous ticket lifecycle documentation, SLA adherence, and "
+            "patient, dependable user support."
+        )
+    else:
+        experience_paragraph = (
+            "Throughout my professional background at PowerSchool and Headed2, I collaborated on distributed pods "
+            "supporting enterprise platforms serving over 1,000,000 active users. I specialized in data validation, modular "
+            "system consistency, and thorough documentation. Whether resolving complex data discrepancies or managing daily "
+            "operational tasks, I prioritize methodical execution and clear, proactive communication."
+        )
+
+    # 3. Values Paragraph
+    values_paragraph = (
+        "I take pride in high operational integrity, steady focus, and dependable follow-through. "
+        "I thrive in organized environments where attention to detail matters, and I focus on resolving "
+        "discrepancies calmly and systematically so that daily business processes run seamlessly."
+    )
+
+    # 4. Closing Paragraph
+    closing_paragraph = (
+        "Thank you for your time and consideration. My tailored resume is attached for your review, and I welcome "
+        f"the opportunity to discuss how my skillset and background align with {company_name}'s goals."
+    )
+
+    current_date = datetime.now().strftime("%B %d, %Y")
+    include_portfolio = track.include_portfolio if track else False
+    include_linkedin = track.include_linkedin if track else False
+
+    env = get_jinja_env()
+    template = env.get_template("cover_letter_template.md.j2")
+    content = template.render(
+        profile=profile,
+        target_role=target_role,
+        company_name=company_name,
+        job_location=posting.source if "craigslist" not in posting.source.lower() else None,
+        current_date=current_date,
+        opening_paragraph=opening_paragraph,
+        experience_paragraph=experience_paragraph,
+        values_paragraph=values_paragraph,
+        closing_paragraph=closing_paragraph,
+        include_portfolio=include_portfolio,
+        include_linkedin=include_linkedin,
+    )
+
+    md_path.write_text(content, encoding="utf-8")
+    logger.info(f"Saved tailored cover letter markdown: {md_path}")
+
+    # Export sandboxed ATS PDF
+    export_markdown_to_pdf(md_path, pdf_path)
+    logger.info(f"Saved tailored cover letter PDF: {pdf_path}")
+
+    return md_path, pdf_path
+
+
+

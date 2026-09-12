@@ -37,6 +37,7 @@ from src.generator import (
     append_daily_digest,
     export_markdown_to_pdf,
     generate_outreach_draft,
+    generate_tailored_cover_letter,
     generate_tailored_resume,
     slugify,
 )
@@ -319,6 +320,9 @@ def scan(
                     if not dry_run and settings.llm_rate_limit_delay > 0:
                         time.sleep(settings.llm_rate_limit_delay)
                     pdf_path = export_markdown_to_pdf(resume_path)
+                    _cl_md_path, cl_pdf_path = generate_tailored_cover_letter(
+                        posting, user_profile, result, settings, dry_run=dry_run
+                    )
                     outreach_path = generate_outreach_draft(
                         posting, user_profile, result, settings
                     )
@@ -326,7 +330,12 @@ def scan(
 
                     if notify:
                         sent = send_match_notification(
-                            posting, result, pdf_path, outreach_path, config=settings
+                            posting,
+                            result,
+                            pdf_path,
+                            outreach_path,
+                            config=settings,
+                            cover_letter_pdf_path=cl_pdf_path,
                         )
                         if sent:
                             console.print(
@@ -556,6 +565,9 @@ def evaluate_job_cmd(
                 posting, user_profile, result, settings, dry_run=dry_run
             )
             pdf_path = export_markdown_to_pdf(resume_path)
+            cl_md_path, cl_pdf_path = generate_tailored_cover_letter(
+                posting, user_profile, result, settings, dry_run=dry_run
+            )
             outreach_path = generate_outreach_draft(
                 posting, user_profile, result, settings
             )
@@ -564,7 +576,12 @@ def evaluate_job_cmd(
             email_status = "[dim]Disabled (--no-notify)[/dim]"
             if notify:
                 sent = send_match_notification(
-                    posting, result, pdf_path, outreach_path, config=settings
+                    posting,
+                    result,
+                    pdf_path,
+                    outreach_path,
+                    config=settings,
+                    cover_letter_pdf_path=cl_pdf_path,
                 )
                 if sent:
                     email_status = f"[bold green]✓ Dispatched to {settings.notification_email_to}[/bold green]"
@@ -578,7 +595,8 @@ def evaluate_job_cmd(
                     f"Estimated Comp: {result.estimated_compensation or 'Not specified'}\n"
                     f"Reason: {result.rejection_reason or 'Qualified against candidate criteria'}\n\n"
                     f"• Tailored Resume: [cyan]{resume_path}[/cyan]\n"
-                    f"• Sandboxed PDF: [cyan]{pdf_path}[/cyan]\n"
+                    f"• Resume PDF: [cyan]{pdf_path}[/cyan]\n"
+                    f"• Cover Letter PDF: [cyan]{cl_pdf_path}[/cyan]\n"
                     f"• Outreach Draft: [cyan]{outreach_path}[/cyan]\n"
                     f"• Email Alert: {email_status}",
                     title="Evaluation Verdict: MATCH",

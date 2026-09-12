@@ -201,9 +201,10 @@ def send_match_notification(
     resume_pdf_path: Path,
     outreach_txt_path: Path,
     config: Optional[Settings] = None,
+    cover_letter_pdf_path: Optional[Path] = None,
 ) -> bool:
     """
-    Dispatch a transactional email notification with attached PDF resume via Resend.
+    Dispatch a transactional email notification with attached PDF resume (and optional cover letter) via Resend.
     
     Returns True if sent successfully, False if skipped due to missing config or error.
     """
@@ -235,7 +236,7 @@ def send_match_notification(
     clean_source = re.sub(r"[\r\n\t]+", " ", job.source).strip()
     subject = f"🎯 Job Match ({result.fit_score}/100): {clean_title} [{clean_source}]"
 
-    # Prepare PDF attachment
+    # Prepare PDF attachments (Resume + Cover Letter)
     attachments = []
     if resume_pdf_path.exists():
         try:
@@ -247,7 +248,19 @@ def send_match_notification(
                 }
             )
         except Exception as e:
-            logger.error(f"Failed reading PDF attachment at {resume_pdf_path}: {e}")
+            logger.error(f"Failed reading Resume PDF attachment at {resume_pdf_path}: {e}")
+
+    if cover_letter_pdf_path and cover_letter_pdf_path.exists():
+        try:
+            cl_bytes = cover_letter_pdf_path.read_bytes()
+            attachments.append(
+                {
+                    "filename": cover_letter_pdf_path.name,
+                    "content": list(cl_bytes),
+                }
+            )
+        except Exception as e:
+            logger.error(f"Failed reading Cover Letter PDF attachment at {cover_letter_pdf_path}: {e}")
 
     params: resend.Emails.SendParams = {
         "from": config.notification_email_from,
