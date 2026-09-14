@@ -1120,6 +1120,95 @@ def test_tier1_allows_family_owned_business(test_profile):
     assert res is None
 
 
+def test_courtroom_protocol_prosecution_fatal_barrier_veto(test_profile):
+    """Courtroom Protocol: Python veto overrides MATCH to REJECT if Prosecutor establishes fatal barriers."""
+    from unittest.mock import patch
+    from src.schemas import ProsecutionCase, DefenseCase
+    engine = EvaluationEngine(Settings(dry_run=False))
+    job = JobPosting(
+        title="Accountant",
+        link="https://example.com/job",
+        raw_text="Full-time accounting role.",
+        source="example.com",
+    )
+
+    fake_result = EvaluationResult(
+        status=EvaluationStatus.MATCH,
+        fit_score=85,
+        match_highlights=["Strong bookkeeping skills"],
+        tier_evaluated=2,
+        prosecution=ProsecutionCase(
+            fatal_barriers=["Mandatory active CPA license required by New York State law"],
+            unverified_competencies=[],
+            deception_or_exploitation_flags=[],
+            argument="Candidate lacks state CPA license.",
+        ),
+        defense=DefenseCase(
+            practical_task_overlap=["Ledger reconciliations"],
+            transferable_strengths=["QuickBooks"],
+            context_defense="Strong operational alignment.",
+            advocate_score=85,
+        ),
+        findings_of_fact="Candidate meets general accounting workflows but lacks mandatory state CPA license.",
+    )
+
+    with patch("src.evaluator.evaluate_tier2_llm", return_value=fake_result):
+        res = engine.evaluate(job, test_profile)
+
+    assert res.status == EvaluationStatus.REJECT
+    assert "Courtroom Veto: Fatal licensing or prerequisite barriers" in res.rejection_reason
+    assert "CPA license" in res.rejection_reason
+
+
+def test_tier1_allows_staff_accountant_blocks_staff_engineer(test_profile):
+    """Tier 1: 'staff' disqualifier only blocks technical staff titles, allowing Staff Accountant/Bookkeeper."""
+    test_profile.constraints.seniority_disqualifiers = ["staff"]
+
+    accountant_job = JobPosting(
+        title="Staff Accountant",
+        link="https://example.com/staff-acct",
+        raw_text="Responsible for journal entries and bank reconciliations.",
+        source="example.com",
+    )
+    res_acct = evaluate_tier1_deterministic(accountant_job, test_profile)
+    assert res_acct is None, "Staff Accountant should not be blocked at Tier 1"
+
+    bookkeeper_job = JobPosting(
+        title="Full Charge Bookkeeper / Staff Bookkeeper",
+        link="https://example.com/staff-bk",
+        raw_text="Manage office accounts and payroll.",
+        source="example.com",
+    )
+    res_bk = evaluate_tier1_deterministic(bookkeeper_job, test_profile)
+    assert res_bk is None, "Staff Bookkeeper should not be blocked at Tier 1"
+
+    engineer_job = JobPosting(
+        title="Staff Software Engineer",
+        link="https://example.com/staff-eng",
+        raw_text="Lead distributed systems architecture.",
+        source="example.com",
+    )
+    res_eng = evaluate_tier1_deterministic(engineer_job, test_profile)
+    assert res_eng is not None
+    assert res_eng.status == EvaluationStatus.REJECT
+    assert "Seniority ceiling exceeded: title indicates executive/staff engineering role" in res_eng.rejection_reason
+
+
+def test_tier1_does_not_reject_company_longevity_experience(test_profile):
+    """Tier 1: '25 years of experience' describing company heritage must not reject candidate with 4-yr max."""
+    test_profile.constraints.max_experience_years = 4
+
+    longevity_job = JobPosting(
+        title="Office Assistant",
+        link="https://example.com/heritage",
+        raw_text="Family-owned plumbing contractor. Our business brings over 25 years of experience serving Rockland County. Seeking office assistant.",
+        source="example.com",
+    )
+    res = evaluate_tier1_deterministic(longevity_job, test_profile)
+    assert res is None, "Company longevity boast should not trip candidate experience ceiling"
+
+
+
 
 
 

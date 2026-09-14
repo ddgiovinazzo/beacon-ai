@@ -240,8 +240,9 @@ def parse_job_alert_email(
     # Administrative and non-job URL patterns to ignore across all providers
     ignored_keywords = [
         "unsubscribe", "preferences", "privacy", "feedback", "/help", "/terms",
-        "/settings", "/manage", "/about/", "/account/", "/accounts/", "myaccount.",
-        "accounts.", "login", "signin", "optout", "/sub/", "legal"
+        "/settings", "/manage", "/about/", "myaccount.", "optout", "/sub/",
+        "/legal-notice", "/legal/terms", "/privacy-policy", "/account/login",
+        "/account/signin", "login.", "signin."
     ]
 
     job_indicators = [

@@ -287,8 +287,58 @@ class JobPosting(BaseModel):
     detected_company: Optional[str] = Field(default=None, description="Recognized employer or company name.")
 
 
+class ProsecutionCase(BaseModel):
+    """The Prosecutor's scrutiny against candidacy and posting legitimacy."""
+    fatal_barriers: List[str] = Field(
+        default_factory=list,
+        description="Mandatory legal licenses (e.g. CPA, RN, Bar, PE), active security clearances, or 8+ yr executive demands the candidate objectively lacks.",
+    )
+    unverified_competencies: List[str] = Field(
+        default_factory=list,
+        description="Deep specialized tools or domain skills required by the posting that cannot be verified from candidate history.",
+    )
+    deception_or_exploitation_flags: List[str] = Field(
+        default_factory=list,
+        description="Offshore talent broker funnels, unpaid trials/assessments, commission-only schemes, multi-city ghost templates, or heavy manual labor disguised as clerical.",
+    )
+    argument: str = Field(
+        default="",
+        description="Prosecutor's core argument stating why this application could fail, waste time, or violate candidate boundaries.",
+    )
+
+
+class DefenseCase(BaseModel):
+    """The Defense/Advocate's case demonstrating qualified alignment and genuine opportunity."""
+    practical_task_overlap: List[str] = Field(
+        default_factory=list,
+        description="Concrete day-to-day duties from the posting that directly map to verified accomplishments in the candidate's active track.",
+    )
+    transferable_strengths: List[str] = Field(
+        default_factory=list,
+        description="How the candidate's real capabilities solve the employer's core operational problems without pretending or exaggerating.",
+    )
+    context_defense: str = Field(
+        default="",
+        description="Defense against superficial disqualifiers: explains why brevity, lack of corporate website boilerplate, informal classified tone, or secondary auxiliary tools should not disqualify this role.",
+    )
+    advocate_score: int = Field(
+        default=0,
+        ge=0,
+        le=100,
+        description="Advocate's confidence score (0-100) representing practical day-to-day capability match.",
+    )
+
+
 class EvaluationResult(BaseModel):
-    """Verdict and quantitative rationale for a job posting evaluation."""
+    """Verdict and quantitative rationale for a job posting evaluation under the Tripartite Courtroom Protocol."""
+    prosecution: Optional[ProsecutionCase] = Field(
+        default=None,
+        description="The Prosecutor's case against candidacy and posting legitimacy.",
+    )
+    defense: Optional[DefenseCase] = Field(
+        default=None,
+        description="The Defense Advocate's case for practical qualification and opportunity authenticity.",
+    )
     primary_required_languages: List[str] = Field(
         default_factory=list,
         description="The 1-3 primary day-to-day programming languages or core domain tools required by the posting.",
@@ -321,6 +371,10 @@ class EvaluationResult(BaseModel):
         default=None,
         description="Specific deterministic or semantic reason for rejection, if rejected.",
     )
+    findings_of_fact: Optional[str] = Field(
+        default=None,
+        description="Unvarnished judicial findings of fact synthesizing both Prosecution and Defense arguments.",
+    )
     fit_score: int = Field(
         ...,
         description="Relevance and qualification score from 0 to 100.",
@@ -347,6 +401,7 @@ class EvaluationResult(BaseModel):
         default=None,
         description="Recognized employer or company name.",
     )
+
 
 
 class TailoredResumeData(BaseModel):

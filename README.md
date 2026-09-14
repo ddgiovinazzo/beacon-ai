@@ -166,63 +166,81 @@ BeaconAI eliminates context poisoning and hallucinations by replacing unconstrai
 
 ---
 
-## ⚖️ Truth & Competency Guardrails (The 4-Layer Precision Defense)
+## ⚖️ Truth & Competency Guardrails: The Tripartite Courtroom Protocol
 
 Most AI job application bots optimize for **recall**—they eagerly apply candidate profiles to high-volume postings using loose keyword associations. In practice, this results in **LLM sycophancy and imposter matching**: an entry-to-mid level Python/TypeScript engineer receives automated matches for Lead Java microservice architects or C++ game engine developers because the LLM assumes "the candidate can learn it on the job."
 
-BeaconAI treats **precision > recall** as a foundational engineering constraint. If a candidate does not possess the primary day-to-day core stack or demanded credentials, the posting is rejected. We enforce this through a four-layer defense system:
+Conversely, naive negative regex tripwires cause **devastating false rejections**—killing legitimate postings like *Staff Accountant* because of the word "staff", or local small businesses because of "25 years in business".
+
+BeaconAI resolves this using the **Tripartite Courtroom Protocol**: every posting undergoes a structured adversarial hearing (Prosecutor, Defense Advocate, and Impartial Judge) inside a single structured Pydantic evaluation:
 
 ```text
-       UNTRUSTED JOB POSTING
-                 │
-                 ▼
-  ┌─────────────────────────────────────────────────────────────┐
-  │ LAYER 1: DETERMINISTIC SENIORITY & EXPERIENCE GATES ($0)    │
-  │ • Seniority regex: Senior, Lead, Principal, Staff, Director │
-  │ • Experience ceiling: Rejects if posting demands > 4 years  │
-  │ • Track forbidden keywords in title: Rejects C++, Java, CPA │
-  └──────────────────────────────┬──────────────────────────────┘
-                                 │ Passes Layer 1
-                                 ▼
-  ┌─────────────────────────────────────────────────────────────┐
-  │ LAYER 2: PYDANTIC AUDIT PROTOCOL (TOKEN COERCION)          │
-  │ Model must emit these fields BEFORE evaluating status:       │
-  │ 1. primary_required_languages: ["C++"]                      │
-  │ 2. candidate_meets_core_stack: false                        │
-  │ 3. unmet_mandatory_requirements: ["5+ yrs C++", "Qt"]       │
-  └──────────────────────────────┬──────────────────────────────┘
-                                 │ Model Emits Verdict
-                                 ▼
-  ┌─────────────────────────────────────────────────────────────┐
-  │ LAYER 3: DETERMINISTIC PYTHON VETO (ZERO-TRUST HARDFORK)    │
-  │ Overrules LLM hallucinated MATCH:                           │
-  │ • Veto 1: candidate_meets_core_stack == False -> REJECT     │
-  │ • Veto 2: unmet_mandatory_requirements != [] -> REJECT      │
-  │ • Veto 3: track forbidden_keywords in text -> REJECT        │
-  └──────────────────────────────┬──────────────────────────────┘
-                                 │ Cleared Vetoes
-                                 ▼
-  ┌─────────────────────────────────────────────────────────────┐
-  │ LAYER 4: ELEVATED QUALITY THRESHOLD (SCORE >= 75)           │
-  │ • Scores 0 - 74: REJECT (Filtered out as lukewarm/marginal) │
-  │ • Scores 75 - 100: MATCH -> High-Conviction Synthesis       │
-  └─────────────────────────────────────────────────────────────┘
+                               UNTRUSTED JOB POSTING
+                                         │
+                                         ▼
+   ┌─────────────────────────────────────────────────────────────────────────┐
+   │ LAYER 1: DETERMINISTIC GATES & ZERO-AMBIGUITY COST SHIELD ($0)          │
+   │ • Mathematical Wage Floor: Stated wage < min_hourly/salary floor        │
+   │ • Context-Aware Seniority: Distinguishes "Staff SWE" from "Staff Acct"  │
+   │ • Candidate-Directed Experience: Ignores company longevity boasts       │
+   │ • Explicit Blocklist: Disqualifies known agency mills / candidate farms │
+   └─────────────────────────────────────┬───────────────────────────────────┘
+                                         │ Passes Layer 1
+                                         ▼
+   ┌─────────────────────────────────────────────────────────────────────────┐
+   │ LAYER 2: THE TRIPARTITE COURTROOM PROTOCOL (Pydantic Auto-Coercion)     │
+   │                                                                         │
+   │ 1. THE PROSECUTOR (Bad Cop / Scrutiny):                                 │
+   │    • fatal_barriers: Mandatory legal licenses (CPA, RN, Bar), L6+       │
+   │    • unverified_competencies: Deep specialized stacks candidate lacks   │
+   │    • deception_flags: Offshore broker funnels, unpaid trials, ghosts    │
+   │                                                                         │
+   │ 2. THE DEFENSE (Good Cop / Candidate Advocate):                         │
+   │    • practical_task_overlap: Verified duties solving daily problems     │
+   │    • context_defense: Defends small business brevity & informal tone    │
+   │    • advocate_score: Practical task capability score (0 - 100)          │
+   │                                                                         │
+   │ 3. THE JUDICIAL VERDICT (Impartial Magistrate):                         │
+   │    • Renders MATCH only if Advocate >= 75 AND Fatal Barriers == 0       │
+   │    • findings_of_fact: Unvarnished judicial ruling synthesizing both    │
+   └─────────────────────────────────────┬───────────────────────────────────┘
+                                         │ Model Emits Verdict
+                                         ▼
+   ┌─────────────────────────────────────────────────────────────────────────┐
+   │ LAYER 3: DETERMINISTIC PYTHON VETO (ZERO-TRUST HARDFORK)                │
+   │ Overrules LLM hallucinated MATCH:                                       │
+   │ • Veto 0: prosecution.fatal_barriers is non-empty -> REJECT             │
+   │ • Veto 1: candidate_meets_core_stack == False -> REJECT                 │
+   │ • Veto 2: unmet_mandatory_requirements is non-empty -> REJECT           │
+   │ • Veto 3: is_legitimate_employment == False (Offshore broker) -> REJECT │
+   │ • Veto 4: is_verifiable_entity == False (Ghost lead-gen) -> REJECT      │
+   │ • Veto 5: track forbidden_keywords in text -> REJECT                    │
+   └─────────────────────────────────────┬───────────────────────────────────┘
+                                         │ Cleared Vetoes
+                                         ▼
+   ┌─────────────────────────────────────────────────────────────────────────┐
+   │ LAYER 4: ELEVATED QUALITY THRESHOLD (SCORE >= 75)                       │
+   │ • Scores 0 - 74: REJECT (Filtered out as lukewarm/marginal)             │
+   │ • Scores 75 - 100: MATCH -> High-Conviction Bespoke Synthesis           │
+   └─────────────────────────────────────────────────────────────────────────┘
 ```
 
-1. **Layer 1: Deterministic Seniority & Experience Ceilings ($0 Cost):**
-   * **Title Seniority Filter:** Disqualifies postings containing `senior`, `sr.`, `lead`, `principal`, `staff`, `architect`, `director`, `vp`, `manager`, or `controller` in the job title at Tier 1 before consuming any API tokens.
-   * **Experience Years Ceiling:** Regex scans for demanded experience (`\b(\d+)\+?\s*years?\s+(?:of\s+)?experience\b`) and rejects any role requiring more than the candidate's declarative `max_experience_years` (e.g., `4`).
-   * **Track Title Rejection:** Rejects postings whose titles contain track-level `forbidden_keywords` (e.g., `C++ Software Engineer`).
-2. **Layer 2: Pydantic Structured Auditing Protocol (Auto-Regressive Coercion):**
-   * Auto-regressive LLMs generate tokens sequentially. If `status` appears first in the schema, models prematurely output `MATCH` and rationalize their answer afterward.
-   * BeaconAI places `primary_required_languages`, `mandatory_credentials`, `candidate_meets_core_stack: bool`, and `unmet_mandatory_requirements: List[str]` **before** `status` in the Pydantic schema, forcing the model to articulate the hard reality of technical mismatches before deciding.
+1. **Layer 1: Deterministic Gates & Zero-Ambiguity Cost Shield ($0 Cost):**
+   * **Mathematical Wage Floor:** Hard numeric checks reject roles whose stated hourly or annual pay falls below candidate minimums.
+   * **Context-Aware Seniority Filter:** Distinguishes technical executive roles (`Staff Software Engineer`, `Staff Architect`, `Director`) from standard operational contributor titles (`Staff Accountant`, `Staff Bookkeeper`, `Staff Assistant`).
+   * **Candidate-Directed Experience Ceilings:** Scans for demanded experience only when directed at candidate requirements, ignoring company longevity statements (*"Serving the tri-state area for over 25 years"*).
+2. **Layer 2: The Tripartite Courtroom Protocol:**
+   * **The Prosecutor (`ProsecutionCase`):** Scrutinizes the posting for mandatory regulatory licenses (CPA, RN, Bar), active security clearances, 8+ year executive demands, offshore talent broker funnels, and unpaid trial traps.
+   * **The Defense (`DefenseCase`):** Builds the strongest truthful case for practical task overlap, demonstrates transferable capabilities, and defends small business brevity and informal tone.
+   * **The Judge (`JudicialVerdict`):** Synthesizes both arguments. If the Defense proves solid operational alignment ($\ge 75$) and the Prosecutor identifies zero fatal barriers, the verdict is `MATCH`.
 3. **Layer 3: Deterministic Post-Evaluation Python Veto:**
-   * Treats LLM outputs as untrusted. Even if an LLM hallucinates a `MATCH` for an unqualified role, Python execution logic inspects the schema output and posting body:
-     - If `candidate_meets_core_stack == False` -> Overrules to `REJECT`.
-     - If `unmet_mandatory_requirements` is non-empty -> Overrules to `REJECT`.
-     - If the posting text contains track-level `forbidden_keywords` (e.g., `C++`, `Java`, `C#`, `.NET`, `Golang`, `Rust`, `CPA required`) -> Overrules to `REJECT`.
+   * Treats LLM outputs as untrusted. Python execution logic vetoes any hallucinated `MATCH` if:
+     - The Prosecutor established fatal legal/licensing barriers (`fatal_barriers`).
+     - The role requires unverified core languages/tools (`candidate_meets_core_stack == False`).
+     - The posting is flagged as an offshore contractor broker or phantom lead-generation farm.
+     - The posting text contains track-level `forbidden_keywords`.
 4. **Layer 4: Elevated Match Quality Threshold (Minimum 75/100):**
-   * Raised the qualification threshold from 50 to 75. Scores between 50 and 74 (lukewarm matches with marginal tool overlap) are converted to `REJECT`. Only high-conviction alignments (75–100) trigger PDF resume synthesis and transactional dispatch.
+   * Scores between 0 and 74 (lukewarm matches with marginal overlap) are converted to `REJECT`. Only high-conviction alignments (75–100) trigger PDF resume synthesis and transactional dispatch.
 
 ---
 
@@ -246,12 +264,12 @@ Every external input is treated as untrusted. BeaconAI enforces multi-layered de
 
 ## 🔌 Zero Vendor Lock-In: Model Matrix
 
-BeaconAI leverages **LiteLLM** and **Instructor** to normalize structured outputs into strict Pydantic V2 models. Switch between foundation model providers or private local engines dynamically via the `LLM_MODEL` environment variable (or `--model` CLI option) with a single unified `LLM_API_KEY` setting and zero code refactoring:
+BeaconAI leverages **LiteLLM** and **Instructor** to normalize structured outputs into strict Pydantic V2 models. While fully model-agnostic, BeaconAI standardizes on **Google Gemini 3.1 Flash-Lite** as its primary production intelligence engine due to its exceptional cost-efficiency (~$0.00029/call) and high contextual reasoning fidelity:
 
 | Provider | Engine Identifier Example | Ideal Use Case | Operational Profile |
 | :--- | :--- | :--- | :--- |
-| **Google** | `gemini/gemini-2.5-flash-lite` | High-speed batch scoring & rapid extraction | Low latency, high RPM/throughput |
-| **Anthropic** | `claude-3-5-sonnet-20241022` | Complex technical roles & deep resume tailoring | State-of-the-art qualitative synthesis |
+| **Google (Active Standard)** | `gemini/gemini-3.1-flash-lite` | Tripartite Courtroom evaluation, rapid parsing, high context | ~$0.00029/call, ultra-low latency, temperature=1.0 |
+| **Anthropic** | `claude-3-5-sonnet-20241022` | Complex executive roles & deep narrative tailoring | Premium qualitative synthesis |
 | **OpenAI** | `gpt-4o`, `gpt-4o-mini` | Industry standard structured JSON extraction | High availability & standard enterprise SLA |
 | **Local / Offline** | `ollama/llama3.2`, `ollama/mistral` | Air-gapped, zero-cost, 100% private local execution | Complete data privacy with zero token cost |
 
