@@ -234,6 +234,21 @@ def select_best_approved_title(approved_titles: List[str], job_title: str, job_t
     return best_title
 
 
+def sort_reverse_chrono(roles_list: List[ExperienceRole]) -> List[ExperienceRole]:
+    """Sort experience roles in strict reverse chronological order (most recent first)."""
+    def get_sort_key(role: ExperienceRole) -> int:
+        end_d = (role.end_date or "").lower()
+        if "present" in end_d:
+            return 9999
+        match = re.search(r"\b(20\d\d)\b", end_d)
+        if match:
+            return int(match.group(1))
+        start_d = (role.start_date or "").lower()
+        match_start = re.search(r"\b(20\d\d)\b", start_d)
+        return int(match_start.group(1)) if match_start else 2000
+    return sorted(roles_list, key=get_sort_key, reverse=True)
+
+
 def create_deterministic_tailored_data(
     posting: JobPosting,
     profile: UserProfile,
@@ -277,7 +292,8 @@ def create_deterministic_tailored_data(
             f"Experienced in structured workflow execution and records management, delivering {outcome}."
         )
 
-        selected_roles = list(track.roles) if track.roles else list(profile.master_experience.roles)
+        raw_roles = list(track.roles) if track.roles else list(profile.master_experience.roles)
+        selected_roles = sort_reverse_chrono(raw_roles)
         if track.projects and len(selected_roles) > 2:
             selected_roles = selected_roles[:2]
         tailored_projects = list(track.projects)
@@ -479,14 +495,16 @@ def generate_tailored_resume_data(
             "Candidate Context & Tone Guardrails:\n"
             "Rely strictly and exclusively on the candidate's verified work history, accomplishments, and narrative positioning provided in the Context Prompt.\n"
             "*CRITICAL TONE GUARDRAIL:* Match the JD's requested seniority level and domain. Default to grounded, practical, domain-appropriate verbs.\n"
+            "*CRITICAL TIMELINE GUARDRAIL:* Maintain chronological continuity with ZERO unexplained gaps. Always include the candidate's current active role (DDG Enterprises, September 2025–Present) as the first role.\n"
+            "*CRITICAL TITLE GUARDRAIL:* Official job titles (e.g. Software Engineer at PowerSchool, Frontend JavaScript Engineer at Headed2) are factual and immutable. Do NOT disguise or alter them.\n"
             "*CRITICAL FORMATTING GUARDRAIL:* Remove all citation markers, source references, or brackets (e.g., [cite: 1], [source: 1]).\n\n"
             "Step 1: Bullet Heading Format: Format EVERY bullet in tailored_experience starting with a bold dynamic heading reflecting the JD competency, e.g.:\n"
             "   '**[Dynamic Competency Heading]:** [Tailored bullet point ending in a quantifiable result, based EXCLUSIVELY on Context Prompt]'\n\n"
             "Step 2: Summary Rules (STRICT ANTI-FLUFF 2-SENTENCE BLUEPRINT):\n"
             "Write exactly 2 sentences following this strict template:\n"
-            "- Sentence 1: [Target Title] with proven experience in [1-2 systems from Candidate Skills], specializing in [Exact 1 trait chosen from the approved traits bank].\n"
+            "- Sentence 1: [Target Title] with a proven foundation in [1-2 systems from Candidate Skills], specializing in [Exact 1 trait chosen from the approved traits bank].\n"
             "- Sentence 2: Experienced in [1-2 workflows from Candidate Roles], delivering [Exact 1 outcome chosen from the approved outcomes bank].\n"
-            "- STRICT ANTI-FLUFF: NO subjective filler adjectives ('Methodical', 'detail-oriented', 'adept at', 'proven expertise', 'quiet efficiency') and NO boilerplate endings ('Prepared to make an immediate impact')."
+            "- STRICT ANTI-FLUFF: NO subjective filler adjectives ('Methodical', 'detail-oriented', 'adept at', 'proven expertise', 'quiet efficiency') and NO boilerplate endings ('Prepared to make an immediate impact'). Do NOT repeat words or phrases between sentence 1 and sentence 2."
         )
 
         user_content = f"""JOB DESCRIPTION (JD):
@@ -530,7 +548,7 @@ INSTRUCTIONS:
 1. target_headline: Set to the 1 title from APPROVED RESUME HEADLINES that best matches the job posting.
 2. tailored_summary: Write exactly 2 sentences following the strict blueprint with 1 approved trait and 1 approved outcome.
 3. categorized_skills: Output the exact candidate skills matrix provided above.
-4. tailored_experience: Select 2-3 most relevant roles with bold headings '**[Heading]:** ...'.
+4. tailored_experience: Select 2-3 most relevant roles with bold headings '**[Heading]:** ...', always retaining the candidate's current active role (DDG Enterprises) at the top.
 5. tailored_projects: Select relevant projects from candidate projects above, or empty list if none provided.
 6. tailored_education: Education credentials aligned with context.
 7. tailored_certifications: Relevant certifications selected from CANDIDATE CERTIFICATIONS BANK, or empty list [] if none or not relevant.
@@ -581,9 +599,15 @@ INSTRUCTIONS:
                     if matched_role and matched_role not in guarded_roles:
                         guarded_roles.append(matched_role)
                 if guarded_roles:
-                    resume_data.tailored_experience = guarded_roles
+                    resume_data.tailored_experience = sort_reverse_chrono(guarded_roles)
                 else:
-                    resume_data.tailored_experience = list(track.roles)
+                    resume_data.tailored_experience = sort_reverse_chrono(list(track.roles))
+
+                # Guarantee the current active role (DDG Enterprises) is always anchored at the top
+                ddg_role = next((r for r in track.roles if "ddg" in r.organization.lower()), None)
+                if ddg_role and ddg_role not in resume_data.tailored_experience:
+                    resume_data.tailored_experience.insert(0, ddg_role)
+                    resume_data.tailored_experience = sort_reverse_chrono(resume_data.tailored_experience)
 
                 if track.projects and len(resume_data.tailored_experience) > 2:
                     resume_data.tailored_experience = resume_data.tailored_experience[:2]

@@ -1507,10 +1507,11 @@ def test_generate_tailored_resume_data_grounds_experience_to_track():
          patch("instructor.from_litellm"):
         result = generate_tailored_resume_data(job, profile, config, dry_run=False)
 
-    # Verify bullets were snapped back to track.roles verified bullets verbatim
-    assert result.tailored_experience[0].organization == "PowerSchool"
-    assert "**Data Grid Architecture:** Built modular, reusable data-grid components" in result.tailored_experience[0].bullets[0]
-    assert "Invented Fluff" not in result.tailored_experience[0].bullets[0]
+    # Verify DDG Enterprises is anchored at top and PowerSchool bullets were snapped back to verified bullets verbatim
+    assert result.tailored_experience[0].organization == "DDG Enterprises"
+    assert result.tailored_experience[1].organization == "PowerSchool"
+    assert "**Data Grid Architecture:** Built modular, reusable data-grid components" in result.tailored_experience[1].bullets[0]
+    assert "Invented Fluff" not in result.tailored_experience[1].bullets[0]
     # Verify github link was forced to False
     assert result.include_github_link is False
     assert result.include_portfolio_link is False
