@@ -70,11 +70,11 @@ flowchart TD
     end
 
     subgraph S3["3. TWO-TIER FILTERING ENGINE"]
-        G --> H{"Tier 1 Deterministic Gates"}
-        H -- "Fails Pay Floor / Lifting / Commute / Schedule" --> I["❌ Save as REJECT in SQLite"]
-        H -- "Passes Hard Constraints" --> J{"Circuit Breaker Cap<br/><i>MAX_LLM_EVALS_PER_RUN</i>"}
+        G --> H{"Tier 1 Minimalist Shield"}
+        H -- "Fails Wage Floor / Blocklist / Max Commute" --> I["❌ Save as REJECT in SQLite"]
+        H -- "Passes Minimalist Gates" --> J{"Circuit Breaker Cap<br/><i>MAX_LLM_EVALS_PER_RUN</i>"}
         J -- "Cap Exceeded" --> K["⏳ Save as DEFERRED (Re-eval Next Run)"]
-        J -- "Within Cap" --> L["Tier 2 Model-Agnostic Scorer<br/><i>(Claude / Gemini / OpenAI / Ollama)</i>"]
+        J -- "Within Cap" --> L["Tier 2 Courtroom Protocol<br/><i>(Prosecutor • Defense • Judge)</i>"]
         L --> M["Pydantic V2 Schema Validation<br/><code>EvaluationResult</code>"]
     end
 
@@ -160,7 +160,7 @@ BeaconAI eliminates context poisoning and hallucinations by replacing unconstrai
 * **Zero Generative AI for Skills & Matrix:** The LLM is strictly prohibited from writing or inventing skills. Skills sections (`CORE COMPETENCIES & SKILLS`, `FINANCIAL & ACCOUNTING COMPETENCIES`, `TECHNICAL SKILLS`) are rendered directly from the track's human-curated skills matrix.
 * **Single-Page Layout Guarantee:** Operational and non-technical tracks configure `projects: []`. The resume template uses Jinja2 conditional rendering (`{% if tailored_data.projects and tailored_data.projects | length > 0 %}`) to suppress the `PROJECTS` section entirely, allowing the experience and competencies sections to breathe while snapping precisely to a clean 1-page PDF.
 * **Anti-Fluff 2-Sentence Summary Formula:** The LLM or deterministic synthesizer must choose from a curated bank of approved professional traits (Sentence 1) and verifiable outcomes (Sentence 2). Subjective filler adjectives (*"methodical"*, *"hard-working"*, *"quiet efficiency"*) and cliché boilerplate endings (*"Prepared to make an immediate impact"*) are hard-rejected.
-* **Context-Aware Link Scrubbing:** Raw GitHub repository URLs are dropped across all tracks. Technical portfolio links (`ddgiovinazzo.com`) appear exclusively on engineering and data tracks, while non-technical applications present a clean, credible header with LinkedIn and direct phone/email contact.
+* **Context-Aware Link Scrubbing:** Raw repository URLs are dropped across all tracks. Technical portfolio links appear exclusively on engineering and data tracks, while non-technical applications present a clean, credible header with LinkedIn and direct phone/email contact.
 * **Predefined Title Selector (Anti-Hallucination Headlines):** Instead of allowing the LLM to invent resume headlines or echoing messy job board titles (*"Clerical / Administrative Assistant Needed Immediately - Great Benefits!"*), each track defines the 3 most standard professional titles for that domain. The headline and outreach subject are strictly selected from this 3-title bank, eliminating typos, weird slashes, and recruiter advertising noise.
 * **Intelligent Recruitment Ad Title Cleaner:** Automated regex cleans verbose advertising phrasing common in job boards (e.g., `"Construction Company seeking Clerical/ Administrative Assistant"` -> `"Clerical / Administrative Assistant"`), ensuring generated resumes and outreach emails address the legitimate position title with professional polish.
 
@@ -179,28 +179,29 @@ BeaconAI resolves this using the **Tripartite Courtroom Protocol**: every postin
                                          │
                                          ▼
    ┌─────────────────────────────────────────────────────────────────────────┐
-   │ LAYER 1: DETERMINISTIC GATES & ZERO-AMBIGUITY COST SHIELD ($0)          │
+   │ LAYER 1: MINIMALIST COST SHIELD & DETERMINISTIC GATES ($0 SPEND)        │
+   │ • Employer Blocklist: Disqualifies known agency mills / candidate farms │
    │ • Mathematical Wage Floor: Stated wage < min_hourly/salary floor        │
-   │ • Context-Aware Seniority: Distinguishes "Staff SWE" from "Staff Acct"  │
-   │ • Candidate-Directed Experience: Ignores company longevity boasts       │
-   │ • Explicit Blocklist: Disqualifies known agency mills / candidate farms │
+   │ • In-Person Commute Radius: Explicit distance > max commute miles       │
+   │ • Zero Brittle Tripwires: Eliminates regex false rejections for LLM     │
    └─────────────────────────────────────┬───────────────────────────────────┘
                                          │ Passes Layer 1
                                          ▼
    ┌─────────────────────────────────────────────────────────────────────────┐
-   │ LAYER 2: THE TRIPARTITE COURTROOM PROTOCOL (Pydantic Auto-Coercion)     │
+   │ LAYER 2: THE TRIPARTITE COURTROOM PROTOCOL (Presumption of Opportunity) │
    │                                                                         │
    │ 1. THE PROSECUTOR (Bad Cop / Scrutiny):                                 │
-   │    • fatal_barriers: Mandatory legal licenses (CPA, RN, Bar), L6+       │
-   │    • unverified_competencies: Deep specialized stacks candidate lacks   │
+   │    • fatal_barriers: Mandatory legal licenses (CPA, RN, Bar), clearances│
+   │    • unverified_competencies: Deep specialized tech candidate lacks     │
    │    • deception_flags: Offshore broker funnels, unpaid trials, ghosts    │
    │                                                                         │
    │ 2. THE DEFENSE (Good Cop / Candidate Advocate):                         │
-   │    • practical_task_overlap: Verified duties solving daily problems     │
+   │    • practical_task_overlap: Verified duties solving daily operations   │
    │    • context_defense: Defends small business brevity & informal tone    │
    │    • advocate_score: Practical task capability score (0 - 100)          │
    │                                                                         │
    │ 3. THE JUDICIAL VERDICT (Impartial Magistrate):                         │
+   │    • Innocent Until Proven Guilty: Brief classifieds presumed viable    │
    │    • Renders MATCH only if Advocate >= 75 AND Fatal Barriers == 0       │
    │    • findings_of_fact: Unvarnished judicial ruling synthesizing both    │
    └─────────────────────────────────────┬───────────────────────────────────┘
@@ -225,13 +226,15 @@ BeaconAI resolves this using the **Tripartite Courtroom Protocol**: every postin
    └─────────────────────────────────────────────────────────────────────────┘
 ```
 
-1. **Layer 1: Deterministic Gates & Zero-Ambiguity Cost Shield ($0 Cost):**
+1. **Layer 1: Minimalist Cost Shield & Deterministic Gates ($0 Spend):**
+   * **Explicit Employer Blocklist:** Checks target companies against active user profile exclusions and the SQLite `blocked_companies` database to immediately kill staffing mills and unwanted entities.
    * **Mathematical Wage Floor:** Hard numeric checks reject roles whose stated hourly or annual pay falls below candidate minimums.
-   * **Context-Aware Seniority Filter:** Distinguishes technical executive roles (`Staff Software Engineer`, `Staff Architect`, `Director`) from standard operational contributor titles (`Staff Accountant`, `Staff Bookkeeper`, `Staff Assistant`).
-   * **Candidate-Directed Experience Ceilings:** Scans for demanded experience only when directed at candidate requirements, ignoring company longevity statements (*"Serving the tri-state area for over 25 years"*).
-2. **Layer 2: The Tripartite Courtroom Protocol:**
-   * **The Prosecutor (`ProsecutionCase`):** Scrutinizes the posting for mandatory regulatory licenses (CPA, RN, Bar), active security clearances, 8+ year executive demands, offshore talent broker funnels, and unpaid trial traps.
-   * **The Defense (`DefenseCase`):** Builds the strongest truthful case for practical task overlap, demonstrates transferable capabilities, and defends small business brevity and informal tone.
+   * **In-Person Commute Radius:** Explicit distance verification ensures on-site and hybrid roles stay within candidate travel tolerance (while freely allowing remote roles).
+   * **Zero Brittle Regex Tripwires:** Seniority levels, years of experience, schedule bounds, lifting demands, and cultural alignment are deliberately deferred to Layer 2. This prevents naive keyword regexes from erroneously discarding authentic classifieds, concise direct-hire postings, or non-tech operational roles.
+2. **Layer 2: The Tripartite Courtroom Protocol (Presumption of Opportunity):**
+   * **Judicial Standard (Innocent Until Proven Guilty):** Every posting is presumed authentic and viable unless the Prosecution proves fatal barriers beyond a reasonable doubt. Ambiguity or brevity is never guilt.
+   * **The Prosecutor (`ProsecutionCase`):** Scrutinizes the posting for mandatory regulatory licenses (CPA, RN, Bar), active security clearances, unverified 8+ year executive engineering demands, offshore talent broker funnels, and unpaid trial traps.
+   * **The Defense (`DefenseCase`):** Builds the strongest truthful case for practical task overlap, demonstrates transferable capabilities, and defends small business brevity, informal tone, and absence of secondary auxiliary tools.
    * **The Judge (`JudicialVerdict`):** Synthesizes both arguments. If the Defense proves solid operational alignment ($\ge 75$) and the Prosecutor identifies zero fatal barriers, the verdict is `MATCH`.
 3. **Layer 3: Deterministic Post-Evaluation Python Veto:**
    * Treats LLM outputs as untrusted. Python execution logic vetoes any hallucinated `MATCH` if:
@@ -250,7 +253,7 @@ Every external input is treated as untrusted. BeaconAI enforces multi-layered de
 
 | Security Vector | Implementation Mechanism | Defensive Guarantee |
 | :--- | :--- | :--- |
-| **Tier 1 Cost Shield** | Dynamic Regex & Constraint Verification | Automatically rejects unqualified postings ($0 API spend) **before** calling foundation models. |
+| **Tier 1 Cost Shield** | Minimalist Deterministic Gates | Rejects roles failing exact blocklist, wage floor, or commute limits ($0 API spend) without false-positive keyword tripwires. |
 | **Zero-Trust PDF Sandbox** | Custom `blocked_url_fetcher` in WeasyPrint | Unconditionally raises `PermissionError` on all network (`http://`, `https://`, `169.254.169.254`), filesystem (`file://`), and base64 (`data:`) URIs, neutralizing SSRF and LFI attacks. |
 | **Zero-Storage Secrets** | Ephemeral Runner Ingestion | Candidate profile is injected via base64 GitHub Secrets at runtime and purged under `if: always()`, preventing private candidate PII from entering Git history. |
 | **Prompt Injection Isolation** | Regex Delimiter Neutralization | Escapes closing `</untrusted_job_posting>` tags with whitespace/case variants to prevent context breakout in LLM prompts. |
@@ -534,7 +537,7 @@ BeaconAI operates as an autonomous background agent via a scheduled, headless Gi
 
 ## 🧪 Automated QA Test Suite
 
-BeaconAI includes **80 automated test fixtures** validating deterministic regex parsers, prompt injection defenses, circuit-breaker states, model-agnostic routing, sandboxed ATS vector PDF rendering, recruiter-friendly filenaming, dynamic role selection, markdown bullet/sane list parsing, transactional email security, and RFC 2047 / IMAP email alert parsing:
+BeaconAI includes **132 automated test fixtures** validating minimalist deterministic cost shields, the tripartite courtroom protocol, prompt injection defenses, circuit-breaker states, model-agnostic routing, multi-track resume tailoring, sandboxed ATS vector PDF rendering, recruiter-friendly filenaming, markdown bullet/sane list parsing, transactional email security, and RFC 2047 / IMAP email alert parsing:
 
 ```bash
 # Run full automated test suite
@@ -543,76 +546,148 @@ pytest -v
 
 ```text
 ============================= test session starts ==============================
-platform darwin -- Python 3.14.7, pytest-9.1.1, pluggy-1.6.0
-rootdir: /path/to/beacon-ai
+platform darwin -- Python 3.14.7, pytest-9.1.1, pluggy-1.6.0 -- /Users/daniel/code/beacon-ai/.venv/bin/python3.14
+cachedir: .pytest_cache
+rootdir: /Users/daniel/code/beacon-ai
 configfile: pyproject.toml
 testpaths: tests
 plugins: anyio-4.15.1
-collected 61 items
+collecting ... collected 132 items
 
-tests/test_evaluator.py::test_extract_compensation_hourly PASSED         [  1%]
-tests/test_evaluator.py::test_extract_compensation_annual PASSED         [  3%]
-tests/test_evaluator.py::test_tier1_rejects_lifting_violation PASSED     [  4%]
-tests/test_evaluator.py::test_tier1_rejects_keyword_physical_restriction PASSED [  6%]
-tests/test_evaluator.py::test_tier1_rejects_hourly_pay_floor_violation PASSED [  8%]
-tests/test_evaluator.py::test_tier1_rejects_schedule_conflict PASSED     [  9%]
-tests/test_evaluator.py::test_tier1_passes_qualified_job PASSED          [ 11%]
-tests/test_evaluator.py::test_tier2_heuristic_matches_aligned_role PASSED [ 13%]
-tests/test_evaluator.py::test_circuit_breaker_caps_evaluations PASSED    [ 14%]
-tests/test_evaluator.py::test_extract_compensation_single_dollar_range PASSED [ 16%]
-tests/test_evaluator.py::test_extract_compensation_salary_shorthand_and_ranges PASSED [ 18%]
-tests/test_evaluator.py::test_idiomatic_ladder_not_rejected PASSED       [ 19%]
-tests/test_evaluator.py::test_physical_ladder_rejected PASSED            [ 21%]
-tests/test_evaluator.py::test_circuit_breaker_sets_deferred_and_eligible_for_rescan PASSED [ 22%]
-tests/test_evaluator.py::test_has_llm_credentials_multi_provider PASSED  [ 24%]
-tests/test_evaluator.py::test_evaluate_tier2_llm_model_agnostic_routing PASSED [ 26%]
-tests/test_evaluator.py::test_generate_tailored_resume_data_model_agnostic PASSED [ 27%]
-tests/test_evaluator.py::test_tier1_rejects_dynamic_physical_restriction PASSED [ 29%]
-tests/test_evaluator.py::test_tier1_rejects_commute_distance_exceeding_max PASSED [ 31%]
-tests/test_evaluator.py::test_tier1_allows_remote_job_regardless_of_distance PASSED [ 32%]
+tests/test_config.py::test_operational_defaults PASSED                   [  0%]
+tests/test_config.py::test_operational_env_overrides PASSED              [  1%]
+tests/test_config.py::test_schemas_free_from_operational_parameters PASSED [  2%]
+tests/test_db.py::test_parse_timeframe PASSED                            [  3%]
+tests/test_db.py::test_get_cache_counts_and_clear PASSED                 [  3%]
+tests/test_db.py::test_clear_cache_with_status_filter PASSED             [  4%]
+tests/test_db.py::test_clear_match_artifacts PASSED                      [  5%]
+tests/test_db.py::test_clear_cache_cli PASSED                            [  6%]
+tests/test_db.py::test_blocked_companies_db PASSED                       [  6%]
+tests/test_db.py::test_blocked_companies_cli PASSED                      [  7%]
+tests/test_email_ingestion.py::test_decode_email_header PASSED           [  8%]
+tests/test_email_ingestion.py::test_parse_craigslist_alert_email_html PASSED [  9%]
+tests/test_email_ingestion.py::test_parse_craigslist_alert_email_plain_text_fallback PASSED [  9%]
+tests/test_email_ingestion.py::test_parse_generic_job_alert_email PASSED [ 10%]
+tests/test_email_ingestion.py::test_parse_email_message_multipart_routing PASSED [ 11%]
+tests/test_email_ingestion.py::test_fetch_imap_emails_unconfigured PASSED [ 12%]
+tests/test_email_ingestion.py::test_fetch_imap_emails_mock_success PASSED [ 12%]
+tests/test_email_ingestion.py::test_fetch_imap_emails_handles_auth_error PASSED [ 13%]
+tests/test_email_ingestion.py::test_cli_scan_with_email_integration PASSED [ 14%]
+tests/test_email_ingestion.py::test_settings_allowed_senders_list PASSED [ 15%]
+tests/test_email_ingestion.py::test_fetch_imap_emails_filters_by_allowed_senders PASSED [ 15%]
+tests/test_email_ingestion.py::test_fetch_imap_emails_multiple_sublabels PASSED [ 16%]
+tests/test_email_ingestion.py::test_mark_imap_messages_seen_groups_by_mailbox PASSED [ 17%]
+tests/test_evaluator.py::test_extract_compensation_hourly PASSED         [ 18%]
+tests/test_evaluator.py::test_extract_compensation_annual PASSED         [ 18%]
+tests/test_evaluator.py::test_tier1_defers_lifting_to_tier2 PASSED       [ 19%]
+tests/test_evaluator.py::test_tier1_defers_physical_restrictions_to_tier2 PASSED [ 20%]
+tests/test_evaluator.py::test_tier1_rejects_hourly_pay_floor_violation PASSED [ 21%]
+tests/test_evaluator.py::test_tier1_defers_schedule_conflict_to_tier2 PASSED [ 21%]
+tests/test_evaluator.py::test_tier1_passes_qualified_job PASSED          [ 22%]
+tests/test_evaluator.py::test_tier2_heuristic_matches_aligned_role PASSED [ 23%]
+tests/test_evaluator.py::test_circuit_breaker_caps_evaluations PASSED    [ 24%]
+tests/test_evaluator.py::test_extract_compensation_single_dollar_range PASSED [ 25%]
+tests/test_evaluator.py::test_extract_compensation_salary_shorthand_and_ranges PASSED [ 25%]
+tests/test_evaluator.py::test_idiomatic_ladder_not_rejected PASSED       [ 26%]
+tests/test_evaluator.py::test_physical_ladder_rejected PASSED            [ 27%]
+tests/test_evaluator.py::test_circuit_breaker_sets_deferred_and_eligible_for_rescan PASSED [ 28%]
+tests/test_evaluator.py::test_has_llm_credentials_multi_provider PASSED  [ 28%]
+tests/test_evaluator.py::test_evaluate_tier2_llm_model_agnostic_routing PASSED [ 29%]
+tests/test_evaluator.py::test_generate_tailored_resume_data_model_agnostic PASSED [ 30%]
+tests/test_evaluator.py::test_llm_model_pulled_from_variable_not_profile PASSED [ 31%]
+tests/test_evaluator.py::test_evaluator_logs_error_when_no_llm_model_specified PASSED [ 31%]
+tests/test_evaluator.py::test_tier1_rejects_dynamic_physical_restriction PASSED [ 32%]
+tests/test_evaluator.py::test_tier1_rejects_commute_distance_exceeding_max PASSED [ 33%]
+tests/test_evaluator.py::test_tier1_allows_remote_job_regardless_of_distance PASSED [ 34%]
 tests/test_evaluator.py::test_tier2_heuristic_scores_dynamic_tags PASSED [ 34%]
-tests/test_generator.py::test_blocked_url_fetcher_prevents_ssrf_and_lfi PASSED [ 36%]
-tests/test_generator.py::test_export_markdown_to_pdf_generates_valid_pdf PASSED [ 37%]
-tests/test_generator.py::test_export_markdown_to_pdf_blocks_remote_image_ssrf PASSED [ 39%]
-tests/test_generator.py::test_export_markdown_to_pdf_blocks_local_file_lfi PASSED [ 40%]
-tests/test_generator.py::test_export_markdown_to_pdf_decomposes_inline_dangerous_tags PASSED [ 42%]
-tests/test_generator.py::test_scan_fault_tolerance_on_artifact_error PASSED [ 44%]
-tests/test_generator.py::test_dynamic_role_and_project_selection_by_tags PASSED [ 45%]
-tests/test_generator.py::test_dynamic_geographic_education_heuristics PASSED [ 47%]
-tests/test_generator.py::test_scan_multi_feed_cli_and_target_feed_urls PASSED [ 49%]
-tests/test_generator.py::test_generate_clean_resume_filename PASSED      [ 50%]
-tests/test_generator.py::test_extract_company_from_title PASSED          [ 52%]
-tests/test_generator.py::test_resume_template_removes_watermark_and_formats_education PASSED [ 54%]
-tests/test_generator.py::test_narrative_context_does_not_bleed_into_tech_job PASSED [ 55%]
-tests/test_generator.py::test_generate_clean_resume_filename_40_chars_word_boundary PASSED [ 57%]
-tests/test_generator.py::test_executive_summary_sanitizes_feed_and_urls PASSED [ 59%]
-tests/test_generator.py::test_resume_template_certifications_bullet_and_separation PASSED [ 60%]
-tests/test_generator.py::test_technical_skills_all_lines_start_with_bullet PASSED [ 62%]
-tests/test_generator.py::test_experience_headers_render_pipe_delimiter_with_location PASSED [ 63%]
-tests/test_generator.py::test_export_markdown_to_pdf_uses_nl2br_and_sane_lists PASSED [ 65%]
-tests/test_ingestion.py::test_sanitize_html_strips_scripts_and_styles PASSED [ 67%]
-tests/test_ingestion.py::test_sanitize_html_strips_hidden_elements PASSED [ 68%]
-tests/test_ingestion.py::test_sanitize_html_removes_zero_width_chars PASSED [ 70%]
-tests/test_ingestion.py::test_wrap_untrusted_content_boundaries PASSED   [ 72%]
-tests/test_ingestion.py::test_fetch_feed_parses_sample_xml PASSED        [ 73%]
-tests/test_ingestion.py::test_wrap_untrusted_content_case_and_whitespace_variants PASSED [ 75%]
-tests/test_ingestion.py::test_slug_uniqueness_for_identical_titles PASSED [ 77%]
-tests/test_ingestion.py::test_fetch_feed_enforces_byte_limit PASSED      [ 78%]
-tests/test_notifier.py::test_extract_mailto_from_outreach PASSED         [ 80%]
-tests/test_notifier.py::test_extract_mailto_nonexistent_file PASSED      [ 81%]
-tests/test_notifier.py::test_build_notification_html PASSED              [ 83%]
-tests/test_notifier.py::test_email_alignment_renders_table_container PASSED [ 85%]
-tests/test_notifier.py::test_button_routing_direct_email PASSED          [ 86%]
-tests/test_notifier.py::test_button_routing_no_email_portal PASSED       [ 88%]
-tests/test_notifier.py::test_extract_target_email_from_description_and_raw_text PASSED [ 90%]
-tests/test_notifier.py::test_send_match_notification_missing_credentials PASSED [ 91%]
-tests/test_notifier.py::test_send_match_notification_success PASSED      [ 93%]
+tests/test_evaluator.py::test_llm_completion_retries_on_rate_limit PASSED [ 35%]
+tests/test_evaluator.py::test_llm_completion_retries_on_service_unavailable PASSED [ 36%]
+tests/test_evaluator.py::test_resolve_profile_track_all_six_tracks PASSED [ 37%]
+tests/test_evaluator.py::test_evaluate_tier2_rejects_immediately_when_no_track_matched PASSED [ 37%]
+tests/test_evaluator.py::test_tier1_defers_heavy_lifting_to_tier2 PASSED [ 38%]
+tests/test_evaluator.py::test_tier1_defers_toxic_culture_disqualifiers_to_tier2 PASSED [ 39%]
+tests/test_evaluator.py::test_extract_company_from_posting PASSED        [ 40%]
+tests/test_evaluator.py::test_tier1_rejects_excluded_companies_from_profile PASSED [ 40%]
+tests/test_evaluator.py::test_tier1_rejects_blocked_companies_from_db PASSED [ 41%]
+tests/test_evaluator.py::test_tier1_rejects_test_gate_patterns PASSED    [ 42%]
+tests/test_evaluator.py::test_layer1_allows_seniority_titles_for_tier2_context PASSED [ 43%]
+tests/test_evaluator.py::test_layer1_defers_excessive_experience_years_to_tier2 PASSED [ 43%]
+tests/test_evaluator.py::test_track_forbidden_keywords_clears_tier1_and_vetoed_in_engine PASSED [ 44%]
+tests/test_evaluator.py::test_layer3_python_veto_unmet_core_stack PASSED [ 45%]
+tests/test_evaluator.py::test_layer3_python_veto_forbidden_track_keyword PASSED [ 46%]
+tests/test_evaluator.py::test_layer4_quality_threshold_rejection PASSED  [ 46%]
+tests/test_evaluator.py::test_tier1_defers_offshore_broker_to_tier2_axioms PASSED [ 47%]
+tests/test_evaluator.py::test_engine_veto_illegitimate_employment PASSED [ 48%]
+tests/test_evaluator.py::test_engine_veto_unverifiable_entity PASSED     [ 49%]
+tests/test_evaluator.py::test_engine_allows_good_match_cleanly PASSED    [ 50%]
+tests/test_evaluator.py::test_tier1_allows_family_owned_business PASSED  [ 50%]
+tests/test_evaluator.py::test_courtroom_protocol_prosecution_fatal_barrier_veto PASSED [ 51%]
+tests/test_evaluator.py::test_tier1_allows_staff_accountant_and_engineer_to_reach_tier2 PASSED [ 52%]
+tests/test_evaluator.py::test_tier1_does_not_reject_company_longevity_experience PASSED [ 53%]
+tests/test_generator.py::test_blocked_url_fetcher_prevents_ssrf_and_lfi PASSED [ 53%]
+tests/test_generator.py::test_export_markdown_to_pdf_generates_valid_pdf PASSED [ 54%]
+tests/test_generator.py::test_export_markdown_to_pdf_blocks_remote_image_ssrf PASSED [ 55%]
+tests/test_generator.py::test_export_markdown_to_pdf_blocks_local_file_lfi PASSED [ 56%]
+tests/test_generator.py::test_export_markdown_to_pdf_decomposes_inline_dangerous_tags PASSED [ 56%]
+tests/test_generator.py::test_scan_fault_tolerance_on_artifact_error PASSED [ 57%]
+tests/test_generator.py::test_dynamic_role_and_project_selection_by_tags PASSED [ 58%]
+tests/test_generator.py::test_dynamic_geographic_education_heuristics PASSED [ 59%]
+tests/test_generator.py::test_scan_multi_feed_cli_and_target_feed_urls PASSED [ 59%]
+tests/test_generator.py::test_generate_clean_resume_filename PASSED      [ 60%]
+tests/test_generator.py::test_extract_company_from_title PASSED          [ 61%]
+tests/test_generator.py::test_resume_template_removes_watermark_and_formats_education PASSED [ 62%]
+tests/test_generator.py::test_narrative_context_does_not_bleed_into_tech_job PASSED [ 62%]
+tests/test_generator.py::test_generate_clean_resume_filename_40_chars_word_boundary PASSED [ 63%]
+tests/test_generator.py::test_executive_summary_sanitizes_feed_and_urls PASSED [ 64%]
+tests/test_generator.py::test_resume_template_certifications_bullet_and_separation PASSED [ 65%]
+tests/test_generator.py::test_track_specific_certifications_suppressed_for_office_roles PASSED [ 65%]
+tests/test_generator.py::test_technical_skills_all_lines_start_with_bullet PASSED [ 66%]
+tests/test_generator.py::test_experience_headers_render_pipe_delimiter_with_location PASSED [ 67%]
+tests/test_generator.py::test_export_markdown_to_pdf_uses_extra_and_sane_lists PASSED [ 68%]
+tests/test_generator.py::test_generator_logs_error_when_no_llm_model_specified PASSED [ 68%]
+tests/test_generator.py::test_llm_empty_skills_falls_back_to_profile_skills PASSED [ 69%]
+tests/test_generator.py::test_conditional_links_in_resume_template PASSED [ 70%]
+tests/test_generator.py::test_deterministic_tailored_data_link_flags PASSED [ 71%]
+tests/test_generator.py::test_build_grounded_email_pitch_guardrails PASSED [ 71%]
+tests/test_generator.py::test_clean_role_title_strips_recruitment_prefixes_and_normalizes_slashes PASSED [ 72%]
+tests/test_generator.py::test_multi_track_deterministic_tailored_data_clerical PASSED [ 73%]
+tests/test_generator.py::test_multi_track_deterministic_tailored_data_swe PASSED [ 74%]
+tests/test_generator.py::test_multi_track_resume_markdown_rendering_non_tech_guarantee PASSED [ 75%]
+tests/test_generator.py::test_build_grounded_email_pitch_with_tracks PASSED [ 75%]
+tests/test_generator.py::test_select_best_approved_title_always_picks_from_track_bank PASSED [ 76%]
+tests/test_generator.py::test_sanitize_target_company_rejects_recruitment_announcements PASSED [ 77%]
+tests/test_generator.py::test_build_grounded_email_pitch_uses_track_traits_and_outcomes PASSED [ 78%]
+tests/test_generator.py::test_sanitize_target_company_rejects_job_board_platforms PASSED [ 78%]
+tests/test_generator.py::test_generate_tailored_resume_data_grounds_experience_to_track PASSED [ 79%]
+tests/test_generator.py::test_generate_tailored_cover_letter PASSED      [ 80%]
+tests/test_ingestion.py::test_sanitize_html_strips_scripts_and_styles PASSED [ 81%]
+tests/test_ingestion.py::test_sanitize_html_strips_hidden_elements PASSED [ 81%]
+tests/test_ingestion.py::test_sanitize_html_removes_zero_width_chars PASSED [ 82%]
+tests/test_ingestion.py::test_wrap_untrusted_content_boundaries PASSED   [ 83%]
+tests/test_ingestion.py::test_fetch_feed_parses_sample_xml PASSED        [ 84%]
+tests/test_ingestion.py::test_wrap_untrusted_content_case_and_whitespace_variants PASSED [ 84%]
+tests/test_ingestion.py::test_slug_uniqueness_for_identical_titles PASSED [ 85%]
+tests/test_ingestion.py::test_fetch_feed_enforces_byte_limit PASSED      [ 86%]
+tests/test_ingestion.py::test_fetch_feed_sends_browser_user_agent_and_accept_headers PASSED [ 87%]
+tests/test_ingestion.py::test_fetch_feed_handles_403_and_404_gracefully PASSED [ 87%]
+tests/test_notifier.py::test_extract_mailto_from_outreach PASSED         [ 88%]
+tests/test_notifier.py::test_extract_mailto_nonexistent_file PASSED      [ 89%]
+tests/test_notifier.py::test_build_notification_html PASSED              [ 90%]
+tests/test_notifier.py::test_email_alignment_renders_table_container PASSED [ 90%]
+tests/test_notifier.py::test_button_routing_direct_email PASSED          [ 91%]
+tests/test_notifier.py::test_button_routing_no_email_portal PASSED       [ 92%]
+tests/test_notifier.py::test_extract_target_email_from_description_and_raw_text PASSED [ 93%]
+tests/test_notifier.py::test_send_match_notification_missing_credentials PASSED [ 93%]
+tests/test_notifier.py::test_send_match_notification_success PASSED      [ 94%]
 tests/test_notifier.py::test_send_match_notification_api_error_handling PASSED [ 95%]
 tests/test_notifier.py::test_send_match_notification_sanitizes_crlf_subject PASSED [ 96%]
-tests/test_notifier.py::test_build_notification_html_sanitizes_dangerous_schemes PASSED [ 98%]
-tests/test_notifier.py::test_settings_validates_email_format PASSED      [100%]
+tests/test_notifier.py::test_build_notification_html_sanitizes_dangerous_schemes PASSED [ 96%]
+tests/test_notifier.py::test_settings_validates_email_format PASSED      [ 97%]
+tests/test_notifier.py::test_gmail_compose_link_generation PASSED        [ 98%]
+tests/test_notifier.py::test_block_company_button_in_email PASSED        [ 99%]
+tests/test_notifier.py::test_send_match_notification_dual_attachments PASSED [100%]
 
-======================= 61 passed, 30 warnings in 2.64s ========================
+============================= 132 passed in 11.28s =============================
 ```
 
 ---
