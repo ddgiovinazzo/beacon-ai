@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import os
 from pathlib import Path
 import re
 from typing import Optional
@@ -168,7 +169,8 @@ def build_notification_html(
         except Exception:
             company_name = None
 
-    block_company_url = "https://github.com/ddgiovinazzo/beacon-ai/actions/workflows/block_company.yml"
+    repo_slug = os.getenv("GITHUB_REPOSITORY", "ddgiovinazzo/beacon-ai")
+    block_company_url = f"https://github.com/{repo_slug}/actions/workflows/block_company.yml"
 
     try:
         env = get_email_jinja_env(template_dir)

@@ -302,7 +302,7 @@ def create_deterministic_tailored_data(
         categorized_skills = dict(track.categorized_skills)
 
         include_portfolio = track.include_portfolio if track else False
-        contact_email = profile.email if include_portfolio else (getattr(profile, "gmail", None) or "ddgiovinazzo@gmail.com")
+        contact_email = profile.email if include_portfolio else (getattr(profile, "gmail", None) or profile.email)
 
         return TailoredResumeData(
             target_headline=headline,
@@ -485,18 +485,21 @@ def generate_tailored_resume_data(
         config.sync_litellm_env()
         client = instructor.from_litellm(litellm.completion)
 
+        active_role = track.roles[0] if (track and track.roles) else (profile.master_experience.roles[0] if profile.master_experience.roles else None)
+        active_role_str = f" ({active_role.organization}, {active_role.start_date}–{active_role.end_date})" if active_role else ""
+
         system_instruction = (
             "System Prompt: Strategic Resume Tailoring Agent\n\n"
             "Role & Objective:\n"
-            "You are an expert technical recruiter and resume writer. Your objective is to analyze a provided Job Description (JD) "
+            "You are an expert resume writer and career alignment auditor. Your objective is to analyze a provided Job Description (JD) "
             "and a preceding 'Context Prompt' (which contains the candidate's exact work history, accomplishments, and skills). "
             "You must adapt the base resume to perfectly align with the JD by acting as a top-down matching engine. "
             "You must strictly adhere to the candidate context, tone guardrails, and hard quantification rules.\n\n"
             "Candidate Context & Tone Guardrails:\n"
             "Rely strictly and exclusively on the candidate's verified work history, accomplishments, and narrative positioning provided in the Context Prompt.\n"
             "*CRITICAL TONE GUARDRAIL:* Match the JD's requested seniority level and domain. Default to grounded, practical, domain-appropriate verbs.\n"
-            "*CRITICAL TIMELINE GUARDRAIL:* Maintain chronological continuity with ZERO unexplained gaps. Always include the candidate's current active role (DDG Enterprises, September 2025–Present) as the first role.\n"
-            "*CRITICAL TITLE GUARDRAIL:* Official job titles (e.g. Software Engineer at PowerSchool, Frontend JavaScript Engineer at Headed2) are factual and immutable. Do NOT disguise or alter them.\n"
+            f"*CRITICAL TIMELINE GUARDRAIL:* Maintain chronological continuity with ZERO unexplained gaps. Always include the candidate's current active role{active_role_str} as the first role.\n"
+            "*CRITICAL TITLE GUARDRAIL:* Official job titles defined in the candidate's profile are factual and immutable. Do NOT disguise, invent, or alter official titles.\n"
             "*CRITICAL FORMATTING GUARDRAIL:* Remove all citation markers, source references, or brackets (e.g., [cite: 1], [source: 1]).\n\n"
             "Step 1: Bullet Heading Format: Format EVERY bullet in tailored_experience starting with a bold dynamic heading reflecting the JD competency, e.g.:\n"
             "   '**[Dynamic Competency Heading]:** [Tailored bullet point ending in a quantifiable result, based EXCLUSIVELY on Context Prompt]'\n\n"
@@ -548,7 +551,7 @@ INSTRUCTIONS:
 1. target_headline: Set to the 1 title from APPROVED RESUME HEADLINES that best matches the job posting.
 2. tailored_summary: Write exactly 2 sentences following the strict blueprint with 1 approved trait and 1 approved outcome.
 3. categorized_skills: Output the exact candidate skills matrix provided above.
-4. tailored_experience: Select 2-3 most relevant roles with bold headings '**[Heading]:** ...', always retaining the candidate's current active role (DDG Enterprises) at the top.
+4. tailored_experience: Select 2-3 most relevant roles with bold headings '**[Heading]:** ...', always retaining the candidate's current active role at the top.
 5. tailored_projects: Select relevant projects from candidate projects above, or empty list if none provided.
 6. tailored_education: Education credentials aligned with context.
 7. tailored_certifications: Relevant certifications selected from CANDIDATE CERTIFICATIONS BANK, or empty list [] if none or not relevant.
@@ -587,7 +590,7 @@ INSTRUCTIONS:
             resume_data.include_portfolio_link = track.include_portfolio
             resume_data.include_github_link = False
             resume_data.include_linkedin_link = track.include_linkedin
-            resume_data.contact_email = profile.email if track.include_portfolio else (getattr(profile, "gmail", None) or "ddgiovinazzo@gmail.com")
+            resume_data.contact_email = profile.email if track.include_portfolio else (getattr(profile, "gmail", None) or profile.email)
 
             # Ground experience roles strictly to track's pre-approved roles and bullets
             if track.roles:
@@ -603,10 +606,10 @@ INSTRUCTIONS:
                 else:
                     resume_data.tailored_experience = sort_reverse_chrono(list(track.roles))
 
-                # Guarantee the current active role (DDG Enterprises) is always anchored at the top
-                ddg_role = next((r for r in track.roles if "ddg" in r.organization.lower()), None)
-                if ddg_role and ddg_role not in resume_data.tailored_experience:
-                    resume_data.tailored_experience.insert(0, ddg_role)
+                # Guarantee the candidate's current active role is always anchored at the top
+                current_active_role = next((r for r in track.roles if "present" in r.end_date.lower()), track.roles[0] if track.roles else None)
+                if current_active_role and current_active_role not in resume_data.tailored_experience:
+                    resume_data.tailored_experience.insert(0, current_active_role)
                     resume_data.tailored_experience = sort_reverse_chrono(resume_data.tailored_experience)
 
                 if track.projects and len(resume_data.tailored_experience) > 2:
@@ -766,7 +769,7 @@ def build_grounded_email_pitch(
 
     include_portfolio = track.include_portfolio if track else is_tech
     include_li = track.include_linkedin if track else True
-    active_email = profile.email if include_portfolio else (getattr(profile, "gmail", None) or "ddgiovinazzo@gmail.com")
+    active_email = profile.email if include_portfolio else (getattr(profile, "gmail", None) or profile.email)
 
     contact_parts = [profile.name, f"{profile.phone} | {active_email}"]
     online_links = []
@@ -1002,31 +1005,27 @@ def generate_tailored_cover_letter(
             "I am excited about the opportunity to contribute dependable, high-integrity support to your operations."
         )
 
-    # 2. Experience Paragraph tailored to track
-    track_id = track.track_id if track else "general"
-    if track_id in ("accounting_bookkeeping", "clerical_data_entry", "office_administrative"):
+    # 2. Experience Paragraph tailored to track (dynamic and profile-driven)
+    if track and track.narrative_context:
+        role_summaries = []
+        for r in (track.roles or [])[:2]:
+            if r.bullets:
+                clean_bullet = r.bullets[0].rstrip(".")
+                role_summaries.append(f"At {r.organization} as {r.title}, I {clean_bullet[0].lower() + clean_bullet[1:] if clean_bullet else ''}.")
+        bullet_text = (" " + " ".join(role_summaries)) if role_summaries else ""
+        experience_paragraph = f"{track.narrative_context}{bullet_text}".strip()
+    elif profile.master_experience.roles:
+        r = profile.master_experience.roles[0]
+        bullet = r.bullets[0].rstrip(".") if r.bullets else "managed key operational workflows"
         experience_paragraph = (
-            "In my recent work operating DDG Enterprises, I managed end-to-end small-business financial and operational "
-            "records, executing accounts payable, bank and order reconciliations across PayPal and bank statements, and "
-            "detailed cost tracking in Microsoft Excel. Previously at PowerSchool and Headed2, I maintained rigorous "
-            "data verification standards and sprint documentation across high-volume systems. This blend of hands-on "
-            "financial reconciliation and disciplined digital record-keeping enables me to maintain organized, audit-ready "
-            "records with zero dropped details."
-        )
-    elif track_id == "technical_support_qa":
-        experience_paragraph = (
-            "Over three years supporting K-12 educator and administrative platforms at PowerSchool and Headed2, I triaged "
-            "software and user access incidents, performed root-cause diagnostics, and authored comprehensive knowledge-base "
-            "troubleshooting articles that reduced recurring inquiries. In addition, my hands-on CRM data hygiene across "
-            "HubSpot and Zoho CRM reinforced my focus on meticulous ticket lifecycle documentation, SLA adherence, and "
-            "patient, dependable user support."
+            f"Throughout my work at {r.organization} as {r.title}, I {bullet[0].lower() + bullet[1:] if bullet else ''}. "
+            f"I prioritize structured workflow management, dependable execution, and thorough documentation."
         )
     else:
         experience_paragraph = (
-            "Throughout my professional background at PowerSchool and Headed2, I collaborated on distributed pods "
-            "supporting enterprise platforms serving over 1,000,000 active users. I specialized in data validation, modular "
-            "system consistency, and thorough documentation. Whether resolving complex data discrepancies or managing daily "
-            "operational tasks, I prioritize methodical execution and clear, proactive communication."
+            "Throughout my professional background, I have developed a strong foundation in structured workflow "
+            "management, dependable execution, and thorough documentation. Whether resolving operational "
+            "discrepancies or managing daily priorities, I prioritize methodical execution and clear, proactive communication."
         )
 
     # 3. Values Paragraph
@@ -1045,7 +1044,10 @@ def generate_tailored_cover_letter(
     current_date = datetime.now().strftime("%B %d, %Y")
     include_portfolio = track.include_portfolio if track else False
     include_linkedin = track.include_linkedin if track else False
-    contact_email = profile.email if include_portfolio else (getattr(profile, "gmail", None) or "ddgiovinazzo@gmail.com")
+    contact_email = profile.email if include_portfolio else (getattr(profile, "gmail", None) or profile.email)
+
+    is_job_board = bool(re.search(r"\b(?:craigslist|indeed|linkedin|ziprecruiter|glassdoor|monster|dice|careerbuilder|simplyhired|snagajob|upwork|fiverr|email|alert|alerts|rss|feed)\b", (posting.source or "").lower()))
+    job_location = None if is_job_board else posting.source
 
     env = get_jinja_env()
     template = env.get_template("cover_letter_template.md.j2")
@@ -1053,7 +1055,7 @@ def generate_tailored_cover_letter(
         profile=profile,
         target_role=target_role,
         company_name=company_name,
-        job_location=posting.source if "craigslist" not in posting.source.lower() else None,
+        job_location=job_location,
         current_date=current_date,
         opening_paragraph=opening_paragraph,
         experience_paragraph=experience_paragraph,

@@ -1106,6 +1106,21 @@ def test_engine_allows_good_match_cleanly(test_profile):
     assert len(res.match_highlights) == 2
 
 
+def test_tier1_allows_family_owned_business(test_profile):
+    """Tier 1 must not falsely reject a legitimate family-owned small business due to 'we are a family' rule."""
+    test_profile.constraints.culture_disqualifiers = ["we are a family", "family atmosphere"]
+    job = JobPosting(
+        title="Bookkeeper",
+        link="https://example.com/family-biz",
+        raw_text="We are a family-owned and operated plumbing contractor seeking an honest bookkeeper for QuickBooks billing.",
+        source="example.com",
+    )
+    res = evaluate_tier1_deterministic(job, test_profile)
+    # Must NOT be rejected at Tier 1 for culture disqualifier
+    assert res is None
+
+
+
 
 
 
