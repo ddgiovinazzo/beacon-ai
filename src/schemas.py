@@ -301,9 +301,17 @@ class EvaluationResult(BaseModel):
         default=True,
         description="True if the candidate possesses the essential primary core language/tool stack demanded.",
     )
+    is_legitimate_employment: bool = Field(
+        default=True,
+        description="False if posting is an offshore outsourcing pool, nearshore contractor broker (e.g. LatAm only), commission-only scheme, or below-market contractor rate.",
+    )
+    is_verifiable_entity: bool = Field(
+        default=True,
+        description="False if posting is generic anonymous boilerplate, lead-generation resume farm, or phantom scraping entity without concrete business identity.",
+    )
     unmet_mandatory_requirements: List[str] = Field(
         default_factory=list,
-        description="Any hard prerequisites, licenses, or deep technical competencies demanded that the candidate lacks.",
+        description="Any hard prerequisites, degrees (e.g. PhD/MS in CS), or deep domain competencies demanded that cannot be cited from the candidate's verified work history.",
     )
     status: EvaluationStatus = Field(
         ...,

@@ -999,6 +999,114 @@ def test_layer4_quality_threshold_rejection(test_profile):
     assert res_strong.fit_score == 82
 
 
+def test_tier1_rejects_offshore_broker(test_profile):
+    """Tier 1 must reject offshore and nearshore talent broker funnels deterministically."""
+    job = JobPosting(
+        title="Full Stack Developer (Python, React)",
+        link="https://example.com/job-latam",
+        raw_text="GoFasti is a platform connecting top talent from LATAM with high-growth US tech companies. Looking for nearshore developers.",
+        source="example.com",
+    )
+    res = evaluate_tier1_deterministic(job, test_profile)
+    assert res is not None
+    assert res.status == EvaluationStatus.REJECT
+    assert res.tier_evaluated == 1
+    assert "Offshore/nearshore talent broker funnel" in res.rejection_reason
+
+
+def test_engine_veto_illegitimate_employment(test_profile):
+    """Engine must veto any posting flagged as non-viable or illegitimate employment (Axiom 2)."""
+    from unittest.mock import patch
+    config = Settings()
+    engine = EvaluationEngine(config=config, dry_run=False)
+
+    fake_result = EvaluationResult(
+        status=EvaluationStatus.MATCH,
+        fit_score=88,
+        candidate_meets_core_stack=True,
+        is_legitimate_employment=False,
+        is_verifiable_entity=True,
+        unmet_mandatory_requirements=[],
+        tier_evaluated=2,
+    )
+
+    job = JobPosting(
+        title="Software Engineer",
+        link="https://example.com/job",
+        raw_text="Looking for a software engineer to join our development team.",
+        source="example.com",
+    )
+
+    with patch("src.evaluator.evaluate_tier2_llm", return_value=fake_result):
+        res = engine.evaluate(job, test_profile)
+
+    assert res.status == EvaluationStatus.REJECT
+    assert "flagged as offshore talent broker, international contractor pool, or non-viable employment structure" in res.rejection_reason
+
+
+def test_engine_veto_unverifiable_entity(test_profile):
+    """Engine must veto any ghost posting or unverifiable scraper template (Axiom 3)."""
+    from unittest.mock import patch
+    config = Settings()
+    engine = EvaluationEngine(config=config, dry_run=False)
+
+    fake_result = EvaluationResult(
+        status=EvaluationStatus.MATCH,
+        fit_score=85,
+        candidate_meets_core_stack=True,
+        is_legitimate_employment=True,
+        is_verifiable_entity=False,
+        unmet_mandatory_requirements=[],
+        tier_evaluated=2,
+    )
+
+    job = JobPosting(
+        title="Customer Support Specialist",
+        link="https://example.com/ghost-job",
+        raw_text="Confidential company seeks remote agent. Submit your resume to our general pool.",
+        source="example.com",
+    )
+
+    with patch("src.evaluator.evaluate_tier2_llm", return_value=fake_result):
+        res = engine.evaluate(job, test_profile)
+
+    assert res.status == EvaluationStatus.REJECT
+    assert "Posting lacks identifiable organizational identity or appears to be a ghost lead-generation template" in res.rejection_reason
+
+
+def test_engine_allows_good_match_cleanly(test_profile):
+    """Legitimate direct employment meeting all criteria and score >= 75 must pass without veto."""
+    from unittest.mock import patch
+    config = Settings()
+    engine = EvaluationEngine(config=config, dry_run=False)
+
+    fake_result = EvaluationResult(
+        status=EvaluationStatus.MATCH,
+        fit_score=90,
+        candidate_meets_core_stack=True,
+        is_legitimate_employment=True,
+        is_verifiable_entity=True,
+        unmet_mandatory_requirements=[],
+        tier_evaluated=2,
+        match_highlights=["Excellent QuickBooks reconciliation overlap", "Matches full-charge experience"],
+    )
+
+    job = JobPosting(
+        title="Full Charge Bookkeeper",
+        link="https://example.com/legit-job",
+        raw_text="Established local accounting firm seeking Full Charge Bookkeeper for QuickBooks Online GL reconciliations.",
+        source="example.com",
+    )
+
+    with patch("src.evaluator.evaluate_tier2_llm", return_value=fake_result):
+        res = engine.evaluate(job, test_profile)
+
+    assert res.status == EvaluationStatus.MATCH
+    assert res.fit_score == 90
+    assert len(res.match_highlights) == 2
+
+
+
 
 
 
