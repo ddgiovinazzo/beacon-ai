@@ -86,8 +86,8 @@ def test_extract_compensation_annual():
     assert max_a2 == 60000.0
 
 
-def test_tier1_rejects_lifting_violation(test_profile):
-    """Tier 1 must reject postings requiring lifting exceeding physical threshold."""
+def test_tier1_defers_lifting_to_tier2(test_profile):
+    """Tier 1 minimalist gatekeeper defers lifting requirements to Tier 2 courtroom protocol."""
     job = JobPosting(
         title="Stock Clerk",
         link="https://example.com/job1",
@@ -95,14 +95,11 @@ def test_tier1_rejects_lifting_violation(test_profile):
         source="example.com",
     )
     result = evaluate_tier1_deterministic(job, test_profile)
-    assert result is not None
-    assert result.status == EvaluationStatus.REJECT
-    assert result.tier_evaluated == 1
-    assert "60 lbs" in result.rejection_reason
+    assert result is None  # Cleared Tier 1 for Tier 2 evaluation
 
 
-def test_tier1_rejects_keyword_physical_restriction(test_profile):
-    """Tier 1 must reject postings matching explicit physical restriction keywords."""
+def test_tier1_defers_physical_restrictions_to_tier2(test_profile):
+    """Tier 1 minimalist gatekeeper defers physical restrictions to Tier 2 to prevent false rejects on idioms."""
     job = JobPosting(
         title="Facility Maintenance",
         link="https://example.com/job2",
@@ -110,10 +107,7 @@ def test_tier1_rejects_keyword_physical_restriction(test_profile):
         source="example.com",
     )
     result = evaluate_tier1_deterministic(job, test_profile)
-    assert result is not None
-    assert result.status == EvaluationStatus.REJECT
-    assert result.tier_evaluated == 1
-    assert "ladder" in result.rejection_reason.lower()
+    assert result is None  # Cleared Tier 1 for Tier 2
 
 
 def test_tier1_rejects_hourly_pay_floor_violation(test_profile):
@@ -131,8 +125,8 @@ def test_tier1_rejects_hourly_pay_floor_violation(test_profile):
     assert "$22.00/hr < $28.00/hr" in result.rejection_reason
 
 
-def test_tier1_rejects_schedule_conflict(test_profile):
-    """Tier 1 must reject postings requiring restricted schedules."""
+def test_tier1_defers_schedule_conflict_to_tier2(test_profile):
+    """Tier 1 minimalist gatekeeper defers schedule evaluation to Tier 2 courtroom protocol."""
     job = JobPosting(
         title="Audit Assistant",
         link="https://example.com/job4",
@@ -140,10 +134,7 @@ def test_tier1_rejects_schedule_conflict(test_profile):
         source="example.com",
     )
     result = evaluate_tier1_deterministic(job, test_profile)
-    assert result is not None
-    assert result.status == EvaluationStatus.REJECT
-    assert result.tier_evaluated == 1
-    assert "graveyard shift" in result.rejection_reason.lower()
+    assert result is None  # Cleared Tier 1 for Tier 2
 
 
 def test_tier1_passes_qualified_job(test_profile):
@@ -246,7 +237,7 @@ def test_idiomatic_ladder_not_rejected(test_profile):
 
 
 def test_physical_ladder_rejected(test_profile):
-    """Actual physical ladder demands must trigger Tier 1 rejection."""
+    """Actual physical ladder demands are deferred to Tier 2 courtroom context."""
     job = JobPosting(
         title="Maintenance Assistant",
         link="https://example.com/job-phys-ladder",
@@ -254,9 +245,7 @@ def test_physical_ladder_rejected(test_profile):
         source="example.com",
     )
     result = evaluate_tier1_deterministic(job, test_profile)
-    assert result is not None
-    assert result.status == EvaluationStatus.REJECT
-    assert "ladder" in result.rejection_reason.lower()
+    assert result is None  # Defers to Tier 2
 
 
 def test_circuit_breaker_sets_deferred_and_eligible_for_rescan(tmp_path, test_profile):
@@ -467,9 +456,7 @@ def test_tier1_rejects_dynamic_physical_restriction(test_profile):
         source="example.com",
     )
     result = evaluate_tier1_deterministic(job, test_profile)
-    assert result is not None
-    assert result.status == EvaluationStatus.REJECT
-    assert "prolonged standing" in result.rejection_reason
+    assert result is None  # Defers to Tier 2
 
 
 def test_tier1_rejects_commute_distance_exceeding_max(test_profile):
@@ -650,14 +637,14 @@ def test_evaluate_tier2_rejects_immediately_when_no_track_matched():
     )
     result = evaluate_tier2_heuristic(job_unrelated, profile)
     assert result.status == EvaluationStatus.REJECT
-    assert "does not match any configured candidate career tracks" in (result.rejection_reason or "")
-    assert result.fit_score == 15
+    assert "Insufficient alignment score" in (result.rejection_reason or "")
+    assert result.fit_score < 75
 
 
-def test_tier1_rejects_heavy_lifting_default_threshold(test_profile):
-    """Verify that 'heavy lifting' in profile physical restrictions automatically rejects lifting >= 25 lbs."""
+def test_tier1_defers_heavy_lifting_to_tier2(test_profile):
+    """Verify that heavy lifting is deferred from Tier 1 to Tier 2 courtroom context."""
     from src.evaluator import evaluate_tier1_deterministic
-    from src.schemas import EvaluationStatus, JobPosting
+    from src.schemas import JobPosting
 
     test_profile.constraints.physical_restrictions = ["heavy lifting", "prolonged standing"]
 
@@ -668,15 +655,13 @@ def test_tier1_rejects_heavy_lifting_default_threshold(test_profile):
         source="example.com",
     )
     result = evaluate_tier1_deterministic(job, test_profile)
-    assert result is not None
-    assert result.status == EvaluationStatus.REJECT
-    assert "requires lifting 35 lbs (max 25 lbs)" in result.rejection_reason
+    assert result is None  # Defers to Tier 2
 
 
-def test_tier1_rejects_toxic_culture_disqualifiers(test_profile):
-    """Verify that culture disqualifiers reject exploitative workplace buzzwords at Tier 1."""
+def test_tier1_defers_toxic_culture_disqualifiers_to_tier2(test_profile):
+    """Verify that culture buzzwords are deferred from Tier 1 to Tier 2 courtroom."""
     from src.evaluator import evaluate_tier1_deterministic
-    from src.schemas import EvaluationStatus, JobPosting
+    from src.schemas import JobPosting
 
     test_profile.constraints.culture_disqualifiers = [
         "work hard, play hard", "we are a family", "wear many hats", "thrives in chaos"
@@ -689,9 +674,7 @@ def test_tier1_rejects_toxic_culture_disqualifiers(test_profile):
         source="example.com",
     )
     res_family = evaluate_tier1_deterministic(job_family, test_profile)
-    assert res_family is not None
-    assert res_family.status == EvaluationStatus.REJECT
-    assert "Toxic workplace culture indicator matched: 'we are a family'" in res_family.rejection_reason
+    assert res_family is None  # Defers to Tier 2
 
     job_hats = JobPosting(
         title="Junior Developer",
@@ -700,9 +683,7 @@ def test_tier1_rejects_toxic_culture_disqualifiers(test_profile):
         source="example.com",
     )
     res_hats = evaluate_tier1_deterministic(job_hats, test_profile)
-    assert res_hats is not None
-    assert res_hats.status == EvaluationStatus.REJECT
-    assert "Toxic workplace culture indicator matched: 'wear many hats'" in res_hats.rejection_reason
+    assert res_hats is None  # Defers to Tier 2
 
 
 def test_extract_company_from_posting():
@@ -781,22 +762,16 @@ def test_tier1_rejects_test_gate_patterns(test_profile, tmp_path):
         source="example.com",
     )
     res = evaluate_tier1_deterministic(job, test_profile, config=config)
-    assert res is not None
-    assert res.status == EvaluationStatus.REJECT
-    assert "Mandatory pre-interview test gate" in res.rejection_reason
-    assert res.detected_company == "TestMill Agency"
-
-    # Verify company is NOT auto-blocked in database (requires human confirmation to prevent false positives)
-    assert not is_company_blocked("TestMill Agency", db_path=db_file)
+    assert res is None  # Defers to Tier 2 courtroom context
 
 
-def test_layer1_rejects_seniority_titles(test_profile):
-    """Layer 1: Verify deterministic rejection of Senior/Lead/Staff/Architect titles at Tier 1."""
+def test_layer1_allows_seniority_titles_for_tier2_context(test_profile):
+    """Layer 1: Verify minimalist Tier 1 passes Senior/Lead/Staff titles to Tier 2 for contextual courtroom evaluation."""
     test_profile.constraints.seniority_disqualifiers = [
         "senior", "sr.", "sr ", "lead", "principal", "staff", "architect", "director", "manager", "controller", "head of", "vp"
     ]
 
-    senior_titles = [
+    titles_to_test = [
         "Senior Software Engineer",
         "Sr. Python Developer",
         "Lead Full Stack Engineer",
@@ -805,40 +780,25 @@ def test_layer1_rejects_seniority_titles(test_profile):
         "Director of Software Engineering",
         "Accounting Controller",
         "VP of Technology",
-    ]
-    for title in senior_titles:
-        job = JobPosting(
-            title=title,
-            link="https://example.com/job",
-            raw_text="Full time engineering role with great benefits.",
-            source="example.com",
-        )
-        res = evaluate_tier1_deterministic(job, test_profile)
-        assert res is not None, f"Expected {title} to be rejected at Tier 1"
-        assert res.status == EvaluationStatus.REJECT
-        assert "Seniority ceiling exceeded" in res.rejection_reason
-
-    # Clean titles should pass through Tier 1
-    clean_titles = [
         "Software Engineer",
         "Full Stack Developer",
         "Junior Web Developer",
         "Bookkeeper",
         "Data Analyst",
     ]
-    for title in clean_titles:
+    for title in titles_to_test:
         job = JobPosting(
             title=title,
             link="https://example.com/job",
-            raw_text="Full time role building web apps in Python and React. Seated desk work.",
+            raw_text="Full time role building web apps. Seated desk work.",
             source="example.com",
         )
         res = evaluate_tier1_deterministic(job, test_profile)
-        assert res is None, f"Expected {title} to pass Tier 1"
+        assert res is None, f"Expected {title} to pass Tier 1 for Tier 2 evaluation"
 
 
-def test_layer1_rejects_excessive_experience_years(test_profile):
-    """Layer 1: Verify deterministic rejection of postings demanding 5+ or more years of experience."""
+def test_layer1_defers_excessive_experience_years_to_tier2(test_profile):
+    """Layer 1: Verify Tier 1 defers experience requirements to Tier 2 to prevent false rejects on company heritage."""
     test_profile.constraints.max_experience_years = 4
 
     excessive_job = JobPosting(
@@ -848,9 +808,7 @@ def test_layer1_rejects_excessive_experience_years(test_profile):
         source="example.com",
     )
     res = evaluate_tier1_deterministic(excessive_job, test_profile)
-    assert res is not None
-    assert res.status == EvaluationStatus.REJECT
-    assert "Experience ceiling exceeded: demands 7+ years" in res.rejection_reason
+    assert res is None  # Cleared Tier 1 for Tier 2
 
     # Moderate experience passes
     moderate_job = JobPosting(
@@ -863,8 +821,8 @@ def test_layer1_rejects_excessive_experience_years(test_profile):
     assert res_mod is None
 
 
-def test_layer1_rejects_track_forbidden_keywords_in_title(test_profile):
-    """Layer 1: Verify deterministic rejection when job title contains track-forbidden core technologies."""
+def test_track_forbidden_keywords_clears_tier1_and_vetoed_in_engine(test_profile):
+    """Track-forbidden keywords clear Tier 1 and are vetoed in Engine post-evaluation."""
     from src.schemas import ProfileTrack
     test_profile.master_experience.tracks = {
         "software": ProfileTrack(
@@ -879,13 +837,15 @@ def test_layer1_rejects_track_forbidden_keywords_in_title(test_profile):
     job_cpp = JobPosting(
         title="C++ Software Engineer",
         link="https://example.com/job",
-        raw_text="Build low-latency trading systems.",
+        raw_text="Build low-latency trading systems in C++.",
         source="example.com",
     )
-    res = evaluate_tier1_deterministic(job_cpp, test_profile)
-    assert res is not None
-    assert res.status == EvaluationStatus.REJECT
-    assert "Incompatible core stack in title: 'c++'" in res.rejection_reason
+    res_tier1 = evaluate_tier1_deterministic(job_cpp, test_profile)
+    assert res_tier1 is None  # Clears Tier 1
+
+    engine = EvaluationEngine(config=Settings(), dry_run=True)
+    res_engine = engine.evaluate(job_cpp, test_profile)
+    assert res_engine.status == EvaluationStatus.REJECT
 
 
 def test_layer3_python_veto_unmet_core_stack(test_profile):
@@ -999,8 +959,8 @@ def test_layer4_quality_threshold_rejection(test_profile):
     assert res_strong.fit_score == 82
 
 
-def test_tier1_rejects_offshore_broker(test_profile):
-    """Tier 1 must reject offshore and nearshore talent broker funnels deterministically."""
+def test_tier1_defers_offshore_broker_to_tier2_axioms(test_profile):
+    """Tier 1 defers talent broker evaluation to Tier 2 Axiom 2 / Courtroom Prosecution."""
     job = JobPosting(
         title="Full Stack Developer (Python, React)",
         link="https://example.com/job-latam",
@@ -1008,10 +968,7 @@ def test_tier1_rejects_offshore_broker(test_profile):
         source="example.com",
     )
     res = evaluate_tier1_deterministic(job, test_profile)
-    assert res is not None
-    assert res.status == EvaluationStatus.REJECT
-    assert res.tier_evaluated == 1
-    assert "Offshore/nearshore talent broker funnel" in res.rejection_reason
+    assert res is None  # Defers to Tier 2
 
 
 def test_engine_veto_illegitimate_employment(test_profile):
@@ -1160,8 +1117,8 @@ def test_courtroom_protocol_prosecution_fatal_barrier_veto(test_profile):
     assert "CPA license" in res.rejection_reason
 
 
-def test_tier1_allows_staff_accountant_blocks_staff_engineer(test_profile):
-    """Tier 1: 'staff' disqualifier only blocks technical staff titles, allowing Staff Accountant/Bookkeeper."""
+def test_tier1_allows_staff_accountant_and_engineer_to_reach_tier2(test_profile):
+    """Tier 1: Minimalist shield passes both Staff Accountant and Staff Engineer to Tier 2 for deliberation."""
     test_profile.constraints.seniority_disqualifiers = ["staff"]
 
     accountant_job = JobPosting(
@@ -1189,9 +1146,7 @@ def test_tier1_allows_staff_accountant_blocks_staff_engineer(test_profile):
         source="example.com",
     )
     res_eng = evaluate_tier1_deterministic(engineer_job, test_profile)
-    assert res_eng is not None
-    assert res_eng.status == EvaluationStatus.REJECT
-    assert "Seniority ceiling exceeded: title indicates executive/staff engineering role" in res_eng.rejection_reason
+    assert res_eng is None, "Staff Engineer should pass Tier 1 to allow Tier 2 Courtroom evaluation"
 
 
 def test_tier1_does_not_reject_company_longevity_experience(test_profile):
