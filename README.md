@@ -264,11 +264,11 @@ Every external input is treated as untrusted. BeaconAI enforces multi-layered de
 
 ## 🔌 Zero Vendor Lock-In: Model Matrix
 
-BeaconAI leverages **LiteLLM** and **Instructor** to normalize structured outputs into strict Pydantic V2 models. While fully model-agnostic, BeaconAI standardizes on **Google Gemini 3.1 Flash-Lite** as its primary production intelligence engine due to its exceptional cost-efficiency (~$0.00029/call) and high contextual reasoning fidelity:
+BeaconAI leverages **LiteLLM** and **Instructor** to normalize structured outputs into strict Pydantic V2 models. Switch between foundation model providers or private local engines dynamically via the `LLM_MODEL` environment variable (or `--model` CLI option) with a single unified `LLM_API_KEY` setting and zero code refactoring:
 
 | Provider | Engine Identifier Example | Ideal Use Case | Operational Profile |
 | :--- | :--- | :--- | :--- |
-| **Google (Active Standard)** | `gemini/gemini-3.1-flash-lite` | Tripartite Courtroom evaluation, rapid parsing, high context | ~$0.00029/call, ultra-low latency, temperature=1.0 |
+| **Google** | `gemini/gemini-2.5-flash-lite` | High-speed batch scoring & rapid extraction | Low latency, high throughput |
 | **Anthropic** | `claude-3-5-sonnet-20241022` | Complex executive roles & deep narrative tailoring | Premium qualitative synthesis |
 | **OpenAI** | `gpt-4o`, `gpt-4o-mini` | Industry standard structured JSON extraction | High availability & standard enterprise SLA |
 | **Local / Offline** | `ollama/llama3.2`, `ollama/mistral` | Air-gapped, zero-cost, 100% private local execution | Complete data privacy with zero token cost |
