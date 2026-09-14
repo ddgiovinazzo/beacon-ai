@@ -44,3 +44,6 @@ htmlcov/
 # Scratch & temporary development scripts
 scratch/
 
+# Local agent configuration & personal operating principles (zero-storage protection)
+AGENTS.md
+
