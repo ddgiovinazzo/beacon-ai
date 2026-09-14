@@ -988,13 +988,14 @@ def generate_tailored_cover_letter(
     # Detect local proximity
     job_text = f"{posting.title} {posting.raw_text}".lower()
     is_remote = bool(re.search(r"\b(?:remote|telecommute|virtual|work\s+from\s+home|100%\s+remote)\b", job_text))
-    is_local = any(kw in job_text for kw in ["rockland", "bergen", "nanuet", "valley cottage", "westchester", "nyack", "pearl river", "paramus", "montvale"]) or not is_remote
+    loc_tokens = [tok.strip().lower() for tok in profile.location.replace(",", " ").split() if len(tok.strip()) > 2]
+    is_local = any(tok in job_text for tok in loc_tokens) or not is_remote
 
     # 1. Opening Paragraph
     if is_local and not is_remote:
         opening_paragraph = (
             f"I am writing to express my strong interest in the {target_role} position at {company_name}. "
-            f"As a resident of Rockland County based in Nanuet, I am particularly drawn to {company_name}'s "
+            f"As a local resident based in {profile.location}, I am particularly drawn to {company_name}'s "
             "reputation and community presence. With a proven commitment to accuracy, reliable execution, "
             "and structured workflows, I am eager to bring my background to your team."
         )

@@ -66,11 +66,6 @@ def execute_llm_completion(client, **call_kwargs):
     """Execute instructor/litellm chat completion with exponential backoff on 429/503."""
     return client.chat.completions.create(**call_kwargs)
 
-# Common lifting and physical labor regex patterns
-LIFTING_PATTERN = re.compile(
-    r"\b(?:lift|lifting|carry|carrying|moving|load|loading|unloading)\s+(?:up\s+to\s+)?(\d{1,3})\s*(?:lbs|pounds|lb)\b",
-    re.IGNORECASE,
-)
 
 # Commute distance pattern in posting text
 COMMUTE_DISTANCE_PATTERN = re.compile(
@@ -98,12 +93,6 @@ SALARY_PATTERN = re.compile(
     re.IGNORECASE,
 )
 
-# Corporate and professional idioms that should NOT trigger physical restriction discards
-CORPORATE_IDIOMS_PATTERN = re.compile(
-    r"\b(?:corporate|career|growth|promotional|leadership|advancement|internal)\s+(?:ladder|step(?:s|ping)?)\b|"
-    r"\b(?:lift|lifting)\s+(?:spirits|morale|profile|expectations)\b",
-    re.IGNORECASE,
-)
 
 
 def extract_compensation(text: str) -> Tuple[Optional[float], Optional[float], Optional[str]]:
@@ -253,9 +242,6 @@ def evaluate_tier1_deterministic(
                 pass
 
     # Cleared Tier 1 without violations - all context deferred to Tripartite Courtroom
-    return None
-
-    # Cleared Tier 1 without violations
     return None
 
 

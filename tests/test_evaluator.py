@@ -1161,11 +1161,3 @@ def test_tier1_does_not_reject_company_longevity_experience(test_profile):
     )
     res = evaluate_tier1_deterministic(longevity_job, test_profile)
     assert res is None, "Company longevity boast should not trip candidate experience ceiling"
-
-
-
-
-
-
-
-

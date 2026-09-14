@@ -110,11 +110,11 @@ class UserConstraints(BaseModel):
     )
     seniority_disqualifiers: List[str] = Field(
         default_factory=list,
-        description="Seniority titles or keywords to disqualify at Tier 1 to prevent over-level matching.",
+        description="Seniority titles or keywords scrutinized by the Courtroom to prevent over-level matching.",
     )
     max_experience_years: Optional[int] = Field(
         default=None,
-        description="Maximum required years of experience ceiling to reject at Tier 1.",
+        description="Maximum required years of experience ceiling scrutinized by the Courtroom.",
         ge=0,
     )
 
